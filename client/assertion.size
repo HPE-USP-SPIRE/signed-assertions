@@ -1,0 +1,6 @@
+{
+  "foo": "bar",
+  "iat": 1658596914,
+  "iss": "spiffe://example.org/front_end",
+  "main": "eyJhbGciOiJFUzI1NiJ9.eyJmb28iOiJiYXIiLCJpYXQiOjE2NTg1OTY2NDgsImlzcyI6InNwaWZmZTovL2V4YW1wbGUub3JnL2Zyb250X2VuZCJ9.MEQCIB51JxJnFTrAcCWxRbZRSgqc4lOcSu8vqQveMcbMwe_7AiA0SfaWaC-V9m_svmpZxpypArWRDkw-2JIQGROfexQZHA"
+}
