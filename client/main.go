@@ -637,21 +637,43 @@ func checkmain(token string) bool {
 func decodemain(maintoken string) []byte{
 
 	parts := strings.Split(maintoken, ".")
-	// head, _ := base64.RawURLEncoding.DecodeString(parts[0])
-	pay, _ := base64.RawURLEncoding.DecodeString(parts[0])
-	sig, _ := base64.RawURLEncoding.DecodeString(parts[1])
 
-	partjoin := [][]byte{pay, sig}
-	oldtoken := bytes.Join(partjoin, []byte(";"))
-	// result := []byte(`{"header":`+head+`,"payload":`+pay+`,"signature":`+sig+`}`)
-	// fmt.Println("result", result)
-	// sep := []byte(".")
-	// decodedtoken := bytes.Join(partjoin, sep)
-	// jsonbytes := mainclaim{}
-	// json.Unmarshal(decodedtoken, &jsonbytes)
-	// fmt.Println(jsonbytes)
+	var oldtoken []byte
+
+	if (len(parts) == 2) {
+		// head, _ := base64.RawURLEncoding.DecodeString(parts[0])
+		pay, _ := base64.RawURLEncoding.DecodeString(parts[0])
+		sig, _ := base64.RawURLEncoding.DecodeString(parts[1])
+
+		partjoin := [][]byte{pay, sig}
+		oldtoken = bytes.Join(partjoin, []byte(";"))
+		// result := []byte(`{"header":`+head+`,"payload":`+pay+`,"signature":`+sig+`}`)
+		// fmt.Println("result", result)
+		// sep := []byte(".")
+		// decodedtoken := bytes.Join(partjoin, sep)
+		// jsonbytes := mainclaim{}
+		// json.Unmarshal(decodedtoken, &jsonbytes)
+		// fmt.Println(jsonbytes)
+	}
+
+	if (len(parts) == 3) {
+		// head, _ := base64.RawURLEncoding.DecodeString(parts[0])
+		pay, _ := base64.RawURLEncoding.DecodeString(parts[0])
+		oldmain, _ := base64.RawURLEncoding.DecodeString(parts[1])
+		sig, _ := base64.RawURLEncoding.DecodeString(parts[2])
+
+		partjoin := [][]byte{pay, oldmain, sig}
+		oldtoken = bytes.Join(partjoin, []byte(";"))
+		// result := []byte(`{"header":`+head+`,"payload":`+pay+`,"signature":`+sig+`}`)
+		// fmt.Println("result", result)
+		// sep := []byte(".")
+		// decodedtoken := bytes.Join(partjoin, sep)
+		// jsonbytes := mainclaim{}
+		// json.Unmarshal(decodedtoken, &jsonbytes)
+		// fmt.Println(jsonbytes)
+	}
+
 	return oldtoken
-
 }
 
 func (u JSONableSlice) MarshalJSON() ([]byte, error) {
@@ -698,9 +720,6 @@ func newencode(claimset map[string]interface{}, oldmain string, key crypto.Signe
 	oldpay := base64.RawURLEncoding.EncodeToString(decodeold)
 	// fmt.Println("oldtoken ", fmt.Sprintf("%s", oldtoken))
 	
-
-
-
 	h := sha256.New()
 	h.Write([]byte(payload + "." + oldpay))
 	s, err := key.Sign(rand.Reader, h.Sum(nil), crypto.SHA256)
@@ -714,8 +733,8 @@ func newencode(claimset map[string]interface{}, oldmain string, key crypto.Signe
 	fmt.Println("Total size in base64: ", len(payload) + len(oldpay)+ len(sig))
 	msg := strings.Join([]string{payload, oldpay, sig}, ".")
 	
-	tmp := extractmain(msg)
-	fmt.Println("Main token: ", tmp)
+	// tmp := extractmain(msg)
+	// fmt.Println("Main token: ", tmp)
 
 	return msg, nil
 
@@ -725,23 +744,22 @@ func extractmain (token string) string {
 	parts := strings.Split(token, ".")
 	// fmt.Println("old token: ", parts[1])
 	dectmp, _ := base64.RawURLEncoding.DecodeString(parts[1])
-	fmt.Println("dectmp: ", dectmp)
 	result := bytes.Split(dectmp, []byte(";"))
-	fmt.Println("result: ", result)
+	fmt.Println("dectmp: ", string(dectmp))
+	// fmt.Println("result: ", result)
 	
-	fmt.Println("result0		: ", string(result[0]))
-	fmt.Println("result1		: ", string(result[1]))
-	// fmt.Println("result2		: ", string(result[2]))
+	var i = 0
+	var pl = ""
+	for (i <len(result)-1) {
+		// fmt.Printf("result[%d]		: %s\n", i, string(result[i]))
+		pl = strings.Join([]string{pl, string(result[i])}, ".")
+		i++
+	}
 
+	pay := base64.RawURLEncoding.EncodeToString([]byte(pl))
+	sig := base64.RawURLEncoding.EncodeToString(result[i])
+	maintoken := strings.Join([]string{pay, sig}, ".")
+	// fmt.Println("maintoken: ", maintoken)
 
-	// head := base64.RawURLEncoding.EncodeToString(result[0])
-	pay := base64.RawURLEncoding.EncodeToString(result[0])
-	sig := base64.RawURLEncoding.EncodeToString(result[1])
-	msg := strings.Join([]string{pay, sig}, ".")
-	fmt.Println("msg: ", msg)
-
-
-
-
-	return msg
+	return maintoken
 }
