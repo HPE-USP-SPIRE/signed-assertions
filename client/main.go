@@ -19,9 +19,7 @@ import (
 	"math/big"
 	"strings"
 	"strconv"
-	// "bytes"
-	// "crypto/x509"
-    // "encoding/pem"
+	"bytes"	
 
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"github.com/spiffe/go-spiffe/v2/spiffetls/tlsconfig"
@@ -30,6 +28,22 @@ import (
 	// dasvid lib
 	dasvid "github.com/marco-developer/dasvid/poclib"
 )
+
+
+type Mainclaim struct {
+	Header				string
+	Payload				string
+	Signature			JSONableSlice
+}
+
+type JSONableSlice []byte
+
+type Payload struct {
+	Iss					string `json:"iss"`
+	Iat					string `json:"iat"`
+	Aud					string `json:"foo"` 
+	Main				Mainclaim `json:"main"`
+}
 
 const (
 	// Workload API socket path
@@ -138,30 +152,30 @@ Main functions:
 	
     case "mint":
 		// 	Ask for a new minted DASVID
-		//  usage: ./main mint OAuthtoken
+		//  usage: ./assertgen mint OAuthtoken
 		token := os.Args[2]
 		endpoint = "https://"+serverURL+"/mint?AccessToken="+token
 
     case "keys":
 		// 	Ask for Asserting Workload Public Key
-		//  usage: ./main keys
+		//  usage: ./assertgen keys
 		endpoint = "https://"+serverURL+"/keys"
 
     case "validate":
 		// 	Ask for DASVID signature/expiration validation
-		//  usage: ./main validate DASVID
+		//  usage: ./assertgen validate DASVID
 		dasvid := os.Args[2]
 		endpoint = "https://"+serverURL+"/validate?DASVID="+dasvid
 
 	case "introspect":
 		// 	Ask for ZKP from informed DASVID
-		//  usage: ./main introspect DASVID
+		//  usage: ./assertgen introspect DASVID
 		dasvid := os.Args[2]
 		endpoint = "https://"+serverURL+"/introspect?DASVID="+dasvid
 		
 	case "next":
 		// 	Add next hop assertion to existing DASVID 
-		//  usage: ./main next next_hop_ID DASVID spiffeid/svid
+		//  usage: ./assertgen next next_hop_ID DASVID spiffeid/svid
 
 		// Fetch claims data
 		clientSVID := dasvid.FetchX509SVID()
@@ -199,9 +213,9 @@ Main functions:
 			"iss":		issuer,
 			"iat":	 	issue_time,
 			"aud":		next,
-			"main":		datoken,
+			// "main":		datoken,
 		}
-		assertion, err := encodeJSONassertion(tokenclaims, clientkey, true)
+		assertion, err := newencode(tokenclaims,datoken, clientkey, true)
 		if err != nil {
 			fmt.Println("Error generating signed JSON!")
 			os.Exit(1)
@@ -215,79 +229,39 @@ Main functions:
 		// usage: ./main generic assertionKey assertionValue spiffeid/svid
 
 		// Fetch claims data
-		clientSVID := dasvid.FetchX509SVID()
-		clientID := clientSVID.ID.String()
-		clientkey := clientSVID.PrivateKey
+		clientSVID 		:= dasvid.FetchX509SVID()
+		clientID 		:= clientSVID.ID.String()
+		clientkey 		:= clientSVID.PrivateKey
 
 		// timestamp
-		issue_time := time.Now().Round(0).Unix()
+		issue_time 		:= time.Now().Round(0).Unix()
 
 		// assertion key:value
-		assertionkey := os.Args[2]
-		assertionvalue := os.Args[3]
+		assertionkey 	:= os.Args[2]
+		assertionvalue 	:= os.Args[3]
 
 		// uses spiffeid or svid as issuer
-		svidAsIssuer := os.Args[4]
+		svidAsIssuer 	:= os.Args[4]
 
 		//  Define issuer type:
 		var issuer string
 		switch svidAsIssuer {
-			case "spiffeid":
-				// Uses SPIFFE-ID as ISSUER
-				issuer = clientID
-			case "svid":
-				// Uses SVID cert bundle as ISSUER
-				tmp, _, err := clientSVID.Marshal()
-				if err != nil {
-					fmt.Println("Error retrieving SVID: ", err)
-					os.Exit(1)
-				}
-				tmpissuer := fmt.Sprintf("%s", tmp)
-
-				newissuer := strings.Split(tmpissuer, "-----END CERTIFICATE-----")
-				issuer = newissuer[0]+"-----END CERTIFICATE-----"
-
-				// //  alternative using only public key
-				// pubkeyleaf, err := x509.MarshalPKIXPublicKey(clientSVID.Certificates[0].PublicKey.(*ecdsa.PublicKey))
-				// if err != nil {
-				// 	log.Fatal(err)
-				// }
-				// block := &pem.Block{
-				// 	Type:  "PUBLIC EC KEY",
-				// 	Bytes: pubkeyleaf,
-				// }
-				// var out bytes.Buffer
-				// pem.Encode(&out, block)
-				// // fmt.Println("Generated public key in PEM format: ", out.String())	
-
-				// pubkeybundle, err := x509.MarshalPKIXPublicKey(clientSVID.Certificates[1].PublicKey.(*ecdsa.PublicKey))
-				// if err != nil {
-				// 	log.Fatal(err)
-				// }
-				// blockbundle := &pem.Block{
-				// 	Type:  "PUBLIC EC KEY",
-				// 	Bytes: pubkeybundle,
-				// }
-				// var outbundle bytes.Buffer
-				// pem.Encode(&outbundle, blockbundle)
-				// fmt.Println("Generated public key in PEM format: ", outbundle.String())
-
-				// leafcertsign := clientSVID.Certificates[0].Signature
-				// tmp, _ :=  jwkEncode(pubkeyleaf)
-
-				// pubkeybundle := clientSVID.Certificates[1].PublicKey.(*ecdsa.PublicKey)
-				// tmp1, _ :=  jwkEncode(pubkeybundle)
-
-				// fmt.Println("pubkey Type: ", pubkey.Curve.Params().Name)
-				// fmt.Println("pubkey.X", pubkey.X)
-				// fmt.Println("pubkey.Y", pubkey.Y)
-				// issuer = "{"+fmt.Sprintf("%s",  out.String())+","+fmt.Sprintf("%s", outbundle.String())+"}"
-
-				fmt.Println("issuer: ", issuer)
-			default:
-				fmt.Println("Error defining issuer! Select spiffeid or svid.")
+		case "spiffeid":
+			// Uses SPIFFE-ID as ISSUER
+			issuer = clientID
+		case "svid":
+			// Uses SVID cert bundle as ISSUER
+			tmp, _, err := clientSVID.Marshal()
+			if err != nil {
+				fmt.Println("Error retrieving SVID: ", err)
 				os.Exit(1)
-		}
+			}
+			issuer = fmt.Sprintf("%s", tmp)
+
+		default:
+			fmt.Println("Error defining issuer! Select spiffeid or svid.")
+			os.Exit(1)
+	}
 		
 		// Define assertion claims
 		assertionclaims := map[string]interface{}{
@@ -295,7 +269,7 @@ Main functions:
 			"iat"		:	 	issue_time,
 			assertionkey:		assertionvalue,
 		}
-		assertion, err := encodeJSONassertion(assertionclaims, clientkey, true)
+		assertion, err := newencode(assertionclaims, "", clientkey, true)
 		if err != nil {
 			fmt.Println("Error generating signed JSON!")
 			os.Exit(1)
@@ -311,26 +285,24 @@ Main functions:
 		inputtoken	:=	os.Args[2]
 		fmt.Println("inputtoken: ", inputtoken)
 		
-		var tmptoken string
-		tmptoken = inputtoken
+		// var tmptoken string
+		// tmptoken = inputtoken
 		tokenclaims := dasvid.ParseTokenClaims(inputtoken)
 
+		var mainvalue string
+		mainvalue = inputtoken
 		// Go deeper in the token if main exists
 		for tokenclaims["main"] != nil {
 
-			tmp := strings.Trim(fmt.Sprintf("%s", tokenclaims["main"]), "[]")
-			tmpparts := strings.Split(tmp, " ")
-			tmp =  strings.Join([]string{tmpparts[0], tmpparts[1], tmpparts[2]}, ".")
+			mainvalue = strings.Trim(fmt.Sprintf("%s", tokenclaims["main"]), "[]")
+			mainparts := strings.Split(mainvalue, " ")
+			mainvalue =  strings.Join([]string{mainparts[0], mainparts[1], mainparts[2]}, ".")
 
 			// collect parts size
-			// fmt.Println("tmptoken", tmptoken)
-			// parts := strings.Split(tmptoken, ".")
-			header := strconv.Itoa(len(tmpparts[0]))
-			payload := strconv.Itoa(len(tmpparts[1]))
-			signature := strconv.Itoa(len(tmpparts[2]))
-			fmt.Println("sizeheader: ", header)
-			fmt.Println("sizepayload: ", payload)
-			fmt.Println("sizesignature: ", signature)			
+			header := strconv.Itoa(len(mainparts[0]))
+			payload := strconv.Itoa(len(mainparts[1]))
+			signature := strconv.Itoa(len(mainparts[2]))
+		
 			tmpresults := []string{header, payload, signature}
 			results := strings.Join(tmpresults, "-")
 
@@ -345,33 +317,32 @@ Main functions:
 				log.Fatal(err)
 			}
 
-
-			// fmt.Println("After Trim: " + strings.Trim(s, "\""))
-			
-			fmt.Println("tmptoken: ", tmptoken)
-			if tmptoken != "" {
-				// set token to next one
-				// tmptoken = strings.Trim(fmt.Sprintf("%s", tokenclaims["main"]), "\"")
-				// fmt.Println("tmptoken: ", tmptoken)
-				tmp := dasvid.ParseTokenClaims(fmt.Sprintf("%s", tmptoken))
-				tmptoken = fmt.Sprintf("%s", tmp["main"])
+			if tokenclaims["main"] != "" {
+			// 	// set token to next one
+			// 	// tmptoken = strings.Trim(fmt.Sprintf("%s", tokenclaims["main"]), "\"")
+			// 	// fmt.Println("tmptoken: ", tmptoken)
+			// 	tmp := dasvid.ParseTokenClaims(fmt.Sprintf("%s", tmptoken))
+			// 	tokenclaims["main"] = fmt.Sprintf("%s", tmp["main"])
+			fmt.Println("mainvalue", mainvalue)
+			tokenclaims = dasvid.ParseTokenClaims(mainvalue)	
 			}
 
 		}
 
-		tmp := strings.Trim(fmt.Sprintf("%s", tokenclaims["main"]), "[]")
-		tmpparts := strings.Split(tmp, " ")
-		tmp =  strings.Join([]string{tmpparts[0], tmpparts[1], tmpparts[2]}, ".")
+		// tmp = strings.Trim(fmt.Sprintf("%s", tokenclaims["main"]), "[]")
+		// fmt.Println("tmp2", tmp)
+		tmpparts := strings.Split(mainvalue, ".")
+		// tmp =  strings.Join([]string{tmpparts[0], tmpparts[1], tmpparts[2]}, ".")
 		// collect last level
-		// parts := strings.Split(fmt.Sprintf("%v", tmptoken), ".")
+		// parts := strings.Split(fmt.Sprintf("%v", tmp), ".")
 		header := strconv.Itoa(len(tmpparts[0]))
 		payload := strconv.Itoa(len(tmpparts[1]))
 		signature := strconv.Itoa(len(tmpparts[2]))
 		tmpresults := []string{header, payload, signature}
 		results := strings.Join(tmpresults, "-")
 
-		// save everything in file
-		// If the file doesn't exist, create it, or append to the file
+		// // save everything in file
+		// // If the file doesn't exist, create it, or append to the file
 		file, err := os.OpenFile("./sizes.test", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 		if err != nil {
 			log.Fatal(err)
@@ -385,7 +356,7 @@ Main functions:
 	
 	case "append":
 		// Append assertion to an existing token
-		//  usage: ./main append originaltoken assertionKey assertionValue spiffeid/svid
+		//  usage: ./assertgen append originaltoken assertionKey assertionValue spiffeid/svid
 
 		// Fetch claims data
 		clientSVID 		:= dasvid.FetchX509SVID()
@@ -416,31 +387,30 @@ Main functions:
 					fmt.Println("Error retrieving SVID: ", err)
 					os.Exit(1)
 				}
-				issuer = fmt.Sprintf("%v", tmp)
+				issuer = fmt.Sprintf("%s", tmp)
 
 			default:
 				fmt.Println("Error defining issuer! Select spiffeid or svid.")
 				os.Exit(1)
 		}
-		
-		// Define token claims
-		maindec := decodedmain(mainvalue)
-		// fmt.Println("decodedmain: ", maindec)
-		// fmt.Println("decodedmain size: ", len(maindec))
-		tokenclaims := map[string]interface{}{
-			"iss":				issuer,
-			"iat":	 			issue_time,
-			"main":				maindec,
-			assertionkey:		assertionvalue,
-		}
-		assertion, err := encodeJSONassertion(tokenclaims, clientkey, true)
-		if err != nil {
-			fmt.Println("Error generating signed JSON!")
-			os.Exit(1)
-		} 
 
+			// Define token claims
+			fmt.Println("**mainvalue size: ", len(mainvalue))
+			fmt.Println("Other claims size: ", len(issuer)+len(assertionvalue)+len(string(issue_time)))
+			tokenclaims := map[string]interface{}{
+				"iss":				issuer,
+				"iat":	 			issue_time,
+				// "main":				mainvalue,
+				assertionkey:		assertionvalue,
+			}
+			assertion, err := newencode(tokenclaims, mainvalue, clientkey, true)
+			if err != nil {
+				fmt.Println("Error generating signed assertion!")
+				os.Exit(1)
+			} 
+
+		fmt.Println("Assertion", fmt.Sprintf("%s", assertion))
 		fmt.Println("Assertion size", len(assertion))
-		fmt.Println(fmt.Sprintf("%s",assertion))
 		os.Exit(1)
 
 	case "multiappend":
@@ -451,9 +421,6 @@ Main functions:
 		clientSVID 		:= dasvid.FetchX509SVID()
 		clientID 		:= clientSVID.ID.String()
 		clientkey 		:= clientSVID.PrivateKey
-
-		// timestamp
-		issue_time 		:= time.Now().Round(0).Unix()
 
 		// main token and assertion values
 		mainvalue	 		:= os.Args[2]
@@ -467,6 +434,9 @@ Main functions:
 		i := 0 
 		for i <  manytimes {
 
+			// timestamp
+			issue_time 		:= time.Now().Round(0).Unix()
+
 			//  Define issuer type:
 			var issuer string
 			switch svidAsIssuer {
@@ -474,45 +444,37 @@ Main functions:
 					// Uses SPIFFE-ID as ISSUER
 					issuer = clientID
 				case "svid":
-					// // Uses SVID cert bundle as ISSUER
-					// tmp, _, err := clientSVID.Marshal()
-					// if err != nil {
-					// 	fmt.Println("Error retrieving SVID: ", err)
-					// 	os.Exit(1)
-					// }
-
+					// Uses SVID cert bundle as ISSUER
 					tmp, _, err := clientSVID.Marshal()
 					if err != nil {
 						fmt.Println("Error retrieving SVID: ", err)
 						os.Exit(1)
 					}
-					tmpissuer := fmt.Sprintf("%s", tmp)
-	
-					newissuer := strings.Split(tmpissuer, "-----END CERTIFICATE-----")
-					issuer = newissuer[0]+"-----END CERTIFICATE-----"
-					// issuer = fmt.Sprintf("%s", tmp)
-
+					issuer = fmt.Sprintf("%s", tmp)
+					
 				default:
 					fmt.Println("Error defining issuer! Select spiffeid or svid.")
 					os.Exit(1)
 			}
 			
 			// Define token claims
-			tokenclaims := map[string]interface{}{
-				"iss":				issuer,
-				"iat":	 			issue_time,
-				"main":				strings.Trim(mainvalue, "\""),
-				assertionkey:		assertionvalue,
+			// maindec 		:= 	decodemain(mainvalue)
+			tokenclaims 	:= 	map[string]interface{}{
+				"iss"		:	issuer,
+				"iat"		:	issue_time,
+				// "main"		:	maindec,
+				assertionkey:	assertionvalue,
 			}
-			assertion, err := encodeJSONassertion(tokenclaims, clientkey, true)
+			assertion, err := newencode(tokenclaims, mainvalue, clientkey, true)
 			if err != nil {
 				fmt.Println("Error generating signed JSON!")
 				os.Exit(1)
 			} 
 
 			mainvalue = fmt.Sprintf("%s", assertion)
-			newmainvalue := strings.Trim(mainvalue, "\"")
-			fmt.Println("Resulting assertion: ", newmainvalue)
+			fmt.Println("mainvalue ", mainvalue)
+			// mainvalue = strings.Trim(mainvalue, "\"")
+			fmt.Println("Resulting assertion: ", mainvalue)
 			i++
 		}
 
@@ -534,60 +496,51 @@ Main functions:
 	fmt.Printf("%s", body)
 }
 
-func encodeJSONassertion(claimset map[string]interface{}, key crypto.Signer, header bool) ([]byte, error) {
-	// jwk, err := jwkEncode(key.Public())
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// phead := fmt.Sprintf(`{"alg":"RS256","jwk":%s,"nonce":%q}`, jwk)
-	phead := `{"alg":"ES256"}`
-	phead = base64.RawURLEncoding.EncodeToString([]byte(phead))
+// func encodeJSONassertion(claimset map[string]interface{}, key crypto.Signer, header bool) ([]byte, error) {
 
-	// if claimset["main"] != nil {
-	// 	decmain := decodedmain(fmt.Sprintf("%s", claimset["main"]))
-	// 	fmt.Println("decmain ", decmain)
+// 	phead := `{"alg":"ES256"}`
+// 	phead = base64.RawURLEncoding.EncodeToString([]byte(phead))
 
-	// 	// fmt.Println("decmain[0]", decmain[0])
-	// 	// fmt.Println("decmain[01]", decmain[1])
-	// 	// decoded := append(decmain[0], "."...)
-	// 	// decoded = append(decoded, decmain[1]...)
-	// 	// decoded = append(decoded, "."...)
-	// 	// decoded = append(decoded, decmain[2]...)
-	// 	// fmt.Println("decoded", decoded)
 
-		
-	// 	claimset["main"] = decmain
-		// fmt.Println("claimset ", fmt.Sprintf("%v", claimset["main"]))
-	
-	// }
-	cs, _ := json.Marshal(claimset)
-	payload := base64.RawURLEncoding.EncodeToString(cs)
-	fmt.Println("conteudo payload: ", payload)
-	// fmt.Println("header size in base64: ", len(phead))
-	fmt.Println("payload size in base64: ", len(payload))
-	h := sha256.New()
-	h.Write([]byte(phead + "." + payload))
-	s, err := key.Sign(rand.Reader, h.Sum(nil), crypto.SHA256)
-	if err != nil {
-		return nil, err
-	}
-	sig := base64.RawURLEncoding.EncodeToString(s)
-	// fmt.Println("sig size in base64: ", len(sig))
-	fmt.Println("Total size in base64: ", len(phead) + len(payload)+ len(sig))
-	var msg string
-	if header == true {
-		msg = strings.Join([]string{phead, payload, sig}, ".")
-	} else {
-		msg = strings.Join([]string{payload, sig}, ".")
-	}
-	// enc := struct {
-	// 	Token		string `json:"token"`
-	// }{
-	// 	Token:		msg,
-	// }
-	return json.Marshal(msg)
+// 	// if claimset["main"] != nil {
+// 	// }
+// 	fmt.Println("claimset ", claimset)	
+// 	// cs, _ := json.Marshal(claimset)
+// 	// fmt.Println("cs ", cs)
+// 	maindec := decodemain(fmt.Sprint(claimset["main"]))
+// 	mainz := &Mainclaim{string(maindec[0]), string(maindec[1]), maindec[2]}
+// 	temptest := &Payload{fmt.Sprint(claimset["iss"]), fmt.Sprint(claimset["iat"]), fmt.Sprintf("%v", claimset["foo"]), *mainz}
+// 	cs, _ := json.Marshal(temptest)
+// 	fmt.Println("cs ", fmt.Sprintf("%s", cs))
 
-}
+// 	// payload := `{"iss":`+fmt.Sprint(claimset["iss"])+`,"iat":`+fmt.Sprint(claimset["iat"])+`,"foo":`+fmt.Sprint(claimset["foo"])+`,"main":`+fmt.Sprint(decdmain)+`}`
+// 	payload := base64.RawURLEncoding.EncodeToString(cs)
+
+// 	fmt.Println("header size in base64: ", len(phead))
+// 	fmt.Println("payload size in base64: ", len(payload))
+// 	h := sha256.New()
+// 	h.Write([]byte(phead + "." + payload))
+// 	s, err := key.Sign(rand.Reader, h.Sum(nil), crypto.SHA256)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	sig := base64.RawURLEncoding.EncodeToString(s)
+// 	fmt.Println("sig size in base64: ", len(sig))
+// 	fmt.Println("Total size in base64: ", len(phead) + len(payload)+ len(sig))
+// 	var msg string
+// 	if header == true {
+// 		msg = strings.Join([]string{phead, payload, sig}, ".")
+// 	} else {
+// 		msg = strings.Join([]string{payload, sig}, ".")
+// 	}
+// 	// enc := struct {
+// 	// 	Token		string `json:"token"`
+// 	// }{
+// 	// 	Token:		msg,
+// 	// }
+// 	return json.Marshal(msg)
+
+// }
 
 // jwkEncode encodes public part of an RSA or ECDSA key into a JWK.
 // The result is also suitable for creating a JWK thumbprint.
@@ -634,13 +587,20 @@ func parseNest(nestoken string) {
 
 	// Parse token claims
 	// PS: no validation performed here.
+	// fmt.Println("nestoken: ", nestoken)
 	token := dasvid.ParseTokenClaims(nestoken)
+	// fmt.Println("token: ", token)
 
 	// Go deeper in the token if main exists
 	for token["main"] != nil {
 
+		// fmt.Println("tokenmain: ", token["main"])
 		tmp := strings.Trim(fmt.Sprintf("%s", token["main"]), "[]")
+		// fmt.Println("tmp: ", tmp)
 		parts := strings.Split(tmp, " ")
+		// fmt.Println("parts[0]: ", parts[0])
+		// fmt.Println("parts[1]: ", parts[1])
+		// fmt.Println("parts[2]: ", parts[2])
 		tmp =  strings.Join([]string{parts[0], parts[1], parts[2]}, ".")
 		// fmt.Println("tmp: ", tmp)
 		// print the level
@@ -674,16 +634,114 @@ func checkmain(token string) bool {
 
 }
 
-func decodedmain(maintoken string) [][]byte{
+func decodemain(maintoken string) []byte{
+
 	parts := strings.Split(maintoken, ".")
-	head, _ := base64.StdEncoding.DecodeString(parts[0])
-	pay, _ := base64.StdEncoding.DecodeString(parts[1])
-	sig, _ := base64.StdEncoding.DecodeString(parts[2])
-	// decodedtoken := strings.Join([]string{string(head), string(pay), string(sig)}, ".")
-	partjoin := [][]byte{head, pay, sig}
+	// head, _ := base64.RawURLEncoding.DecodeString(parts[0])
+	pay, _ := base64.RawURLEncoding.DecodeString(parts[0])
+	sig, _ := base64.RawURLEncoding.DecodeString(parts[1])
+
+	partjoin := [][]byte{pay, sig}
+	oldtoken := bytes.Join(partjoin, []byte(";"))
+	// result := []byte(`{"header":`+head+`,"payload":`+pay+`,"signature":`+sig+`}`)
+	// fmt.Println("result", result)
 	// sep := []byte(".")
 	// decodedtoken := bytes.Join(partjoin, sep)
-	fmt.Println("partjoin: ", partjoin)
-	return partjoin
+	// jsonbytes := mainclaim{}
+	// json.Unmarshal(decodedtoken, &jsonbytes)
+	// fmt.Println(jsonbytes)
+	return oldtoken
 
+}
+
+func (u JSONableSlice) MarshalJSON() ([]byte, error) {
+	var result string
+	if u == nil {
+		result = "null"
+	} else {
+		tmp := strings.Fields(fmt.Sprintf("%d", u))
+		fmt.Println("tmp",tmp)
+		result = strings.Join(tmp, ",")
+	}
+	return []byte(result), nil
+}
+
+func newencode(claimset map[string]interface{}, oldmain string, key crypto.Signer, header bool) (string, error) {
+
+	// faz um byte.join do maindec
+	// encoda esses bytes pra um negocio so e coloca no oldpay
+
+	//  Marshall received claimset into JSON
+	cs, _ := json.Marshal(claimset)
+	payload := base64.RawURLEncoding.EncodeToString(cs)
+	// fmt.Println("claimset ", claimset)	
+	// fmt.Println("cs ", fmt.Sprintf("%s", cs))
+
+
+	if oldmain == "" {
+		h := sha256.New()
+		h.Write([]byte(payload))
+		s, err := key.Sign(rand.Reader, h.Sum(nil), crypto.SHA256)
+		if err != nil {
+			return "", err
+		}
+		sig := base64.RawURLEncoding.EncodeToString(s)
+		fmt.Println("payload size in base64	: ", len(payload))
+		fmt.Println("sig size in base64		: ", len(sig))
+		fmt.Println("Total size in base64: ", len(payload) + len(sig))
+		msg := strings.Join([]string{payload, sig}, ".")
+		
+		return msg, nil
+	}
+
+	decodeold := decodemain(oldmain)
+	oldpay := base64.RawURLEncoding.EncodeToString(decodeold)
+	// fmt.Println("oldtoken ", fmt.Sprintf("%s", oldtoken))
+	
+
+
+
+	h := sha256.New()
+	h.Write([]byte(payload + "." + oldpay))
+	s, err := key.Sign(rand.Reader, h.Sum(nil), crypto.SHA256)
+	if err != nil {
+		return "", err
+	}
+	sig := base64.RawURLEncoding.EncodeToString(s)
+	fmt.Println("payload size in base64	: ", len(payload))
+	fmt.Println("oldpay size in base64	: ", len(oldpay))
+	fmt.Println("sig size in base64		: ", len(sig))
+	fmt.Println("Total size in base64: ", len(payload) + len(oldpay)+ len(sig))
+	msg := strings.Join([]string{payload, oldpay, sig}, ".")
+	
+	tmp := extractmain(msg)
+	fmt.Println("Main token: ", tmp)
+
+	return msg, nil
+
+}
+
+func extractmain (token string) string {
+	parts := strings.Split(token, ".")
+	// fmt.Println("old token: ", parts[1])
+	dectmp, _ := base64.RawURLEncoding.DecodeString(parts[1])
+	fmt.Println("dectmp: ", dectmp)
+	result := bytes.Split(dectmp, []byte(";"))
+	fmt.Println("result: ", result)
+	
+	fmt.Println("result0		: ", string(result[0]))
+	fmt.Println("result1		: ", string(result[1]))
+	// fmt.Println("result2		: ", string(result[2]))
+
+
+	// head := base64.RawURLEncoding.EncodeToString(result[0])
+	pay := base64.RawURLEncoding.EncodeToString(result[0])
+	sig := base64.RawURLEncoding.EncodeToString(result[1])
+	msg := strings.Join([]string{pay, sig}, ".")
+	fmt.Println("msg: ", msg)
+
+
+
+
+	return msg
 }
