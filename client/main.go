@@ -19,7 +19,7 @@ import (
 	"math/big"
 	"strings"
 	"strconv"
-	"bytes"	
+	// "bytes"	
 
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"github.com/spiffe/go-spiffe/v2/spiffetls/tlsconfig"
@@ -28,22 +28,6 @@ import (
 	// dasvid lib
 	dasvid "github.com/marco-developer/dasvid/poclib"
 )
-
-
-type Mainclaim struct {
-	Header				string
-	Payload				string
-	Signature			JSONableSlice
-}
-
-type JSONableSlice []byte
-
-type Payload struct {
-	Iss					string `json:"iss"`
-	Iat					string `json:"iat"`
-	Aud					string `json:"foo"` 
-	Main				Mainclaim `json:"main"`
-}
 
 const (
 	// Workload API socket path
@@ -147,7 +131,7 @@ Main functions:
 		// 	Print informed nest token
 		//  usage: ./main printnest token
 		token := os.Args[2]
-		parseNest(token)
+		printtoken(token)
 		os.Exit(1)
 	
     case "mint":
@@ -186,7 +170,7 @@ Main functions:
 
 		// nxt being passed as argument. in poc it is retrieved from mTLS connection
 		next := os.Args[2]
-		datoken := os.Args[3]
+		maintoken := os.Args[3]
 		
 		svidAsIssuer := os.Args[4]
 
@@ -213,15 +197,15 @@ Main functions:
 			"iss":		issuer,
 			"iat":	 	issue_time,
 			"aud":		next,
-			// "main":		datoken,
+			"alg":		"ES256",
 		}
-		assertion, err := newencode(tokenclaims,datoken, clientkey, true)
+		assertion, err := newencode(tokenclaims, maintoken, clientkey, true)
 		if err != nil {
-			fmt.Println("Error generating signed JSON!")
+			fmt.Println("Error generating signed assertion!")
 			os.Exit(1)
 		} 
 
-		fmt.Println(fmt.Sprintf("%s",assertion))
+		fmt.Println("Generated assertion: ", fmt.Sprintf("%s",assertion))
 		os.Exit(1)
 	
 	case "generic":
@@ -267,15 +251,16 @@ Main functions:
 		assertionclaims := map[string]interface{}{
 			"iss"		:		issuer,
 			"iat"		:	 	issue_time,
+			"alg"		:		"ES256",
 			assertionkey:		assertionvalue,
 		}
 		assertion, err := newencode(assertionclaims, "", clientkey, true)
 		if err != nil {
-			fmt.Println("Error generating signed JSON!")
+			fmt.Println("Error generating signed assertion!")
 			os.Exit(1)
 		} 
 
-		fmt.Println(fmt.Sprintf("%s",assertion))
+		fmt.Println("Generated assertion: ", fmt.Sprintf("%s",assertion))
 		os.Exit(1)
 
 	case "sizes":
@@ -318,23 +303,14 @@ Main functions:
 			}
 
 			if tokenclaims["main"] != "" {
-			// 	// set token to next one
-			// 	// tmptoken = strings.Trim(fmt.Sprintf("%s", tokenclaims["main"]), "\"")
-			// 	// fmt.Println("tmptoken: ", tmptoken)
-			// 	tmp := dasvid.ParseTokenClaims(fmt.Sprintf("%s", tmptoken))
-			// 	tokenclaims["main"] = fmt.Sprintf("%s", tmp["main"])
-			fmt.Println("mainvalue", mainvalue)
-			tokenclaims = dasvid.ParseTokenClaims(mainvalue)	
+				fmt.Println("mainvalue", mainvalue)
+				tokenclaims = dasvid.ParseTokenClaims(mainvalue)	
 			}
 
 		}
 
-		// tmp = strings.Trim(fmt.Sprintf("%s", tokenclaims["main"]), "[]")
-		// fmt.Println("tmp2", tmp)
 		tmpparts := strings.Split(mainvalue, ".")
-		// tmp =  strings.Join([]string{tmpparts[0], tmpparts[1], tmpparts[2]}, ".")
 		// collect last level
-		// parts := strings.Split(fmt.Sprintf("%v", tmp), ".")
 		header := strconv.Itoa(len(tmpparts[0]))
 		payload := strconv.Itoa(len(tmpparts[1]))
 		signature := strconv.Itoa(len(tmpparts[2]))
@@ -400,7 +376,7 @@ Main functions:
 			tokenclaims := map[string]interface{}{
 				"iss":				issuer,
 				"iat":	 			issue_time,
-				// "main":				mainvalue,
+				"alg":				"ES256",
 				assertionkey:		assertionvalue,
 			}
 			assertion, err := newencode(tokenclaims, mainvalue, clientkey, true)
@@ -409,7 +385,7 @@ Main functions:
 				os.Exit(1)
 			} 
 
-		fmt.Println("Assertion", fmt.Sprintf("%s", assertion))
+		fmt.Println("Generated assertion: ", fmt.Sprintf("%s",assertion))
 		fmt.Println("Assertion size", len(assertion))
 		os.Exit(1)
 
@@ -458,23 +434,21 @@ Main functions:
 			}
 			
 			// Define token claims
-			// maindec 		:= 	decodemain(mainvalue)
 			tokenclaims 	:= 	map[string]interface{}{
 				"iss"		:	issuer,
 				"iat"		:	issue_time,
-				// "main"		:	maindec,
-				assertionkey:	assertionvalue,
+				"alg"		:	"ES256",
+				assertionkey+fmt.Sprintf("%v", i):	assertionvalue+fmt.Sprintf("%v", i),
 			}
 			assertion, err := newencode(tokenclaims, mainvalue, clientkey, true)
 			if err != nil {
-				fmt.Println("Error generating signed JSON!")
+				fmt.Println("Error generating signed assertion!")
 				os.Exit(1)
 			} 
 
 			mainvalue = fmt.Sprintf("%s", assertion)
-			fmt.Println("mainvalue ", mainvalue)
-			// mainvalue = strings.Trim(mainvalue, "\"")
-			fmt.Println("Resulting assertion: ", mainvalue)
+			// fmt.Println("mainvalue ", mainvalue)
+			fmt.Printf("Resulting assertion: %s\n\n", mainvalue)
 			i++
 		}
 
@@ -495,52 +469,6 @@ Main functions:
 
 	fmt.Printf("%s", body)
 }
-
-// func encodeJSONassertion(claimset map[string]interface{}, key crypto.Signer, header bool) ([]byte, error) {
-
-// 	phead := `{"alg":"ES256"}`
-// 	phead = base64.RawURLEncoding.EncodeToString([]byte(phead))
-
-
-// 	// if claimset["main"] != nil {
-// 	// }
-// 	fmt.Println("claimset ", claimset)	
-// 	// cs, _ := json.Marshal(claimset)
-// 	// fmt.Println("cs ", cs)
-// 	maindec := decodemain(fmt.Sprint(claimset["main"]))
-// 	mainz := &Mainclaim{string(maindec[0]), string(maindec[1]), maindec[2]}
-// 	temptest := &Payload{fmt.Sprint(claimset["iss"]), fmt.Sprint(claimset["iat"]), fmt.Sprintf("%v", claimset["foo"]), *mainz}
-// 	cs, _ := json.Marshal(temptest)
-// 	fmt.Println("cs ", fmt.Sprintf("%s", cs))
-
-// 	// payload := `{"iss":`+fmt.Sprint(claimset["iss"])+`,"iat":`+fmt.Sprint(claimset["iat"])+`,"foo":`+fmt.Sprint(claimset["foo"])+`,"main":`+fmt.Sprint(decdmain)+`}`
-// 	payload := base64.RawURLEncoding.EncodeToString(cs)
-
-// 	fmt.Println("header size in base64: ", len(phead))
-// 	fmt.Println("payload size in base64: ", len(payload))
-// 	h := sha256.New()
-// 	h.Write([]byte(phead + "." + payload))
-// 	s, err := key.Sign(rand.Reader, h.Sum(nil), crypto.SHA256)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	sig := base64.RawURLEncoding.EncodeToString(s)
-// 	fmt.Println("sig size in base64: ", len(sig))
-// 	fmt.Println("Total size in base64: ", len(phead) + len(payload)+ len(sig))
-// 	var msg string
-// 	if header == true {
-// 		msg = strings.Join([]string{phead, payload, sig}, ".")
-// 	} else {
-// 		msg = strings.Join([]string{payload, sig}, ".")
-// 	}
-// 	// enc := struct {
-// 	// 	Token		string `json:"token"`
-// 	// }{
-// 	// 	Token:		msg,
-// 	// }
-// 	return json.Marshal(msg)
-
-// }
 
 // jwkEncode encodes public part of an RSA or ECDSA key into a JWK.
 // The result is also suitable for creating a JWK thumbprint.
@@ -583,122 +511,11 @@ func jwkEncode(pub crypto.PublicKey) (string, error) {
 	return "", nil
 }
 
-func parseNest(nestoken string) {
-
-	// Parse token claims
-	// PS: no validation performed here.
-	// fmt.Println("nestoken: ", nestoken)
-	token := dasvid.ParseTokenClaims(nestoken)
-	// fmt.Println("token: ", token)
-
-	// Go deeper in the token if main exists
-	for token["main"] != nil {
-
-		// fmt.Println("tokenmain: ", token["main"])
-		tmp := strings.Trim(fmt.Sprintf("%s", token["main"]), "[]")
-		// fmt.Println("tmp: ", tmp)
-		parts := strings.Split(tmp, " ")
-		// fmt.Println("parts[0]: ", parts[0])
-		// fmt.Println("parts[1]: ", parts[1])
-		// fmt.Println("parts[2]: ", parts[2])
-		tmp =  strings.Join([]string{parts[0], parts[1], parts[2]}, ".")
-		// fmt.Println("tmp: ", tmp)
-		// print the level
-		jsonStr, err := json.Marshal(token)
-		if err != nil {
-			fmt.Printf("Error: %s", err.Error())
-			os.Exit(1)
-		}
-		fmt.Println(string(jsonStr))
-
-		// set token to next one
-		// token = dasvid.ParseTokenClaims(fmt.Sprintf("%v", token["main"]))
-		token = dasvid.ParseTokenClaims(fmt.Sprintf("%v", tmp))
-	}
-
-	// print last level
-	jsonStr, err := json.Marshal(token)
-	if err != nil {
-		fmt.Printf("Error: %s", err.Error())
-		os.Exit(1)
-	}
-	fmt.Println(string(jsonStr))
-}
-
-func checkmain(token string) bool {
-	tokentmp := dasvid.ParseTokenClaims(token)
-	if (tokentmp["main"] == nil) {
-		return false
-	}
-	return true
-
-}
-
-func decodemain(maintoken string) []byte{
-
-	parts := strings.Split(maintoken, ".")
-
-	var oldtoken []byte
-
-	if (len(parts) == 2) {
-		// head, _ := base64.RawURLEncoding.DecodeString(parts[0])
-		pay, _ := base64.RawURLEncoding.DecodeString(parts[0])
-		sig, _ := base64.RawURLEncoding.DecodeString(parts[1])
-
-		partjoin := [][]byte{pay, sig}
-		oldtoken = bytes.Join(partjoin, []byte(";"))
-		// result := []byte(`{"header":`+head+`,"payload":`+pay+`,"signature":`+sig+`}`)
-		// fmt.Println("result", result)
-		// sep := []byte(".")
-		// decodedtoken := bytes.Join(partjoin, sep)
-		// jsonbytes := mainclaim{}
-		// json.Unmarshal(decodedtoken, &jsonbytes)
-		// fmt.Println(jsonbytes)
-	}
-
-	if (len(parts) == 3) {
-		// head, _ := base64.RawURLEncoding.DecodeString(parts[0])
-		pay, _ := base64.RawURLEncoding.DecodeString(parts[0])
-		oldmain, _ := base64.RawURLEncoding.DecodeString(parts[1])
-		sig, _ := base64.RawURLEncoding.DecodeString(parts[2])
-
-		partjoin := [][]byte{pay, oldmain, sig}
-		oldtoken = bytes.Join(partjoin, []byte(";"))
-		// result := []byte(`{"header":`+head+`,"payload":`+pay+`,"signature":`+sig+`}`)
-		// fmt.Println("result", result)
-		// sep := []byte(".")
-		// decodedtoken := bytes.Join(partjoin, sep)
-		// jsonbytes := mainclaim{}
-		// json.Unmarshal(decodedtoken, &jsonbytes)
-		// fmt.Println(jsonbytes)
-	}
-
-	return oldtoken
-}
-
-func (u JSONableSlice) MarshalJSON() ([]byte, error) {
-	var result string
-	if u == nil {
-		result = "null"
-	} else {
-		tmp := strings.Fields(fmt.Sprintf("%d", u))
-		fmt.Println("tmp",tmp)
-		result = strings.Join(tmp, ",")
-	}
-	return []byte(result), nil
-}
-
 func newencode(claimset map[string]interface{}, oldmain string, key crypto.Signer, header bool) (string, error) {
-
-	// faz um byte.join do maindec
-	// encoda esses bytes pra um negocio so e coloca no oldpay
 
 	//  Marshall received claimset into JSON
 	cs, _ := json.Marshal(claimset)
 	payload := base64.RawURLEncoding.EncodeToString(cs)
-	// fmt.Println("claimset ", claimset)	
-	// fmt.Println("cs ", fmt.Sprintf("%s", cs))
-
 
 	if oldmain == "" {
 		h := sha256.New()
@@ -708,58 +525,45 @@ func newencode(claimset map[string]interface{}, oldmain string, key crypto.Signe
 			return "", err
 		}
 		sig := base64.RawURLEncoding.EncodeToString(s)
-		fmt.Println("payload size in base64	: ", len(payload))
-		fmt.Println("sig size in base64		: ", len(sig))
-		fmt.Println("Total size in base64: ", len(payload) + len(sig))
+		fmt.Printf("payload size in base64	: %d\n", len(payload))
+		fmt.Printf("sig size in base64		: %d\n", len(sig))
+		fmt.Printf("Total size in base64	: %d\n", len(payload) + len(sig))
 		msg := strings.Join([]string{payload, sig}, ".")
 		
 		return msg, nil
 	}
-
-	decodeold := decodemain(oldmain)
-	oldpay := base64.RawURLEncoding.EncodeToString(decodeold)
-	// fmt.Println("oldtoken ", fmt.Sprintf("%s", oldtoken))
 	
 	h := sha256.New()
-	h.Write([]byte(payload + "." + oldpay))
+	h.Write([]byte(payload + "." + oldmain))
 	s, err := key.Sign(rand.Reader, h.Sum(nil), crypto.SHA256)
 	if err != nil {
 		return "", err
 	}
 	sig := base64.RawURLEncoding.EncodeToString(s)
-	fmt.Println("payload size in base64	: ", len(payload))
-	fmt.Println("oldpay size in base64	: ", len(oldpay))
-	fmt.Println("sig size in base64		: ", len(sig))
-	fmt.Println("Total size in base64: ", len(payload) + len(oldpay)+ len(sig))
-	msg := strings.Join([]string{payload, oldpay, sig}, ".")
-	
-	// tmp := extractmain(msg)
-	// fmt.Println("Main token: ", tmp)
+	fmt.Printf("payload size in base64	: %d\n", len(payload))
+	fmt.Printf("oldpay size in base64	: %d\n", len(oldmain))
+	fmt.Printf("sig size in base64		: %d\n", len(sig))
+	fmt.Printf("Total size in base64	: %d\n", len(payload) + len(oldmain)+ len(sig))
+	msg := strings.Join([]string{payload, oldmain, sig}, ".")
 
 	return msg, nil
 
 }
 
-func extractmain (token string) string {
+func printtoken (token string) {
 	parts := strings.Split(token, ".")
-	// fmt.Println("old token: ", parts[1])
-	dectmp, _ := base64.RawURLEncoding.DecodeString(parts[1])
-	result := bytes.Split(dectmp, []byte(";"))
-	fmt.Println("dectmp: ", string(dectmp))
-	// fmt.Println("result: ", result)
+
+	if (len(parts) < 3) {
+		fmt.Println("No main to extract!")
+		os.Exit(1)
+	}
 	
 	var i = 0
-	var pl = ""
-	for (i <len(result)-1) {
-		// fmt.Printf("result[%d]		: %s\n", i, string(result[i]))
-		pl = strings.Join([]string{pl, string(result[i])}, ".")
+	fmt.Println("len(result): ", len(parts))
+	for (i < len(parts)/2) {
+		dectmp, _ := base64.RawURLEncoding.DecodeString(parts[i])
+		fmt.Printf("Claim [%d]: %s\n", i, dectmp)
 		i++
 	}
 
-	pay := base64.RawURLEncoding.EncodeToString([]byte(pl))
-	sig := base64.RawURLEncoding.EncodeToString(result[i])
-	maintoken := strings.Join([]string{pay, sig}, ".")
-	// fmt.Println("maintoken: ", maintoken)
-
-	return maintoken
 }
