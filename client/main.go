@@ -625,7 +625,8 @@ func validateassertion (token string, pubkey *ecdsa.PublicKey) {
 		// fmt.Printf("Sig extracted: %s\n", sig)
 
 		
-		clean := strings.Trim(fmt.Sprintf("%s", parts[i+1:j-1]), "[]")
+		clean := strings.Trim(fmt.Sprintf("%s", parts[i+1:j]), "[]")
+		fmt.Printf("clean: %s\n", clean)
 		clean = strings.Join(strings.Fields(clean), ".")
 		fmt.Printf("Resulting parts clean: %s\n", fmt.Sprintf("%s", clean))
 		signature, _ 	:= base64.RawURLEncoding.DecodeString(parts[j])
@@ -640,7 +641,7 @@ func validateassertion (token string, pubkey *ecdsa.PublicKey) {
 		i++
 		j--
 	}
-	
+
 	fmt.Printf("Claim %d: %s\n", i, parts[i])
 	fmt.Printf("Signature %d: %s\n", j,  parts[j])
 	signature, _ 	:= base64.RawURLEncoding.DecodeString(parts[j])
