@@ -461,6 +461,7 @@ Main functions:
 
 		assertion := os.Args[2]
 		validateassertion(assertion, pubkey.(*ecdsa.PublicKey))
+		os.Exit(1)
 
 	}
 
@@ -521,6 +522,7 @@ func jwkEncode(pub crypto.PublicKey) (string, error) {
 
 func newencode(claimset map[string]interface{}, oldmain string, key crypto.Signer) (string, error) {
 
+	defer timeTrack(time.Now(), "newencode execution")
 	//  Marshall received claimset into JSON
 	cs, _ := json.Marshal(claimset)
 	payload := base64.RawURLEncoding.EncodeToString(cs)
@@ -559,7 +561,7 @@ func newencode(claimset map[string]interface{}, oldmain string, key crypto.Signe
 
 }
 
-func printtoken (token string) {
+func printtoken(token string) {
 	parts := strings.Split(token, ".")
 
 	if (len(parts) < 3) {
@@ -585,7 +587,8 @@ func printtoken (token string) {
 
 }
 
-func validateassertion (token string, pubkey *ecdsa.PublicKey) {
+func validateassertion(token string, pubkey *ecdsa.PublicKey) {
+	defer timeTrack(time.Now(), "Total validation Assertion ")
 
 	parts := strings.Split(token, ".")
 
@@ -616,19 +619,10 @@ func validateassertion (token string, pubkey *ecdsa.PublicKey) {
 		fmt.Printf("Claim %d: %s\n", i, parts[i])
 		fmt.Printf("Signature %d: %s\n", j,  parts[j])
 
-		// // Pop Front
-		// claim, parts = parts[i], parts[i+1:]
-		// fmt.Printf("Claim extracted: %s\n", claim)
-
-		// // Pop
-		// sig, parts = parts[len(parts)-1], parts[:len(parts)-1]
-		// fmt.Printf("Sig extracted: %s\n", sig)
-
-		
 		clean := strings.Trim(fmt.Sprintf("%s", parts[i+1:j]), "[]")
-		fmt.Printf("clean: %s\n", clean)
+		// fmt.Printf("clean: %s\n", clean)
 		clean = strings.Join(strings.Fields(clean), ".")
-		fmt.Printf("Resulting parts clean: %s\n", fmt.Sprintf("%s", clean))
+		// fmt.Printf("Resulting parts clean: %s\n", fmt.Sprintf("%s", clean))
 		signature, _ 	:= base64.RawURLEncoding.DecodeString(parts[j])
 		h := sha256.Sum256([]byte(parts[i] + "." + clean))
 		verify 	:= ecdsa.VerifyASN1(pubkey, h[:], signature)
@@ -655,17 +649,11 @@ func validateassertion (token string, pubkey *ecdsa.PublicKey) {
 		fmt.Printf("Signature validation failed!\n")
 	}
 
-	os.Exit(1)
-
 	// os.Exit(1)
-	// var i = len(parts)/2
-	// fmt.Println("len(parts): ", len(parts))
-	// for ( i < len(parts)) {
-	// 	sigtemp, _ := base64.RawURLEncoding.DecodeString(parts[i])
-	// 	fmt.Printf("Signature [%d]: %s\n", i, sigtemp)
 
+}
 
-	// 	i++
-	// }
-
+func timeTrack(start time.Time, name string) {
+    elapsed := time.Since(start)
+    fmt.Printf("\n\n%s execution time is %s\n\n", name, elapsed)
 }
