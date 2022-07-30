@@ -199,7 +199,7 @@ Main functions:
 			"aud":		next,
 			"alg":		"ES256",
 		}
-		assertion, err := newencode(tokenclaims, maintoken, clientkey, true)
+		assertion, err := newencode(tokenclaims, maintoken, clientkey)
 		if err != nil {
 			fmt.Println("Error generating signed assertion!")
 			os.Exit(1)
@@ -254,7 +254,7 @@ Main functions:
 			"alg"		:		"ES256",
 			assertionkey:		assertionvalue,
 		}
-		assertion, err := newencode(assertionclaims, "", clientkey, true)
+		assertion, err := newencode(assertionclaims, "", clientkey)
 		if err != nil {
 			fmt.Println("Error generating signed assertion!")
 			os.Exit(1)
@@ -379,7 +379,7 @@ Main functions:
 				"alg":				"ES256",
 				assertionkey:		assertionvalue,
 			}
-			assertion, err := newencode(tokenclaims, mainvalue, clientkey, true)
+			assertion, err := newencode(tokenclaims, mainvalue, clientkey)
 			if err != nil {
 				fmt.Println("Error generating signed assertion!")
 				os.Exit(1)
@@ -440,19 +440,27 @@ Main functions:
 				"alg"		:	"ES256",
 				assertionkey+fmt.Sprintf("%v", i):	assertionvalue+fmt.Sprintf("%v", i),
 			}
-			assertion, err := newencode(tokenclaims, mainvalue, clientkey, true)
+			assertion, err := newencode(tokenclaims, mainvalue, clientkey)
 			if err != nil {
 				fmt.Println("Error generating signed assertion!")
 				os.Exit(1)
 			} 
 
 			mainvalue = fmt.Sprintf("%s", assertion)
-			// fmt.Println("mainvalue ", mainvalue)
 			fmt.Printf("Resulting assertion: %s\n\n", mainvalue)
 			i++
 		}
 
 		os.Exit(1)
+	case "verify":
+		// 	Verify assertion signature
+		//  usage: ./assertgen verify assertion
+		clientSVID 		:= dasvid.FetchX509SVID()
+		clientkey 		:= clientSVID.PrivateKey
+		pubkey 			:= clientkey.Public()
+
+		assertion := os.Args[2]
+		validateassertion(assertion, pubkey.(*ecdsa.PublicKey))
 
 	}
 
@@ -511,40 +519,41 @@ func jwkEncode(pub crypto.PublicKey) (string, error) {
 	return "", nil
 }
 
-func newencode(claimset map[string]interface{}, oldmain string, key crypto.Signer, header bool) (string, error) {
+func newencode(claimset map[string]interface{}, oldmain string, key crypto.Signer) (string, error) {
 
 	//  Marshall received claimset into JSON
 	cs, _ := json.Marshal(claimset)
 	payload := base64.RawURLEncoding.EncodeToString(cs)
 
 	if oldmain == "" {
-		h := sha256.New()
-		h.Write([]byte(payload))
-		s, err := key.Sign(rand.Reader, h.Sum(nil), crypto.SHA256)
+		h := sha256.Sum256([]byte(payload))
+		s, err := ecdsa.SignASN1(rand.Reader, key.(*ecdsa.PrivateKey), h[:])
 		if err != nil {
 			return "", err
 		}
 		sig := base64.RawURLEncoding.EncodeToString(s)
+
 		fmt.Printf("payload size in base64	: %d\n", len(payload))
 		fmt.Printf("sig size in base64		: %d\n", len(sig))
 		fmt.Printf("Total size in base64	: %d\n", len(payload) + len(sig))
 		msg := strings.Join([]string{payload, sig}, ".")
-		
+
 		return msg, nil
 	}
 	
-	h := sha256.New()
-	h.Write([]byte(payload + "." + oldmain))
-	s, err := key.Sign(rand.Reader, h.Sum(nil), crypto.SHA256)
+	
+	h := sha256.Sum256([]byte(payload + "." + oldmain))
+	s, err := ecdsa.SignASN1(rand.Reader, key.(*ecdsa.PrivateKey), h[:])
 	if err != nil {
 		return "", err
 	}
-	sig := base64.RawURLEncoding.EncodeToString(s)
+	signature := base64.RawURLEncoding.EncodeToString(s)
+	
 	fmt.Printf("payload size in base64	: %d\n", len(payload))
 	fmt.Printf("oldpay size in base64	: %d\n", len(oldmain))
-	fmt.Printf("sig size in base64		: %d\n", len(sig))
-	fmt.Printf("Total size in base64	: %d\n", len(payload) + len(oldmain)+ len(sig))
-	msg := strings.Join([]string{payload, oldmain, sig}, ".")
+	fmt.Printf("sig size in base64		: %d\n", len(signature))
+	fmt.Printf("Total size in base64	: %d\n", len(payload) + len(oldmain)+ len(signature))
+	msg := strings.Join([]string{payload, oldmain, signature}, ".")
 
 	return msg, nil
 
@@ -559,11 +568,103 @@ func printtoken (token string) {
 	}
 	
 	var i = 0
-	fmt.Println("len(result): ", len(parts))
+	fmt.Println("len(parts): ", len(parts))
 	for (i < len(parts)/2) {
 		dectmp, _ := base64.RawURLEncoding.DecodeString(parts[i])
-		fmt.Printf("Claim [%d]: %s\n", i, dectmp)
+		fmt.Printf("Claim [%d]	: %s\n", i, dectmp)
 		i++
 	}
+
+	i = len(parts)/2
+	for ( i < len(parts)) {
+		// sigtemp, _ := base64.RawURLEncoding.DecodeString(parts[i])
+		fmt.Printf("Signature [%d]	: %s\n", i, parts[i])
+
+		i++
+	}
+
+}
+
+func validateassertion (token string, pubkey *ecdsa.PublicKey) {
+
+	parts := strings.Split(token, ".")
+
+	if (len(parts) < 3) {
+		fmt.Printf("Claim: %s\n", parts[0])
+		fmt.Printf("Signature: %s\n", parts[1])
+		signature, _ 	:= base64.RawURLEncoding.DecodeString(parts[1])
+
+		h := sha256.Sum256([]byte(parts[0]))
+		verify 	:= ecdsa.VerifyASN1(pubkey, h[:], signature)
+
+		if (verify == true){
+			fmt.Printf("Signature successfully validated!\n")
+		} else {
+			fmt.Printf("Signature validation failed!\n")
+		}
+
+		os.Exit(1)
+	}
+
+	//  Verify recursively
+	var i = 0
+	
+	fmt.Println("len(parts): ", len(parts))
+	var j = len(parts)-1
+	// var claim, sig string
+	for (i < len(parts)/2 && (i+1 < j-1)) {
+		fmt.Printf("Claim %d: %s\n", i, parts[i])
+		fmt.Printf("Signature %d: %s\n", j,  parts[j])
+
+		// // Pop Front
+		// claim, parts = parts[i], parts[i+1:]
+		// fmt.Printf("Claim extracted: %s\n", claim)
+
+		// // Pop
+		// sig, parts = parts[len(parts)-1], parts[:len(parts)-1]
+		// fmt.Printf("Sig extracted: %s\n", sig)
+
+		
+		clean := strings.Trim(fmt.Sprintf("%s", parts[i+1:j-1]), "[]")
+		clean = strings.Join(strings.Fields(clean), ".")
+		fmt.Printf("Resulting parts clean: %s\n", fmt.Sprintf("%s", clean))
+		signature, _ 	:= base64.RawURLEncoding.DecodeString(parts[j])
+		h := sha256.Sum256([]byte(parts[i] + "." + clean))
+		verify 	:= ecdsa.VerifyASN1(pubkey, h[:], signature)
+		if (verify == true){
+			fmt.Printf("Signature successfully validated!\n\n")
+		} else {
+			fmt.Printf("Signature validation failed!\n\n")
+		}
+
+		i++
+		j--
+	}
+	
+	fmt.Printf("Claim %d: %s\n", i, parts[i])
+	fmt.Printf("Signature %d: %s\n", j,  parts[j])
+	signature, _ 	:= base64.RawURLEncoding.DecodeString(parts[j])
+
+	h := sha256.Sum256([]byte(parts[i]))
+	verify 	:= ecdsa.VerifyASN1(pubkey, h[:], signature)
+
+	if (verify == true){
+		fmt.Printf("Signature successfully validated!\n")
+	} else {
+		fmt.Printf("Signature validation failed!\n")
+	}
+
+	os.Exit(1)
+
+	// os.Exit(1)
+	// var i = len(parts)/2
+	// fmt.Println("len(parts): ", len(parts))
+	// for ( i < len(parts)) {
+	// 	sigtemp, _ := base64.RawURLEncoding.DecodeString(parts[i])
+	// 	fmt.Printf("Signature [%d]: %s\n", i, sigtemp)
+
+
+	// 	i++
+	// }
 
 }
