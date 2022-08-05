@@ -390,6 +390,7 @@ Main functions:
 		os.Exit(1)
 
 	case "multiappend":
+		defer timeTrack(time.Now(), "multiappend ")
 		// Append assertion to an existing token
 		//  usage: ./main multiappend originaltoken assertionKey assertionValue howmany spiffeid/svid
 
@@ -460,7 +461,8 @@ Main functions:
 		pubkey 			:= clientkey.Public()
 
 		assertion := os.Args[2]
-		validateassertion(assertion, pubkey.(*ecdsa.PublicKey))
+		// validateassertion(assertion, pubkey.(*ecdsa.PublicKey))
+		validatreverse(assertion, pubkey.(*ecdsa.PublicKey))
 		os.Exit(1)
 
 	}
@@ -522,30 +524,29 @@ func jwkEncode(pub crypto.PublicKey) (string, error) {
 
 func newencode(claimset map[string]interface{}, oldmain string, key crypto.Signer) (string, error) {
 
-	defer timeTrack(time.Now(), "newencode execution")
+	defer timeTrack(time.Now(), "newencode ")
 	//  Marshall received claimset into JSON
 	cs, _ := json.Marshal(claimset)
 	payload := base64.RawURLEncoding.EncodeToString(cs)
 
 	if oldmain == "" {
-		h := sha256.Sum256([]byte(payload))
-		s, err := ecdsa.SignASN1(rand.Reader, key.(*ecdsa.PrivateKey), h[:])
-		if err != nil {
+		hash 	:= sha256.Sum256([]byte(payload))
+		s, err 	:= ecdsa.SignASN1(rand.Reader, key.(*ecdsa.PrivateKey), hash[:])
+		if err 	!= nil {
 			return "", err
 		}
 		sig := base64.RawURLEncoding.EncodeToString(s)
 
-		fmt.Printf("payload size in base64	: %d\n", len(payload))
-		fmt.Printf("sig size in base64		: %d\n", len(sig))
-		fmt.Printf("Total size in base64	: %d\n", len(payload) + len(sig))
+		fmt.Printf("payload size in base64  : %d\n", len(payload))
+		fmt.Printf("sig size in base64      : %d\n", len(sig))
+		fmt.Printf("Total size in base64    : %d\n", len(payload) + len(sig))
 		msg := strings.Join([]string{payload, sig}, ".")
 
 		return msg, nil
 	}
-	
-	
-	h := sha256.Sum256([]byte(payload + "." + oldmain))
-	s, err := ecdsa.SignASN1(rand.Reader, key.(*ecdsa.PrivateKey), h[:])
+		
+	hash	:= sha256.Sum256([]byte(payload + "." + oldmain))
+	s, err 	:= ecdsa.SignASN1(rand.Reader, key.(*ecdsa.PrivateKey), hash[:])
 	if err != nil {
 		return "", err
 	}
@@ -562,96 +563,138 @@ func newencode(claimset map[string]interface{}, oldmain string, key crypto.Signe
 }
 
 func printtoken(token string) {
-	parts := strings.Split(token, ".")
 
+	// Split received token
+	parts := strings.Split(token, ".")
+	fmt.Println("Total parts: ", len(parts))
+	if (len(parts) < 2) {
+		fmt.Printf("Invalid number of parts!")
+		os.Exit(1)
+	}
+
+	// print single assertion
 	if (len(parts) < 3) {
-		fmt.Println("No main to extract!")
+		dectmp, _ := base64.RawURLEncoding.DecodeString(parts[0])
+		fmt.Printf("Claim     [%d]	: %s\n", 0, dectmp)
+		fmt.Printf("Signature [%d]	: %s\n", 1, parts[1])
 		os.Exit(1)
 	}
 	
+	// print token claims
 	var i = 0
-	fmt.Println("len(parts): ", len(parts))
 	for (i < len(parts)/2) {
 		dectmp, _ := base64.RawURLEncoding.DecodeString(parts[i])
-		fmt.Printf("Claim [%d]	: %s\n", i, dectmp)
+		fmt.Printf("Claim     [%d]	: %s\n", i, dectmp)
 		i++
 	}
 
-	i = len(parts)/2
-	for ( i < len(parts)) {
-		// sigtemp, _ := base64.RawURLEncoding.DecodeString(parts[i])
-		fmt.Printf("Signature [%d]	: %s\n", i, parts[i])
-
-		i++
+	// print token  signatures
+	j := len(parts)/2
+	for ( j < len(parts)) {
+		fmt.Printf("Signature [%d]	: %s\n", j, parts[j])
+		j++
 	}
 
 }
 
-func validateassertion(token string, pubkey *ecdsa.PublicKey) {
-	defer timeTrack(time.Now(), "Total validation Assertion ")
+// Function to perform token validation from out level to inside (last -> first assertion)
+func validateassertion(token string, pubkey *ecdsa.PublicKey) error {
+	defer timeTrack(time.Now(), "Validateassertion")
 
 	parts := strings.Split(token, ".")
 
-	if (len(parts) < 3) {
-		fmt.Printf("Claim: %s\n", parts[0])
-		fmt.Printf("Signature: %s\n", parts[1])
-		signature, _ 	:= base64.RawURLEncoding.DecodeString(parts[1])
-
-		h := sha256.Sum256([]byte(parts[0]))
-		verify 	:= ecdsa.VerifyASN1(pubkey, h[:], signature)
-
-		if (verify == true){
-			fmt.Printf("Signature successfully validated!\n")
-		} else {
-			fmt.Printf("Signature validation failed!\n")
-		}
-
-		os.Exit(1)
-	}
-
-	//  Verify recursively
+	//  Verify recursively all lvls except most inner
 	var i = 0
-	
-	fmt.Println("len(parts): ", len(parts))
 	var j = len(parts)-1
-	// var claim, sig string
 	for (i < len(parts)/2 && (i+1 < j-1)) {
-		fmt.Printf("Claim %d: %s\n", i, parts[i])
+
+		fmt.Printf("Claim     %d: %s\n", i, parts[i])
 		fmt.Printf("Signature %d: %s\n", j,  parts[j])
 
-		clean := strings.Trim(fmt.Sprintf("%s", parts[i+1:j]), "[]")
-		// fmt.Printf("clean: %s\n", clean)
-		clean = strings.Join(strings.Fields(clean), ".")
-		// fmt.Printf("Resulting parts clean: %s\n", fmt.Sprintf("%s", clean))
-		signature, _ 	:= base64.RawURLEncoding.DecodeString(parts[j])
-		h := sha256.Sum256([]byte(parts[i] + "." + clean))
-		verify 	:= ecdsa.VerifyASN1(pubkey, h[:], signature)
+		// Extract first payload (parts[i]) and last signature (parts[j])
+		clean 			:= strings.Join(strings.Fields(strings.Trim(fmt.Sprintf("%s", parts[i+1:j]), "[]")), ".")
+		hash 			:= sha256.Sum256([]byte(parts[i] + "." + clean))
+		signature, err 	:= base64.RawURLEncoding.DecodeString(parts[j])
+		if err != nil {
+			return err
+		}
+
+		// Verify if signature j is valid to payload + previous assertion (parts[i+1:j])
+		verify := ecdsa.VerifyASN1(pubkey, hash[:], signature)
 		if (verify == true){
-			fmt.Printf("Signature successfully validated!\n\n")
+			fmt.Printf("Signature successfully validated!\n\n\n")
 		} else {
-			fmt.Printf("Signature validation failed!\n\n")
+			fmt.Printf("Signature validation failed!\n\n\n")
 		}
 
 		i++
 		j--
 	}
 
-	fmt.Printf("Claim %d: %s\n", i, parts[i])
+	// Verify Inner lvl
+	fmt.Printf("Claim     %d: %s\n", i, parts[i])
 	fmt.Printf("Signature %d: %s\n", j,  parts[j])
-	signature, _ 	:= base64.RawURLEncoding.DecodeString(parts[j])
-
-	h := sha256.Sum256([]byte(parts[i]))
-	verify 	:= ecdsa.VerifyASN1(pubkey, h[:], signature)
-
+	
+	// Verify if signature j is valid to parts[i] (there is no remaining previous assertion)
+	hash 			:= sha256.Sum256([]byte(parts[i]))
+	signature, err 	:= base64.RawURLEncoding.DecodeString(parts[j])
+	if (err != nil){
+		return err
+	}
+	
+	verify := ecdsa.VerifyASN1(pubkey, hash[:], signature)
 	if (verify == true){
 		fmt.Printf("Signature successfully validated!\n")
 	} else {
 		fmt.Printf("Signature validation failed!\n")
 	}
-
-	// os.Exit(1)
-
+	return nil
 }
+
+// Function to perform token validation from inner level to outside (first -> last assertion)
+func validatreverse(token string, pubkey *ecdsa.PublicKey) error {
+	defer timeTrack(time.Now(), "Validatreverse")
+
+	parts := strings.Split(token, ".")
+
+	//  Verify recursively all lvls except most inner
+	var i = (len(parts)/2)-1
+	var j = (len(parts)/2)
+	for (i >= 0) {
+
+		fmt.Printf("\nClaim     %d: %s\n", i, parts[i])
+		fmt.Printf("Signature %d: %s\n", j,  parts[j])
+
+		// Extract first payload (parts[i]) and last signature (parts[j])
+		clean 			:= strings.Join(strings.Fields(strings.Trim(fmt.Sprintf("%s", parts[i+1:j]), "[]")), ".")
+		var hash [32]byte
+		if (clean != "") {
+			hash 			= sha256.Sum256([]byte(parts[i] + "." + clean))
+		} else {
+			hash 			= sha256.Sum256([]byte(parts[i]))
+		}
+		signature, err 	:= base64.RawURLEncoding.DecodeString(parts[j])
+		if err != nil {
+			return err
+		}
+		// Verify if signature j is valid to payload + previous assertion (parts[i+1:j])
+		verify := ecdsa.VerifyASN1(pubkey, hash[:], signature)
+		if (verify == true){
+			fmt.Printf("Signature successfully validated!\n\n")
+		} else {
+			fmt.Printf("Signature validation failed!\n\n")
+		}
+
+		i--
+		j++
+	}
+
+	return nil
+}
+
+
+
+
 
 func timeTrack(start time.Time, name string) {
     elapsed := time.Since(start)
