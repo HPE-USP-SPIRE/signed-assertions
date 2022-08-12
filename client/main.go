@@ -19,7 +19,9 @@ import (
 	"math/big"
 	"strings"
 	"strconv"
-	// "bytes"	
+	"bytes"	
+	"crypto/x509"
+	"encoding/pem"
 
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"github.com/spiffe/go-spiffe/v2/spiffetls/tlsconfig"
@@ -31,8 +33,15 @@ import (
 
 const (
 	// Workload API socket path
-	socketPath    = "unix:///tmp/spire-agent/public/api.sock"
+	socketPath	= "unix:///tmp/spire-agent/public/api.sock"
 )
+
+type keydata struct {
+	Kid			string `json:kid",omitempty"`
+	Alg			string `json:alg",omitempty"`
+	Pkey		[]byte `json:pkey",omitempty"`
+	Exp			int64  `json:exp",omitempty"`
+}
 
 func GetOutboundIP() net.IP {
     conn, err := net.Dial("udp", "8.8.8.8:80")
@@ -248,10 +257,11 @@ Main functions:
 	}
 		
 		// Define assertion claims
+		kid 			:= base64.RawURLEncoding.EncodeToString([]byte(clientID))
 		assertionclaims := map[string]interface{}{
 			"iss"		:		issuer,
 			"iat"		:	 	issue_time,
-			"alg"		:		"ES256",
+			"kid"		:		kid,
 			assertionkey:		assertionvalue,
 		}
 		assertion, err := newencode(assertionclaims, "", clientkey)
@@ -261,6 +271,25 @@ Main functions:
 		} 
 
 		fmt.Println("Generated assertion: ", fmt.Sprintf("%s",assertion))
+
+		//  save public key in IdP
+		pubkey := clientkey.Public().(*ecdsa.PublicKey)
+		encKey, _ := EncodePublicKey(pubkey)
+		key := &keydata{
+			Kid		:	kid,
+			Alg		:	"EC256",
+			Pkey	:	encKey,
+			Exp		:	time.Now().Add(time.Hour * 1).Round(0).Unix(),
+		}
+		mkey, _ := json.Marshal(key)
+		savekey, err := addkey(fmt.Sprintf("%s",mkey))
+		if err != nil {
+			fmt.Errorf("error: %s", err)
+			os.Exit(1)
+		}
+		fmt.Println("Key successfully stored: ", savekey)
+
+
 		os.Exit(1)
 
 	case "sizes":
@@ -333,6 +362,8 @@ Main functions:
 	case "append":
 		// Append assertion to an existing token
 		//  usage: ./assertgen append originaltoken assertionKey assertionValue spiffeid/svid
+		// Changed "alg" to "kid", that is used to retrieve correct key informations from IdP 
+		// kid = public key hash
 
 		// Fetch claims data
 		clientSVID 		:= dasvid.FetchX509SVID()
@@ -349,6 +380,14 @@ Main functions:
 
 		// uses spiffeid or svid as token/assertion issuer
 		svidAsIssuer 	:= os.Args[5]
+
+		// validate main token before appending
+		pubkey 			:= clientkey.Public()
+		valid 			:= validateassertion(mainvalue)
+		if valid != true{
+			fmt.Println("Cannot append: Invalid assertion!")
+			os.Exit(1)
+		}
 
 		//  Define issuer type:
 		var issuer string
@@ -373,10 +412,12 @@ Main functions:
 			// Define token claims
 			fmt.Println("**mainvalue size: ", len(mainvalue))
 			fmt.Println("Other claims size: ", len(issuer)+len(assertionvalue)+len(string(issue_time)))
-			tokenclaims := map[string]interface{}{
-				"iss":				issuer,
-				"iat":	 			issue_time,
-				"alg":				"ES256",
+
+			kid 			:= base64.RawURLEncoding.EncodeToString([]byte(clientID))
+			tokenclaims 	:= map[string]interface{}{
+				"iss"		:				issuer,
+				"iat"		:	 			issue_time,
+				"kid"		:				kid[:],
 				assertionkey:		assertionvalue,
 			}
 			assertion, err := newencode(tokenclaims, mainvalue, clientkey)
@@ -387,6 +428,23 @@ Main functions:
 
 		fmt.Println("Generated assertion: ", fmt.Sprintf("%s",assertion))
 		fmt.Println("Assertion size", len(assertion))
+
+		//  save public key in IdP
+		encKey, _ := EncodePublicKey(pubkey.(*ecdsa.PublicKey))
+		key := &keydata{
+			Kid		:	kid[:],
+			Alg		:	"EC256",
+			Pkey	:	encKey,
+			Exp		:	time.Now().Add(time.Hour * 1).Round(0).Unix(),
+		}
+		mkey, _ := json.Marshal(key)
+		savekey, err := addkey(fmt.Sprintf("%s",mkey))
+		if err != nil {
+			fmt.Errorf("error: %s", err)
+			os.Exit(1)
+		}
+		fmt.Println("Key successfully stored: ", savekey)
+
 		os.Exit(1)
 
 	case "multiappend":
@@ -435,10 +493,11 @@ Main functions:
 			}
 			
 			// Define token claims
+			kid 			:= base64.RawURLEncoding.EncodeToString([]byte(clientID))
 			tokenclaims 	:= 	map[string]interface{}{
 				"iss"		:	issuer,
 				"iat"		:	issue_time,
-				"alg"		:	"ES256",
+				"kid"		:	kid[:],
 				assertionkey+fmt.Sprintf("%v", i):	assertionvalue+fmt.Sprintf("%v", i),
 			}
 			assertion, err := newencode(tokenclaims, mainvalue, clientkey)
@@ -448,23 +507,47 @@ Main functions:
 			} 
 
 			mainvalue = fmt.Sprintf("%s", assertion)
-			fmt.Printf("Resulting assertion: %s\n\n", mainvalue)
+			fmt.Printf("Resulting assertion: %s\n", mainvalue)
+
+			//  save public key in IdP
+			pubkey		:= clientkey.Public().(*ecdsa.PublicKey)
+			encKey, _ 	:= EncodePublicKey(pubkey)
+			key := &keydata{
+				Kid		:	kid[:],
+				Alg		:	"EC256",
+				Pkey	:	encKey,
+				Exp		:	time.Now().Add(time.Hour * 1).Round(0).Unix(),
+			}
+			mkey, _ := json.Marshal(key)
+			savekey, err := addkey(fmt.Sprintf("%s",mkey))
+			if err != nil {
+				fmt.Errorf("error: %s", err)
+				os.Exit(1)
+			}
+			fmt.Println("Key successfully stored: ", savekey)
 			i++
 		}
 
 		os.Exit(1)
 	case "verify":
 		// 	Verify assertion signature
-		//  usage: ./assertgen verify assertion
+		//  usage: ./assertgen verify direction assertion
+		//  extract the keyid from token and use it to retrieve public key from IdP
+		// 
 		clientSVID 		:= dasvid.FetchX509SVID()
 		clientkey 		:= clientSVID.PrivateKey
 		pubkey 			:= clientkey.Public()
 
-		assertion := os.Args[2]
-		// validateassertion(assertion, pubkey.(*ecdsa.PublicKey))
-		validatreverse(assertion, pubkey.(*ecdsa.PublicKey))
-		os.Exit(1)
+		direction := os.Args[2]
+		assertion := os.Args[3]
 
+		if (direction=="reverse") {
+			validatreverse(assertion, pubkey.(*ecdsa.PublicKey))
+		}
+		if (direction=="direct") {
+			validateassertion(assertion)
+		}
+		os.Exit(1)
 	}
 
 	r, err := client.Get(endpoint)
@@ -523,43 +606,204 @@ func jwkEncode(pub crypto.PublicKey) (string, error) {
 }
 
 func newencode(claimset map[string]interface{}, oldmain string, key crypto.Signer) (string, error) {
+	defer timeTrack(time.Now(), "newencode")
 
-	defer timeTrack(time.Now(), "newencode ")
 	//  Marshall received claimset into JSON
 	cs, _ := json.Marshal(claimset)
 	payload := base64.RawURLEncoding.EncodeToString(cs)
 
+	// If no oldmain, generates a simple assertion
 	if oldmain == "" {
 		hash 	:= sha256.Sum256([]byte(payload))
 		s, err 	:= ecdsa.SignASN1(rand.Reader, key.(*ecdsa.PrivateKey), hash[:])
 		if err 	!= nil {
+			fmt.Printf("Error signing: %s\n", err)
 			return "", err
 		}
 		sig := base64.RawURLEncoding.EncodeToString(s)
+		encoded := strings.Join([]string{payload, sig}, ".")
 
-		fmt.Printf("payload size in base64  : %d\n", len(payload))
-		fmt.Printf("sig size in base64      : %d\n", len(sig))
-		fmt.Printf("Total size in base64    : %d\n", len(payload) + len(sig))
-		msg := strings.Join([]string{payload, sig}, ".")
+		// debug
+		// fmt.Printf("payload size in base64  : %d\n", len(payload))
+		// fmt.Printf("sig size in base64      : %d\n", len(sig))
+		fmt.Printf("Assertion size: %d\n", len(payload) + len(sig))
 
-		return msg, nil
+		return encoded, nil
 	}
-		
+	
+	//  Otherwise, append assertion to previous content (oldmain) and sign it
 	hash	:= sha256.Sum256([]byte(payload + "." + oldmain))
 	s, err 	:= ecdsa.SignASN1(rand.Reader, key.(*ecdsa.PrivateKey), hash[:])
 	if err != nil {
+		fmt.Printf("Error signing: %s\n", err)
 		return "", err
 	}
 	signature := base64.RawURLEncoding.EncodeToString(s)
+	encoded := strings.Join([]string{payload, oldmain, signature}, ".")
 	
-	fmt.Printf("payload size in base64	: %d\n", len(payload))
-	fmt.Printf("oldpay size in base64	: %d\n", len(oldmain))
-	fmt.Printf("sig size in base64		: %d\n", len(signature))
-	fmt.Printf("Total size in base64	: %d\n", len(payload) + len(oldmain)+ len(signature))
-	msg := strings.Join([]string{payload, oldmain, signature}, ".")
+	// debug
+	// fmt.Printf("payload size in base64	: %d\n", len(payload))
+	// fmt.Printf("oldpay size in base64	: %d\n", len(oldmain))
+	// fmt.Printf("sig size in base64		: %d\n", len(signature))
+	fmt.Printf("Assertion size: %d\n", len(payload) + len(oldmain)+ len(signature))
 
-	return msg, nil
+	return encoded, nil
+}
 
+// Function to perform token validation from out level to inside (last -> first assertion)
+func validateassertion(token string) bool {
+	defer timeTrack(time.Now(), "Validateassertion")
+
+	parts := strings.Split(token, ".")
+
+	//  Verify recursively all lvls except most inner
+	var i = 0
+	var j = len(parts)-1
+	for (i < len(parts)/2 && (i+1 < j-1)) {
+		// Extract first payload (parts[i]) and last signature (parts[j])
+		clean 			:= strings.Join(strings.Fields(strings.Trim(fmt.Sprintf("%s", parts[i+1:j]), "[]")), ".")
+		hash 			:= sha256.Sum256([]byte(parts[i] + "." + clean))
+		signature, err 	:= base64.RawURLEncoding.DecodeString(parts[j])
+		if err != nil {
+			fmt.Printf("Error decoding signature: %s\n", err)
+			return false
+		}
+
+		// retrieve key from IdP
+		// TODO: Need to create an array of received keys and test all
+		decclaim, _ := base64.RawURLEncoding.DecodeString(parts[i])
+		var tmpkey map[string]interface{}
+		json.Unmarshal([]byte(decclaim), &tmpkey)
+		kid := tmpkey["kid"]
+		pkey, _ := getkey(fmt.Sprintf("%s", kid))
+		// fmt.Printf("decclaim: %s\n", decclaim)
+		fmt.Printf("Search kid: %s\n", kid)
+		// fmt.Printf("Retrieved Keys from IdP: %s\n", pkey)
+		// keys := strings.Trim(fmt.Sprintf("%s", strings.SplitAfter(pkey, "}")), "[]")
+		keys := strings.SplitAfter(fmt.Sprintf("%s", pkey), "}")
+		// cleankeys := strings.Trim(fmt.Sprintf("%s", keys), "\\")
+		// fmt.Printf("keys: %s\n", keys)
+		// fmt.Printf("keys[0]: %q\n", keys[0])
+		// fmt.Printf("cleankeys: %s\n", cleankeys)
+		// fmt.Printf("Splitted string: %q\n", cleankeys)
+		fmt.Printf("Number of Keys received from IdP: %d\n\n", len(keys)-1)
+
+		fmt.Printf("Claim     %d: %s\n", i, parts[i])
+		fmt.Printf("Signature %d: %s\n", j, parts[j])
+
+		var z = 0
+		for (z < len(keys)-1) {
+			// Verify if signature j is valid to payload + previous assertion (parts[i+1:j])
+			cleankeys 		:= strings.Trim(fmt.Sprintf("%s", keys[z]), "\\")
+			// fmt.Printf("Received Keys: %s\n", cleankeys)
+			var tmpkey map[string]interface{}
+			json.Unmarshal([]byte(cleankeys), &tmpkey)
+			// tmp := fmt.Sprintf("%s", cleankeys[0])
+			pkey, _ 		:= base64.RawURLEncoding.DecodeString(fmt.Sprintf("%s", tmpkey["Pkey"]))
+			finallykey, _ 	:= ParseECPublicKey(fmt.Sprintf("%s", pkey))
+			// fmt.Printf("pkey: %s\n", pkey)
+			// fmt.Printf("finallykey: %s\n", finallykey)
+			verify 			:= ecdsa.VerifyASN1(finallykey.(*ecdsa.PublicKey), hash[:], signature)
+			if (verify == true){
+				fmt.Printf("Signature successfully validated!\n\n")
+				z = len(keys)-1
+				// return true
+			} else {
+				fmt.Printf("\nSignature validation failed!\n\n")
+				if (z == len(keys)-2) {
+					fmt.Printf("\nSignature validation failed! No keys remaining!\n\n")
+					return false
+				}
+				// 
+			}
+			z++
+		}
+		i++
+		j--
+	}
+
+	// Verify Inner lvl
+
+	// Verify if signature j is valid to parts[i] (there is no remaining previous assertion)
+	hash 			:= sha256.Sum256([]byte(parts[i]))
+	signature, err 	:= base64.RawURLEncoding.DecodeString(parts[j])
+	if (err != nil){
+		fmt.Printf("Error decoding signature: %s\n", err)
+		return false
+	}
+
+	// retrieve key from IdP
+	decclaim, _ := base64.RawURLEncoding.DecodeString(parts[i])
+	var tmpkey map[string]interface{}
+	json.Unmarshal([]byte(decclaim), &tmpkey)
+	kid := tmpkey["kid"]
+	pkey, _ := getkey(fmt.Sprintf("%s", kid))
+	fmt.Printf("Search kid: %s\n", kid)
+	keys := strings.SplitAfter(fmt.Sprintf("%s", pkey), "}")
+	fmt.Printf("Number of Keys received from IdP: %d\n\n", len(keys)-1)
+	// fmt.Printf("Received Keys: %s\n", keys)
+
+	fmt.Printf("Claim     %d: %s\n", i, parts[i])
+	fmt.Printf("Signature %d: %s\n", j, parts[j])
+
+	cleankeys 		:= strings.Trim(fmt.Sprintf("%s", keys[len(keys)-2]), "\\")
+	var lastkey map[string]interface{}
+	json.Unmarshal([]byte(cleankeys), &lastkey)
+	fmt.Printf("Search kid: %s\n", lastkey["Kid"])
+	key, _ 			:= base64.RawURLEncoding.DecodeString(fmt.Sprintf("%s", lastkey["Pkey"]))
+	finallykey, _ 	:= ParseECPublicKey(fmt.Sprintf("%s", key))
+	
+	verify := ecdsa.VerifyASN1(finallykey.(*ecdsa.PublicKey), hash[:], signature)
+	if (verify == true){
+		fmt.Printf("Signature successfully validated!\n")
+	} else {
+		fmt.Printf("Signature validation failed!\n")
+		// return false
+	}
+	return true
+}
+
+// Function to perform token validation from inner level to outside (first -> last assertion)
+// TODO: should be necessary to receive array of keys to validate each level with its correspondent key
+// 		Other possibility is the function call the directory service to retrieve the key, inside for
+func validatreverse(token string, pubkey *ecdsa.PublicKey) bool {
+	defer timeTrack(time.Now(), "Validatreverse")
+
+	parts := strings.Split(token, ".")
+
+	//  Verify recursively all lvls except most inner
+	var i = (len(parts)/2)-1
+	var j = (len(parts)/2)
+	for (i >= 0) {
+		fmt.Printf("\nClaim     %d: %s\n", i, parts[i])
+		fmt.Printf("Signature %d: %s\n", j,  parts[j])
+
+		// Extract first payload (parts[i]) and last signature (parts[j])
+		clean := strings.Join(strings.Fields(strings.Trim(fmt.Sprintf("%s", parts[i+1:j]), "[]")), ".")
+		var hash [32]byte
+		if (clean != "") {
+			hash = sha256.Sum256([]byte(parts[i] + "." + clean))
+		} else {
+			hash = sha256.Sum256([]byte(parts[i]))
+		}
+
+		signature, err := base64.RawURLEncoding.DecodeString(parts[j])
+		if err != nil {
+			return false
+		}
+
+		// Verify if signature j is valid to payload + previous assertion (parts[i+1:j])
+		verify := ecdsa.VerifyASN1(pubkey, hash[:], signature)
+		if (verify == true)	{
+			fmt.Printf("Signature successfully validated!\n\n")
+		} else {
+			fmt.Printf("Signature validation failed!\n\n")
+			return false
+		}
+		i--
+		j++
+	}
+	return true
 }
 
 func printtoken(token string) {
@@ -597,106 +841,126 @@ func printtoken(token string) {
 
 }
 
-// Function to perform token validation from out level to inside (last -> first assertion)
-func validateassertion(token string, pubkey *ecdsa.PublicKey) error {
-	defer timeTrack(time.Now(), "Validateassertion")
-
-	parts := strings.Split(token, ".")
-
-	//  Verify recursively all lvls except most inner
-	var i = 0
-	var j = len(parts)-1
-	for (i < len(parts)/2 && (i+1 < j-1)) {
-
-		fmt.Printf("Claim     %d: %s\n", i, parts[i])
-		fmt.Printf("Signature %d: %s\n", j,  parts[j])
-
-		// Extract first payload (parts[i]) and last signature (parts[j])
-		clean 			:= strings.Join(strings.Fields(strings.Trim(fmt.Sprintf("%s", parts[i+1:j]), "[]")), ".")
-		hash 			:= sha256.Sum256([]byte(parts[i] + "." + clean))
-		signature, err 	:= base64.RawURLEncoding.DecodeString(parts[j])
-		if err != nil {
-			return err
-		}
-
-		// Verify if signature j is valid to payload + previous assertion (parts[i+1:j])
-		verify := ecdsa.VerifyASN1(pubkey, hash[:], signature)
-		if (verify == true){
-			fmt.Printf("Signature successfully validated!\n\n\n")
-		} else {
-			fmt.Printf("Signature validation failed!\n\n\n")
-		}
-
-		i++
-		j--
-	}
-
-	// Verify Inner lvl
-	fmt.Printf("Claim     %d: %s\n", i, parts[i])
-	fmt.Printf("Signature %d: %s\n", j,  parts[j])
-	
-	// Verify if signature j is valid to parts[i] (there is no remaining previous assertion)
-	hash 			:= sha256.Sum256([]byte(parts[i]))
-	signature, err 	:= base64.RawURLEncoding.DecodeString(parts[j])
-	if (err != nil){
-		return err
-	}
-	
-	verify := ecdsa.VerifyASN1(pubkey, hash[:], signature)
-	if (verify == true){
-		fmt.Printf("Signature successfully validated!\n")
-	} else {
-		fmt.Printf("Signature validation failed!\n")
-	}
-	return nil
-}
-
-// Function to perform token validation from inner level to outside (first -> last assertion)
-func validatreverse(token string, pubkey *ecdsa.PublicKey) error {
-	defer timeTrack(time.Now(), "Validatreverse")
-
-	parts := strings.Split(token, ".")
-
-	//  Verify recursively all lvls except most inner
-	var i = (len(parts)/2)-1
-	var j = (len(parts)/2)
-	for (i >= 0) {
-
-		fmt.Printf("\nClaim     %d: %s\n", i, parts[i])
-		fmt.Printf("Signature %d: %s\n", j,  parts[j])
-
-		// Extract first payload (parts[i]) and last signature (parts[j])
-		clean 			:= strings.Join(strings.Fields(strings.Trim(fmt.Sprintf("%s", parts[i+1:j]), "[]")), ".")
-		var hash [32]byte
-		if (clean != "") {
-			hash 			= sha256.Sum256([]byte(parts[i] + "." + clean))
-		} else {
-			hash 			= sha256.Sum256([]byte(parts[i]))
-		}
-		signature, err 	:= base64.RawURLEncoding.DecodeString(parts[j])
-		if err != nil {
-			return err
-		}
-		// Verify if signature j is valid to payload + previous assertion (parts[i+1:j])
-		verify := ecdsa.VerifyASN1(pubkey, hash[:], signature)
-		if (verify == true){
-			fmt.Printf("Signature successfully validated!\n\n")
-		} else {
-			fmt.Printf("Signature validation failed!\n\n")
-		}
-
-		i--
-		j++
-	}
-
-	return nil
-}
-
-
-
-
-
 func timeTrack(start time.Time, name string) {
     elapsed := time.Since(start)
-    fmt.Printf("\n\n%s execution time is %s\n\n", name, elapsed)
+    fmt.Printf("\n%s execution time is %s\n", name, elapsed)
 }
+
+// func validateaud(token string, keys []*ecdsa.PublicKey) {
+// 	// aud = clientID
+// 	// receive array containing "n" public keys to validate all token claims
+// 	defer timeTrack(time.Now(), "validateaud")
+
+// 	parts := strings.Split(token, ".")
+// 	if (len(parts) != len(keys)) {
+// 		fmt.Printf("Invalid number of keys! Required: %d Received: %d", len(parts), len(keys))
+// 		os.Exit(1)
+// 	}
+
+
+// }
+
+func addkey(key string) (string, error) {
+
+    // url := "http://"+filesrv+":"+filesrvport+"/addnft"
+	url := "http://localhost:8888/addkey"
+    fmt.Printf("\nKey Server URL: %s\n", url)
+
+    var jsonStr = []byte(key)
+    req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonStr))
+    req.Header.Set("X-Custom-Header", "keydata")
+    req.Header.Set("Content-Type", "application/json")
+
+    client := &http.Client{}
+    resp, err := client.Do(req)
+    if err != nil {
+        fmt.Errorf("error: %s", err)
+        return "", err
+    }
+    defer resp.Body.Close()
+
+    // fmt.Println("response Status:", resp.Status)
+    // fmt.Println("response Headers:", resp.Header)
+    body, _ := ioutil.ReadAll(resp.Body)
+    // fmt.Println("response Body:", string(body))
+
+	return string(body), nil
+}
+
+func getkey(key string) (string, error) {
+
+    // url := "http://"+filesrv+":"+filesrvport+"/addnft"
+	url := "http://localhost:8888/key/" + fmt.Sprintf("%s", key)
+    fmt.Printf("\nKey Server URL: %s\n", url)
+
+    var jsonStr = []byte(key)
+    req, err := http.NewRequest("GET", url, bytes.NewBuffer(jsonStr))
+    // req.Header.Set("X-Custom-Header", "keydata")
+    // req.Header.Set("Content-Type", "application/json")
+
+    client := &http.Client{}
+    resp, err := client.Do(req)
+    if err != nil {
+        fmt.Errorf("error: %s", err)
+        return "", err
+    }
+    defer resp.Body.Close()
+
+    // fmt.Println("response Status:", resp.Status)
+    // fmt.Println("response Headers:", resp.Header)
+    body, _ := ioutil.ReadAll(resp.Body)
+    // fmt.Println("response Body:", string(body))
+
+	return string(body), nil
+}
+
+// EncodePublicKey encodes an *rsa.PublicKey, *ecdsa.PublicKey or ed25519.PublicKey to PEM format.
+//  TODO: FIX type, that should be different based on input key type
+// At this time it only support ECDSA
+func EncodePublicKey(key *ecdsa.PublicKey) ([]byte, error) {
+	derKey, err := x509.MarshalPKIXPublicKey(key)
+		 if err != nil {
+			return nil, err
+	}
+
+   keyBlock := &pem.Block{
+   Type:  "EC PUBLIC KEY",
+   Bytes: derKey,
+}
+
+return pem.EncodeToMemory(keyBlock), nil
+}
+
+func ParseECPublicKey(pubPEM string) (interface{}, error){
+	block, _ := pem.Decode([]byte(pubPEM))
+	if block == nil {
+		panic("failed to parse PEM block containing the public key")
+	}
+
+	pub, err := x509.ParsePKIXPublicKey(block.Bytes)
+	if err != nil {
+		panic("failed to parse DER encoded public key: " + err.Error())
+	}
+
+	// switch pub := pub.(type) {
+	// case *rsa.PublicKey:
+	// 	fmt.Println("pub is of type RSA:", pub)
+	// // case *dsa.PublicKey:
+	// // 	fmt.Println("pub is of type DSA:", pub)
+	// case *ecdsa.PublicKey:
+	// 	fmt.Println("pub is of type ECDSA:", pub)
+	// // case ed25519.PublicKey:
+	// // 	fmt.Println("pub is of type Ed25519:", pub)
+	// default:
+	// 	panic("unknown type of public key")
+	// }
+	
+	return pub,nil
+
+}
+
+
+// Nova função de validação precisa fazer split do token e aí, pra cada assertion:
+//  - extrair kid
+//  - consultar IdP para obter a(s) chave(s) correspondente(s)
+//  - Para cada chave: verificar assinatura, até encontrar a correta (se houver)
