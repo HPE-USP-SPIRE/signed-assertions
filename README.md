@@ -3,27 +3,26 @@ This repository is part of HPE/USP SPIFFE project.
 
 # Main Components
 ## Client
-Command line interface (CLI) to perform main functions related to the Phase 2 prototype. 
+Client is a prototype that can interact with a running asserting-wl and also perform solo functions as generate, append and validate ECDSA/Schnorr signed assertions and tokens. To be able to interact with asserting-wl using spiffe-mTLS, it is necessary a running spire server/agent in the environment and a registration entry in SPIRE associated to the user that will execute the client. Eg:
 
-## Poclib
-Golang package including necessary functions related to DA-SVID minting, validation and ZKP generation and validation.  
+```
+spire-server entry create \
+    -parentID spiffe://example.org/host \
+    -spiffeID spiffe://example.org/myuser \
+    -selector unix:user:myuser
+```
 
-## Keyserver
-Docker container that acts as a key storage (a.k.a. Key Directory Service). Have 2 functions: Addkey / GetKey, used by the client to store ECDSA public keys, necessary in ECDSA validation step (if the key is not included in token).
-
-
-# How to use
-Poclib can be integrated in Golang projects (as exemplified by assertgen tool), offering support to the token nested model, ECDSA/Schnorr signatures and Validation, and others (check code).
-
-Client is a prototype that can interact with a running asserting-wl and also perform solo functions as generate, append and validate ECDSA/Schnorr signed assertions and tokens. 
-
-To start the PoC, clone the repository and run startapp.sh. It will start Keyserver container and build assertgen in /client. Run assertgen help for more informations.
+Client have also many functions related to assertions and token generation and validation, using ECDSA or Schnorr signatures. To start the it, run ./startapp.sh. It will start keyserver container and build assertgen in /client. Run assertgen help for more informations.
 
 ```
 ./assergen help
 ```
 
+## Poclib
+Golang package including necessary functions related to DA-SVID, assertions, tokens, zkp, validations etc...  It can be integrated in Golang projects (as exemplified in DASVID_PoC_V0 PoC), offering support to the token nested model, ECDSA/Schnorr signatures and Validation, and others (check code).
 
+## Keyserver
+Docker container that acts as a key storage (a.k.a. Key Directory Service) in Proof-of-Concept scenario. Have 2 main functions: Addkey / GetKey, used by assertgen to store ECDSA public keys, necessary in ECDSA validation step (if the key is not included in token).
 
 # OLD - --- -- -- --
 # Asserting Workload --prototype--  
