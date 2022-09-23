@@ -19,7 +19,7 @@ Client have also many functions related to assertions and token generation and v
 ```
 
 ## Poclib
-Golang package including necessary functions related to DA-SVID, assertions, tokens, zkp, validations etc...  It can be integrated in Golang projects (as exemplified in DASVID_PoC_V0 PoC), offering support to the token nested model, ECDSA/Schnorr signatures and Validation, and others (check code).
+Golang package including necessary functions related to DA-SVID mint, based in an existing and valid OKTA Oauth token. DA-SVID is signed using RSA. It also includes RSA ZKP, ECDSA and Schnorr signed assertions, validations and others. It can be integrated in Golang projects (as exemplified in DASVID_PoC_V0 PoC), offering support to these features. More informations in code. :)
 
 ## Keyserver
 Docker container that acts as a key storage (a.k.a. Key Directory Service) in Proof-of-Concept scenario. Have 2 main functions: Addkey / GetKey, used by assertgen to store ECDSA public keys, necessary in ECDSA validation step (if the key is not included in token).
