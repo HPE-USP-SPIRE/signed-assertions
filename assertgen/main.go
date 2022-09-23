@@ -22,6 +22,7 @@ import (
 	"bytes"	
 	"crypto/x509"
 	"encoding/pem"
+	"bufio"
 	
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"github.com/spiffe/go-spiffe/v2/spiffetls/tlsconfig"
@@ -60,6 +61,7 @@ func GetOutboundIP() net.IP {
 }
 
 func main() {
+	ParseEnvironment()
 	var curve = edwards25519.NewBlakeSHA256Ed25519()
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -1051,6 +1053,49 @@ func newschnorrencode(claimset map[string]interface{}, oldmain string, key kyber
 
 	return encoded, nil
 }
+
+
+func ParseEnvironment() {
+
+	if _, err := os.Stat(".cfg"); os.IsNotExist(err) {
+		log.Printf("Config file (.cfg) is not present.  Relying on Global Environment Variables")
+	}
+
+	setEnvVariable("SOCKET_PATH", os.Getenv("SOCKET_PATH"))
+	if os.Getenv("SOCKET_PATH") == "" {
+		log.Printf("Could not resolve a SOCKET_PATH environment variable.")
+		// os.Exit(1)
+	}
+	
+	setEnvVariable("TRUST_DOMAIN", os.Getenv("TRUST_DOMAIN"))
+	if os.Getenv("TRUST_DOMAIN") == "" {
+		log.Printf("Could not resolve a TRUST_DOMAIN environment variable.")
+		// os.Exit(1)
+	}
+
+
+}
+
+func setEnvVariable(env string, current string) {
+	if current != "" {
+		return
+	}
+
+	file, _ := os.Open(".cfg")
+	defer file.Close()
+
+	lookInFile := bufio.NewScanner(file)
+	lookInFile.Split(bufio.ScanLines)
+
+	for lookInFile.Scan() {
+		parts := strings.Split(lookInFile.Text(), "=")
+		key, value := parts[0], parts[1]
+		if key == env {
+			os.Setenv(key, value)
+		}
+	}
+}
+
 
 
 // ----------- DRAFT -------------------

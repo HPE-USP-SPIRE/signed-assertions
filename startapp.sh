@@ -1,9 +1,11 @@
 #!/bin/bash
 
-cd ./metasrv/
-docker build . -t metasrv
-docker run -p 8888:8888  -d metasrv
+docker rmi keysrv -f
 
-cd ../client
+cd ./keysrv/
+docker build . -t keysrv
+docker run -p 8888:8888  -d keysrv
+
+cd ../assertgen
 go build -o assertgen main.go
 
