@@ -1,4 +1,3 @@
-//+build linux,cgo 
 package dasvid
 /*
 #include <string.h>
@@ -29,6 +28,8 @@ import (
 	"log"
 	"unsafe"
 	"strconv"
+	"regexp"
+	"errors"
 		
 	// To sig. validation 
 	"crypto"
@@ -41,8 +42,9 @@ import (
 	"os"
     // "os/exec"
 	"net/http"
-	"io"
 	"encoding/json"
+	"io"
+	// "io/ioutil"
 		
 	// // to retrieve PrivateKey
 	"bufio"
@@ -60,13 +62,6 @@ import (
 	"github.com/spiffe/go-spiffe/v2/workloadapi"
 	"github.com/spiffe/go-spiffe/v2/bundle/x509bundle"
 )
-
-func init() {
-
-	// parse environment for package configuration (.cfg)
-	ParseEnvironment(0)
-
-}
 
 type SVID struct {
 	// ID is the SPIFFE ID of the X509-SVID.
@@ -104,11 +99,20 @@ type JWK struct {
 	X5t string
 }
 
+type algtype struct {
+	Kid string
+	alg	string
+	typ string
+}
+
 func timeTrack(start time.Time, name string) {
     elapsed := time.Since(start)
     log.Printf("%s execution time is %s", name, elapsed)
 }
 
+// Verify JWT token signature.
+// currently supporting RSA. Adding new switch cases to support ECDSA and HMAC.
+// 
 func VerifySignature(jwtToken string, key JWK) error {
 	defer timeTrack(time.Now(), "Verify Signature")
 
@@ -118,28 +122,44 @@ func VerifySignature(jwtToken string, key JWK) error {
 	if err != nil {
 		return err
 	}
-	n, _ := base64.RawURLEncoding.DecodeString(key.N)
-	e, _ := base64.RawURLEncoding.DecodeString(key.E)
-	z := new(big.Int)
-	z.SetBytes(n)
-	//decoding key.E returns a three byte slice, https://golang.org/pkg/encoding/binary/#Read and other conversions fail
-	//since they are expecting to read as many bytes as the size of int being returned (4 bytes for uint32 for example)
-	var buffer bytes.Buffer
-	buffer.WriteByte(0)
-	buffer.Write(e)
-	exponent := binary.BigEndian.Uint32(buffer.Bytes())
-	publicKey := &rsa.PublicKey{N: z, E: int(exponent)}
 
-	// Only small messages can be signed directly; thus the hash of a
-	// message, rather than the message itself, is signed.
-	hasher := crypto.SHA256.New()
-	hasher.Write(message)
+	decodedheader, _ := base64.RawURLEncoding.DecodeString(parts[0])
+	jsonheader := string(decodedheader)   
+	algtype := extractValue(jsonheader, "alg")
 
-	err = rsa.VerifyPKCS1v15(publicKey, crypto.SHA256, hasher.Sum(nil), signature)
-	return err
+	switch {
+		//  TODO.
+		//  Kid added in mint function. Verify possible benefits here. If none, remove from there.
+		case (algtype == "RS256"), (key.Kty == "RSA"): {
+			log.Printf("Success! Key type %s is supported!", algtype)
+			n, _ := base64.RawURLEncoding.DecodeString(key.N)
+			e, _ := base64.RawURLEncoding.DecodeString(key.E)
+			z := new(big.Int)
+			z.SetBytes(n)
+			//decoding key.E returns a three byte slice, https://golang.org/pkg/encoding/binary/#Read and other conversions fail
+			//since they are expecting to read as many bytes as the size of int being returned (4 bytes for uint32 for example)
+			var buffer bytes.Buffer
+			buffer.WriteByte(0)
+			buffer.Write(e)
+			exponent := binary.BigEndian.Uint32(buffer.Bytes())
+			publicKey := &rsa.PublicKey{N: z, E: int(exponent)}
+		
+			// Only small messages can be signed directly; thus the hash of a
+			// message, rather than the message itself, is signed.
+			hasher := crypto.SHA256.New()
+			hasher.Write(message)
+		
+			err = rsa.VerifyPKCS1v15(publicKey, crypto.SHA256, hasher.Sum(nil), signature)
+			return err
+		}
+		default: {
+			log.Printf("Error in signature verification: Algorithm %s not supported!", algtype)
+			return errors.New("Algorithm not supported!")
+		}
+	}
 }
 
-func Mintdasvid(iss string, sub string, dpa string, dpr string, oam []byte, zkp string, key interface{}) string{
+func Mintdasvid(kid string, iss string, sub string, dpa string, dpr string, oam []byte, zkp string, key interface{}) string{
 	defer timeTrack(time.Now(), "Mintdasvid")
 
 	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
@@ -156,23 +176,21 @@ func Mintdasvid(iss string, sub string, dpa string, dpr string, oam []byte, zkp 
 	dlpa := flag.String("dpa", dpa, "delegated authority (dpa) = ")
 	dlpr := flag.String("dpr", dpr, "delegated principal (dpr) = The Principal")
 
-	 
 	// Build Token
 	var token *mint.Token
 
-	if (oam != nil && zkp != "") {
+	if (oam != nil) && (zkp != "") {
 		oam  := flag.String("oam", string(oam), "Oauth token without signature part")
 		proof := flag.String("zkp", zkp, "OAuth Zero-Knowledge-Proof")
 
+		
 		token = mint.NewWithClaims(mint.SigningMethodRS256, mint.MapClaims{
 			"exp": *exp,
 			"iss": *issuer,
 			"aat": *assert,
 			"sub": *subj,
-			"req": map[string]interface{}{ 
-				"pa": *dlpa,
-				"pr": *dlpr,
-			},
+			"dpa": *dlpa,
+			"dpr": *dlpr,
 			"zkp": map[string]interface{}{ 
 				"msg": oam,
 				"proof": proof,
@@ -186,10 +204,8 @@ func Mintdasvid(iss string, sub string, dpa string, dpr string, oam []byte, zkp 
 			"iss": *issuer,
 			"aat": *assert,
 			"sub": *subj,
-			"req": map[string]interface{}{ 
-				"pa": *dlpa,
-				"pr": *dlpr,
-			},
+			"dpa": *dlpa,
+			"dpr": *dlpr,
 			"iat": issue_time,
 		})
 	}
@@ -197,45 +213,8 @@ func Mintdasvid(iss string, sub string, dpa string, dpr string, oam []byte, zkp 
 	flag.Parse()
 
 	// Sign Token
- 	tokenString, err := token.SignedString(key)
- 	if err != nil {
-        log.Printf("Error generating JWT: %v", err)
-	}
- 
-	return tokenString
-}
-
-func MintAssertion(iss string, next string, prevtoken string, key interface{}) string{
-	defer timeTrack(time.Now(), "Mintassertion")
-
-	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
-
-	// Set issue and exp time
-	issue_time := time.Now().Round(0).Unix()
- 
-	// Declaring flags
-	issuer := flag.String("iss", iss, "issuer(iss) = SPIFFE ID of the workload that generated the assertion")
-	iat := flag.Int64("iat", issue_time, "issued at(iat) = time at which the assertion made in the DA-SVID was verified by the asserting workload")
-	nxt := flag.String("nxt", next, "ID of next hop") 
-
-	// Build Token
-	var token *mint.Token
-
-		oam  := flag.String("oam", prevtoken, "Current token")
-
-		token = mint.NewWithClaims(mint.SigningMethodRS256, mint.MapClaims{
-			"main": *oam,
-			// "assertion": map[string]interface{}{ 
-			"iss": *issuer,
-			"iat": *iat,
-			"nxt": *nxt,
-			
-			// },
-		})
- 
-	flag.Parse()
-
-	// Sign Token
+	token.Header["kid"] = kid
+	
  	tokenString, err := token.SignedString(key)
  	if err != nil {
         log.Printf("Error generating JWT: %v", err)
@@ -259,7 +238,7 @@ func ParseTokenClaims(strAT string) map[string]interface{} {
 }
 
 func ValidateTokenExp(claims map[string]interface{}) (expresult bool, remainingtime string) {
-	defer timeTrack(time.Now(), "Validate token exp")
+	// defer timeTrack(time.Now(), "Validate token exp")
 
 	tm := time.Unix(int64(claims["exp"].(float64)), 0)
 	remaining := tm.Sub(time.Now())
@@ -274,157 +253,16 @@ func ValidateTokenExp(claims map[string]interface{}) (expresult bool, remainingt
 
 }
 
-func RetrievePrivateKey(path string) interface{} {
-	defer timeTrack(time.Now(), "RetrievePrivateKey")
-	// Open file containing private Key
-	privateKeyFile, err := os.Open(path)
-	if err != nil {
-		log.Printf("Error opening private key file: %v", err)
-	}
-
-	pemfileinfo, _ := privateKeyFile.Stat()
-	var size int64 = pemfileinfo.Size()
-	pembytes := make([]byte, size)
-	buffer := bufio.NewReader(privateKeyFile)
-	_, err = buffer.Read(pembytes)
-	pemdata, _ := pem.Decode([]byte(pembytes))
-	privateKeyFile.Close()
-
-	// Extract Private Key 
-	// updated to use RSA since key used will not be fetched from SPIRE
-	privateKeyImported, err := x509.ParsePKCS1PrivateKey(pemdata.Bytes)
-	if err != nil {
-		log.Printf("Error parsing private key: %v", err)
-	}
-	return privateKeyImported
-}
-
-func RetrievePEMPublicKey(path string) interface{} {
-	defer timeTrack(time.Now(), "RetrievePEMPublicKey")
-	// Open file containing public Key
-	publicKeyFile, err := os.Open(path)
-	if err != nil {
-		log.Fatalf("Error opening public key file: %v", err)
-	}
-
-	pemfileinfo, _ := publicKeyFile.Stat()
-	var size int64 = pemfileinfo.Size()
-	pembytes := make([]byte, size)
-	buffer := bufio.NewReader(publicKeyFile)
-	_, err = buffer.Read(pembytes)
-
-	block, _ := pem.Decode(pembytes)
-	if block == nil {
-		log.Printf("No PEM key found: %v", err)
-		// os.Exit(1)
-	}
-
-	var publicKey interface{}
-	switch block.Type {
-	case "PUBLIC KEY":
-		publicKey, err = x509.ParsePKIXPublicKey(block.Bytes)
-		if err != nil {
-			log.Printf("error", err)
-		}
-		
-	default:
-		log.Printf("Unsupported key type %q", block.Type)
-	}
-
-	// Return raw public key (N and E) (PEM)
-	return publicKey
-
-}
-
-func RetrieveDERPublicKey(path string) []byte {
-	defer timeTrack(time.Now(), "RetrieveDERPublicKey")
-
-	// Open file containing public Key
-	publicKeyFile, err := os.Open(path)
-	if err != nil {
-		log.Printf("Error opening public key file: %v", err)
-	}
-
-	pemfileinfo, _ := publicKeyFile.Stat()
-	var size int64 = pemfileinfo.Size()
-	pembytes := make([]byte, size)
-	buffer := bufio.NewReader(publicKeyFile)
-	_, err = buffer.Read(pembytes)
-
-	block, _ := pem.Decode(pembytes)
-	if block == nil {
-		log.Printf("No key found: %v", err)
-	}
-
-	var publicKey interface{}
-	switch block.Type {
-	case "PUBLIC KEY":
-		publicKey, err = x509.ParsePKIXPublicKey(block.Bytes)
-		if err != nil {
-			log.Printf("error", err)
-		}
-		
-	default:
-		log.Printf("Unsupported key type %q", block.Type)
-	}
-
-	// Return DER
-	marshpubic, _ := x509.MarshalPKIXPublicKey(publicKey)
-    // log.Printf("Success returning DER: ", marshpubic)
-	return marshpubic 
-}
-
-func RetrieveJWKSPublicKey(path string) JWKS {
-	defer timeTrack(time.Now(), "RetrieveJWKSPublicKey")
-	// Open file containing the keys obtained from /keys endpoint
-	// NOTE: A cache file could be useful
-	jwksFile, err := os.Open(path)
-	if err != nil {
-		log.Printf("Error reading jwks file: %v", err)
-	}
-
-	// Decode file and retrieve Public key from Okta application
-	dec := json.NewDecoder(jwksFile)
-	var jwks JWKS
-	
-	if err := dec.Decode(&jwks); err != nil {
-		log.Printf("Unable to read key: %s", err)
-	}
-
-	return jwks
-}
-
-func FetchX509SVID() *x509svid.SVID {
-
-	// defer timeTrack(time.Now(), "Fetchx509svid")
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	
-	// Create a `workloadapi.X509Source`, it will connect to Workload API using provided socket.
-	source, err := workloadapi.NewX509Source(ctx, workloadapi.WithClientOptions(workloadapi.WithAddr(os.Getenv("SOCKET_PATH"))))
-	if err != nil {
-		log.Printf("Unable to create X509Source: %v", err)
-	}
-	defer source.Close()
-
-	svid, err := source.GetX509SVID()
-	if err != nil {
-		log.Printf("Unable to fetch SVID: %v", err)
-	}
-
-	return svid
-}
-
 func GenZKPproof(OAuthToken string) string {
 	defer timeTrack(time.Now(), "Generate ZKP")
 
 	var bigN, bigE, bigSig, bigMsg *C.BIGNUM
+	var vkey *C.EVP_PKEY
 
     parts := strings.Split(OAuthToken, ".")
 	
     // Generate OpenSSL vkey using token
-	vkey := Token2vkey(OAuthToken, 0)
+	vkey = Token2vkey(OAuthToken, 0)
 
 	// Generate signature BIGNUM
 	signature, err := base64.RawURLEncoding.DecodeString(parts[2])
@@ -553,9 +391,7 @@ func Token2vkey(token string, issfield int) *C.EVP_PKEY {
 		issuer = fmt.Sprintf("%v", tokenclaims["iss"])
 		log.Printf("OAuth issuer claim: %s", issuer)
 	} else if issfield ==1 {
-		data := tokenclaims["req"].(map[string]interface{})
-		issuer = data["pa"].(string)
-		// issuer = fmt.Sprintf("%v", tokenclaims["req"])
+		issuer = fmt.Sprintf("%v", tokenclaims["dpa"])
 		log.Printf("DASVID issuer claim: %s", issuer)
 	} else {
 		log.Fatal("No issuer field informed.")
@@ -606,7 +442,7 @@ func Token2vkey(token string, issfield int) *C.EVP_PKEY {
 // 
 // TODO: Move supported type list to a config file, making easier to add new ones.
 func ValidateISS(issuer string) (uri string, result bool) {
-	defer timeTrack(time.Now(), "ValidateISS")
+	// defer timeTrack(time.Now(), "ValidateISS")
 	// TODO Add error handling
 	if  issuer == "accounts.google.com" {
 		log.Printf("Google OAuth token identified!")
@@ -619,61 +455,161 @@ func ValidateISS(issuer string) (uri string, result bool) {
 	return "", false
 }
 
-func ParseEnvironment(caller int) {
-
-	if _, err := os.Stat(".cfg"); os.IsNotExist(err) {
-		log.Printf("Config file (.cfg) is not present.  Relying on Global Environment Variables")
+func RetrievePrivateKey(path string) interface{} {
+	// defer timeTrack(time.Now(), "RetrievePrivateKey")
+	// Open file containing private Key
+	privateKeyFile, err := os.Open(path)
+	if err != nil {
+		log.Fatalf("Error opening private key file: %v", err)
 	}
 
-	if caller == 0 {
-		// internal call from dasvid pkg
+	pemfileinfo, _ := privateKeyFile.Stat()
+	var size int64 = pemfileinfo.Size()
+	pembytes := make([]byte, size)
+	buffer := bufio.NewReader(privateKeyFile)
+	_, err = buffer.Read(pembytes)
+	pemdata, _ := pem.Decode([]byte(pembytes))
+	privateKeyFile.Close()
 
-		setEnvVariable("PROOF_LEN", os.Getenv("PROOF_LEN"))
-		setEnvVariable("PEM_PATH", os.Getenv("PEM_PATH"))
-
-		if os.Getenv("PROOF_LEN") == "" {
-			log.Printf("Could not resolve a PROOF_LEN environment variable.")
-			// os.Exit(1)
-		}
-	
-		if os.Getenv("PEM_PATH") == "" {
-			log.Printf("Could not resolve a PEM_PATH environment variable.")
-			// os.Exit(1)
-		}
+	// Extract Private Key 
+	// updated to use RSA since key used will not be fetched from SPIRE
+	privateKeyImported, err := x509.ParsePKCS1PrivateKey(pemdata.Bytes)
+	if err != nil {
+		log.Fatalf("Error parsing private key: %v", err)
 	}
-
-	setEnvVariable("SOCKET_PATH", os.Getenv("SOCKET_PATH"))
-	setEnvVariable("MINT_ZKP", os.Getenv("MINT_ZKP"))
-
-	if os.Getenv("SOCKET_PATH") == "" {
-		log.Printf("Could not resolve a SOCKET_PATH environment variable.")
-		// os.Exit(1)
-	}
-
-	if os.Getenv("MINT_ZKP") == "" {
-		log.Printf("Could not resolve a MINT_ZKP environment variable.")
-		// os.Exit(1)
-	}
+	return privateKeyImported
 }
 
-func setEnvVariable(env string, current string) {
-	if current != "" {
-		return
+func RetrievePEMPublicKey(path string) interface{} {
+	// defer timeTrack(time.Now(), "RetrievePEMPublicKey")
+	// Open file containing public Key
+	publicKeyFile, err := os.Open(path)
+	if err != nil {
+		log.Fatalf("Error opening public key file: %v", err)
 	}
 
-	file, _ := os.Open(".cfg")
-	defer file.Close()
+	pemfileinfo, _ := publicKeyFile.Stat()
+	var size int64 = pemfileinfo.Size()
+	pembytes := make([]byte, size)
+	buffer := bufio.NewReader(publicKeyFile)
+	_, err = buffer.Read(pembytes)
 
-	lookInFile := bufio.NewScanner(file)
-	lookInFile.Split(bufio.ScanLines)
+	block, _ := pem.Decode(pembytes)
+	if block == nil {
+		log.Fatalf("No PEM key found: %v", err)
+		// os.Exit(1)
+	}
 
-	for lookInFile.Scan() {
-		parts := strings.Split(lookInFile.Text(), "=")
-		key, value := parts[0], parts[1]
-		if key == env {
-			os.Setenv(key, value)
+	var publicKey interface{}
+	switch block.Type {
+	case "PUBLIC KEY":
+		publicKey, err = x509.ParsePKIXPublicKey(block.Bytes)
+		if err != nil {
+			log.Fatalf("error", err)
 		}
+		
+	default:
+		log.Fatalf("Unsupported key type %q", block.Type)
 	}
+
+	// Return raw public key (N and E) (PEM)
+	return publicKey
+
+}
+
+func RetrieveDERPublicKey(path string) []byte {
+	// defer timeTrack(time.Now(), "RetrieveDERPublicKey")
+
+	// Open file containing public Key
+	publicKeyFile, err := os.Open(path)
+	if err != nil {
+		log.Fatalf("Error opening public key file: %v", err)
+	}
+
+	pemfileinfo, _ := publicKeyFile.Stat()
+	var size int64 = pemfileinfo.Size()
+	pembytes := make([]byte, size)
+	buffer := bufio.NewReader(publicKeyFile)
+	_, err = buffer.Read(pembytes)
+
+	block, _ := pem.Decode(pembytes)
+	if block == nil {
+		log.Fatalf("No key found: %v", err)
+	}
+
+	var publicKey interface{}
+	switch block.Type {
+	case "PUBLIC KEY":
+		publicKey, err = x509.ParsePKIXPublicKey(block.Bytes)
+		if err != nil {
+			log.Fatalf("error", err)
+		}
+		
+	default:
+		log.Fatalf("Unsupported key type %q", block.Type)
+	}
+
+	// Return DER
+	marshpubic, _ := x509.MarshalPKIXPublicKey(publicKey)
+    // log.Printf("Success returning DER: ", marshpubic)
+
+
+	return marshpubic 
+}
+
+func RetrieveJWKSPublicKey(path string) JWKS {
+	// defer timeTrack(time.Now(), "RetrieveJWKSPublicKey")
+	// Open file containing the keys obtained from /keys endpoint
+	// NOTE: A cache file could be useful
+	jwksFile, err := os.Open(path)
+	if err != nil {
+		log.Fatalf("Error reading jwks file: %v", err)
+	}
+
+	// Decode file and retrieve Public key from Okta application
+	dec := json.NewDecoder(jwksFile)
+	var jwks JWKS
+	
+	if err := dec.Decode(&jwks); err != nil {
+		log.Fatalf("Unable to read key: %s", err)
+	}
+
+	return jwks
+}
+
+func FetchX509SVID() *x509svid.SVID {
+	// defer timeTrack(time.Now(), "Fetchx509svid")
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	
+	// Create a `workloadapi.X509Source`, it will connect to Workload API using provided socket.
+	source, err := workloadapi.NewX509Source(ctx, workloadapi.WithClientOptions(workloadapi.WithAddr(os.Getenv("SOCKET_PATH"))))
+	if err != nil {
+		log.Fatalf("Unable to create X509Source: %v", err)
+	}
+	defer source.Close()
+
+	svid, err := source.GetX509SVID()
+	if err != nil {
+		log.Fatalf("Unable to fetch SVID: %v", err)
+	}
+
+	// fmt.Println("svid.PrivateKey", svid.PrivateKey)
+
+	return svid
+}
+
+// extracts the value for a key from a JSON-formatted string
+// body - the JSON-response as a string. Usually retrieved via the request body
+// key - the key for which the value should be extracted
+// returns - the value for the given key
+func extractValue(body string, key string) string {
+    keystr := "\"" + key + "\":[^,;\\]}]*"
+    r, _ := regexp.Compile(keystr)
+    match := r.FindString(body)
+    keyValMatch := strings.Split(match, ":")
+    return strings.ReplaceAll(keyValMatch[1], "\"", "")
 }
 
 func Jwks2PEM(token string, path string) {
@@ -741,6 +677,18 @@ func Jwks2PEM(token string, path string) {
 			}
 			file.Close()
 
+			// log.Printf("Opening created file:")
+			// ftest, err := os.Open("./keys/oauth.pem")
+			// if err != nil {
+			// 	log.Fatal(err)
+			// }
+
+			// scanner := bufio.NewScanner(ftest)
+			// log.Printf("Verifying created file:")
+			// for scanner.Scan() {             // internally, it advances token based on sperator
+			// 	fmt.Println(scanner.Text())  // token in unicode-char
+			// }
+			// ftest.Close()
 		}
 	}
 }
