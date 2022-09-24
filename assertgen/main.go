@@ -517,7 +517,14 @@ Main functions:
     	publicKey 	:= curve.Point().Mul(privateKey, curve.Point().Base())
 
 		// Issuer
-		issuer 	:= base64.RawURLEncoding.EncodeToString([]byte(fmt.Sprintf("%s", publicKey)))
+		issbuf := bytes.Buffer{}
+		if err :=  curve.Write(&issbuf, &publicKey); err != nil {
+			fmt.Printf("Error! value: %s\n",  err)
+			os.Exit(1)
+		}
+		issuer := base64.RawURLEncoding.EncodeToString(issbuf.Bytes())
+
+		// issuer 	:= base64.RawURLEncoding.EncodeToString([]byte(fmt.Sprintf("%s", publicKey)))
 
 		// timestamp
 		issue_time 		:= time.Now().Round(0).Unix()
@@ -541,28 +548,13 @@ Main functions:
 		os.Exit(1)
 
 	case "schver":
-		// 	Verify assertion schnorr signature
-		//  usage: ./assertgen schver assertion 
+		// 	Verify assertion signature
+		//  usage: ./assertgen news assertion
 
-		fmt.Printf("*** Schnorr Signature validation! ***\n")
 		assertion := os.Args[2]
-		parts := strings.Split(assertion, ".")
-		tmpsig, _ 	:= base64.RawURLEncoding.DecodeString(parts[1])
-		var signature dasvid.Signature
-		buf := bytes.NewBuffer(tmpsig)
-		if err := curve.Read(buf, &signature); err != nil {
-			fmt.Printf("Error! value: %s\n",  err)
-			os.Exit(1)
-		}
 
-		fmt.Printf("Received signature: %s\n", signature)
-
-		derivedPublicKey := dasvid.PublicKey(parts[0], signature)
-		fmt.Printf("derived PublicKey: %s\n", derivedPublicKey)
-
-    	fmt.Printf("Checking signature %t\n\n", dasvid.Verify(parts[0], signature, derivedPublicKey))
-
-		os.Exit(1)	
+		validateschnorrassertion(assertion)
+		os.Exit(1)
 
 	case "appsch":
 		// Appent an assertion with schnorr signature
@@ -574,7 +566,12 @@ Main functions:
     	publicKey := curve.Point().Mul(privateKey, curve.Point().Base())
 
 		// Issuer
-		issuer 	:= base64.RawURLEncoding.EncodeToString([]byte(fmt.Sprintf("%s", publicKey)))
+		issbuf := bytes.Buffer{}
+		if err :=  curve.Write(&issbuf, &publicKey); err != nil {
+			fmt.Printf("Error! value: %s\n",  err)
+			os.Exit(1)
+		}
+		issuer := base64.RawURLEncoding.EncodeToString(issbuf.Bytes())
 
 		// timestamp
 		issue_time 		:= time.Now().Round(0).Unix()
@@ -614,8 +611,8 @@ Main functions:
 
 	// Original token
 	oldmain 		:= os.Args[2]
-	parts := strings.Split(oldmain, ".")
-	tmpsig, _ 	:= base64.RawURLEncoding.DecodeString(parts[1])
+	parts 			:= strings.Split(oldmain, ".")
+	tmpsig, _ 		:= base64.RawURLEncoding.DecodeString(parts[1])
 	var origsignature dasvid.Signature
 	buf := bytes.NewBuffer(tmpsig)
 	if err := curve.Read(buf, &origsignature); err != nil {
@@ -623,14 +620,14 @@ Main functions:
 		os.Exit(1)
 	}
 	privateKey := origsignature.S
-	// publicKey := curve.Point().Mul(privateKey, curve.Point().Base())
-	// issuer 	:= base64.RawURLEncoding.EncodeToString([]byte(fmt.Sprintf("%s", publicKey)))
+	publicKey := curve.Point().Mul(privateKey, curve.Point().Base())
+	issuer 	:= base64.RawURLEncoding.EncodeToString([]byte(fmt.Sprintf("%s", publicKey)))
 
 	// assertion key:value
 	assertionkey 	:= os.Args[3]
 	assertionvalue 	:= os.Args[4]
 	assertionclaims := map[string]interface{}{
-		// "iss"		:		issuer,
+		"iss"		:		issuer,
 		"iat"		:	 	issue_time,
 		assertionkey:		assertionvalue,
 	}
@@ -857,6 +854,92 @@ func validateassertion(token string) bool {
 	return true
 }
 
+// Function to perform token validation from out level to inside (last -> first assertion)
+func validateschnorrassertion(token string) bool {
+	defer timeTrack(time.Now(), "Validateassertion")
+
+	var curve = edwards25519.NewBlakeSHA256Ed25519()	
+
+	parts := strings.Split(token, ".")
+
+	//  Verify recursively all lvls except most inner
+	var i = 0
+	var j = len(parts)-1
+	for (i < len(parts)/2 && (i+1 < j-1)) {
+		// Extract first payload (parts[i]) and last signature (parts[j])
+		clean 			:= strings.Join(strings.Fields(strings.Trim(fmt.Sprintf("%s", parts[i+1:j]), "[]")), ".")
+		message 		:= strings.Join([]string{parts[i], clean}, ".")
+		tmpsig, err 	:= base64.RawURLEncoding.DecodeString(parts[j])
+		if err != nil {
+			fmt.Printf("Error decoding signature: %s\n", err)
+			return false
+		}
+		var signature dasvid.Signature
+		buf := bytes.NewBuffer(tmpsig)
+		if err := curve.Read(buf, &signature); err != nil {
+			fmt.Printf("Error! value: %s\n",  err)
+			os.Exit(1)
+		}
+
+		fmt.Printf("Received signature: %s\n", signature)
+		// derivedPublicKey := dasvid.PublicKey(message, signature)
+		// fmt.Printf("derived PublicKey: %s\n", derivedPublicKey)
+
+		fmt.Printf("parts[i] value: %s\n",  parts[i])
+		decodedparti, _ := base64.RawURLEncoding.DecodeString(parts[i])
+		fmt.Printf("decodedparti value: %s\n",  decodedparti)
+		var tmp map[string]interface{}
+		json.Unmarshal([]byte(decodedparti), &tmp)
+		tmppubkey, _ := base64.RawURLEncoding.DecodeString(fmt.Sprintf("%s", tmp["iss"]))
+		var pubkey kyber.Point
+		buf = bytes.NewBuffer(tmppubkey)
+		if err := curve.Read(buf, &pubkey); err != nil {
+			fmt.Printf("Error! value: %s\n",  err)
+			os.Exit(1)
+		}
+		fmt.Printf("derived PublicKey: %s\n", pubkey.String())
+
+    	fmt.Printf("Checking signature %t\n\n", dasvid.Verify(message, signature, pubkey))
+		i++
+		j--
+	}
+
+	// Verify Inner lvl
+	message 		:= parts[i]
+	tmpsig, err 	:= base64.RawURLEncoding.DecodeString(parts[j])
+	if err != nil {
+		fmt.Printf("Error decoding signature: %s\n", err)
+		return false
+	}
+	var signature dasvid.Signature
+	buf := bytes.NewBuffer(tmpsig)
+	if err := curve.Read(buf, &signature); err != nil {
+		fmt.Printf("Error! value: %s\n",  err)
+		os.Exit(1)
+	}
+
+	fmt.Printf("Received signature: %s\n", signature)
+	// derivedPublicKey := dasvid.PublicKey(message, signature)
+	// fmt.Printf("derived PublicKey: %s\n", derivedPublicKey)
+	fmt.Printf("parts[i] value: %s\n",  parts[i])
+	decodedparti, _ := base64.RawURLEncoding.DecodeString(parts[i])
+	fmt.Printf("decodedparti value: %s\n",  decodedparti)
+	var tmp map[string]interface{}
+	json.Unmarshal([]byte(decodedparti), &tmp)
+	tmppubkey, _ := base64.RawURLEncoding.DecodeString(fmt.Sprintf("%s", tmp["iss"]))
+	var pubkey kyber.Point
+	buf = bytes.NewBuffer(tmppubkey)
+	if err := curve.Read(buf, &pubkey); err != nil {
+		fmt.Printf("Error! value: %s\n",  err)
+		os.Exit(1)
+	}
+	fmt.Printf("derived PublicKey: %s\n", pubkey.String())
+
+	fmt.Printf("Checking signature %t\n\n", dasvid.Verify(message, signature, pubkey))
+
+	return true
+}
+
 func printtoken(token string) {
 
 	// Split received token
@@ -1009,16 +1092,19 @@ func newschnorrencode(claimset map[string]interface{}, oldmain string, key kyber
 	if oldmain == "" {
 		tmpsig := dasvid.Sign(payload, key)
 		fmt.Printf("Generated Signature: %s\n", tmpsig.String())
-		derivedPublicKey := dasvid.PublicKey(payload, tmpsig)
-		fmt.Printf("Derived Public Key: %s\n", derivedPublicKey)
-		fmt.Printf("Checking signature :%t\n\n", dasvid.Verify(payload, tmpsig, derivedPublicKey))
+		// derivedPublicKey := dasvid.PublicKey(payload, tmpsig)
+		// mod to set publickey
+		publicKey := curve.Point().Mul(key, curve.Point().Base())
+		
+		fmt.Printf("Derived Public Key: %s\n", publicKey)
+		fmt.Printf("Checking signature :%t\n\n", dasvid.Verify(payload, tmpsig, publicKey))
 
-		buf := bytes.Buffer{}
-		if err :=  curve.Write(&buf, &tmpsig); err != nil {
+		sigbuf := bytes.Buffer{}
+		if err :=  curve.Write(&sigbuf, &tmpsig); err != nil {
 			fmt.Printf("Error! value: %s\n",  err)
 			os.Exit(1)
 		}
-		signature := base64.RawURLEncoding.EncodeToString(buf.Bytes())
+		signature := base64.RawURLEncoding.EncodeToString(sigbuf.Bytes())
 
 		encoded := strings.Join([]string{payload, signature}, ".")
 
@@ -1067,13 +1153,6 @@ func ParseEnvironment() {
 		// os.Exit(1)
 	}
 	
-	setEnvVariable("TRUST_DOMAIN", os.Getenv("TRUST_DOMAIN"))
-	if os.Getenv("TRUST_DOMAIN") == "" {
-		log.Printf("Could not resolve a TRUST_DOMAIN environment variable.")
-		// os.Exit(1)
-	}
-
-
 }
 
 func setEnvVariable(env string, current string) {
@@ -1222,3 +1301,68 @@ func setEnvVariable(env string, current string) {
 // 		log.Fatal(err)
 // 	}
 // 	os.Exit(1)
+
+// case "schver":
+// 	// 	Verify assertion schnorr signature
+// 	//  usage: ./assertgen schver assertion 
+
+// 	fmt.Printf("*** Schnorr Signature validation! ***\n")
+// 	assertion := os.Args[2]
+// 	parts := strings.Split(assertion, ".")
+// 	tmpsig, _ 	:= base64.RawURLEncoding.DecodeString(parts[1])
+// 	var signature dasvid.Signature
+// 	buf := bytes.NewBuffer(tmpsig)
+// 	if err := curve.Read(buf, &signature); err != nil {
+// 		fmt.Printf("Error! value: %s\n",  err)
+// 		os.Exit(1)
+// 	}
+
+// 	fmt.Printf("Received signature: %s\n", signature)
+
+// 	// derivedPublicKey := dasvid.PublicKey(parts[0], signature)
+// 	// decode issuer
+
+// 	fmt.Printf("parts[0] value: %s\n",  parts[0])
+// 	decodedpart0, _ := base64.RawURLEncoding.DecodeString(parts[0])
+// 	fmt.Printf("decodedpart0 value: %s\n",  decodedpart0)
+// 	var tmp map[string]interface{}
+// 	json.Unmarshal([]byte(decodedpart0), &tmp)
+// 	// fmt.Printf("tmp['iss'] value: %s\n",  decodedpart0["iss"])
+// 	tmppubkey, _ := base64.RawURLEncoding.DecodeString(fmt.Sprintf("%s", tmp["iss"]))
+// 	// fmt.Printf("tmppubkey value: %s\n",  tmppubkey)
+// 	var pubkey kyber.Point
+// 	buf = bytes.NewBuffer(tmppubkey)
+// 	if err := curve.Read(buf, &pubkey); err != nil {
+// 		fmt.Printf("Error! value: %s\n",  err)
+// 		os.Exit(1)
+// 	}
+// 	fmt.Printf("derived PublicKey: %s\n", pubkey.String())
+
+// 	fmt.Printf("Checking signature %t\n\n", dasvid.Verify(parts[0], signature, pubkey))
+
+// 	os.Exit(1)	
+
+
+// case "testderive":
+// 	// 	Verify assertion schnorr signature
+// 	//  usage: ./assertgen schver assertion 
+
+// 	fmt.Printf("*** Schnorr Signature validation! ***\n")
+// 	assertion := os.Args[2]
+// 	parts := strings.Split(assertion, ".")
+// 	tmpsig, _ 	:= base64.RawURLEncoding.DecodeString(parts[1])
+// 	var signature dasvid.Signature
+// 	buf := bytes.NewBuffer(tmpsig)
+// 	if err := curve.Read(buf, &signature); err != nil {
+// 		fmt.Printf("Error! value: %s\n",  err)
+// 		os.Exit(1)
+// 	}
+
+// 	fmt.Printf("Received signature: %s\n", signature)
+
+// 	derivedPublicKey := dasvid.PublicKey(parts[0], signature)
+
+// 	fmt.Printf("Checking signature %t\n\n", dasvid.Verify(parts[0], signature, derivedPublicKey))
+
+// 	os.Exit(1)	
+

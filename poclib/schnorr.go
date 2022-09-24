@@ -34,9 +34,14 @@ func Sign(m string, x kyber.Scalar) Signature {
     // r = k * G (a.k.a the same operation as r = g^k)
     r := curve.Point().Mul(k, g)
 
-    // Hash(m || r)
-    e := Hash(m + r.String())
+    // MAM:
+    // Sign function modified to add public key in hash. Otherwise it is possible to modify the token and generate a valid public key with PublicKey function
+    publicKey := curve.Point().Mul(x, curve.Point().Base())
+    // Original: Hash(m || r)
+    e := Hash(publicKey.String() + m + r.String())
 
+    // MAM:
+    // DUVIDA: Aqui ele faz k - e*x, mas nos slides temos k + e * x. Tanto faz?
     // s = k - e * x
     s := curve.Scalar().Sub(k, curve.Scalar().Mul(e, x))
 
@@ -67,7 +72,7 @@ func Verify(m string, S Signature, y kyber.Point) bool {
     g := curve.Point().Base()
 
     // e = Hash(m || r)
-    e := Hash(m + S.R.String())
+    e := Hash(y.String() + m + S.R.String())
 
     // Attempt to reconstruct 's * G' with a provided signature; s * G = r - e * y
     sGv := curve.Point().Sub(S.R, curve.Point().Mul(e, y))
