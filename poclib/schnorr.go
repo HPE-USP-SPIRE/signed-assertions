@@ -5,6 +5,7 @@ import (
 //   "flag"
   "go.dedis.ch/kyber/v3"
   "go.dedis.ch/kyber/v3/group/edwards25519"
+  "bytes"
 )
 
 var curve = edwards25519.NewBlakeSHA256Ed25519()
@@ -36,9 +37,11 @@ func Sign(m string, x kyber.Scalar) Signature {
 
     // MAM:
     // Sign function modified to add public key in hash. Otherwise it is possible to modify the token and generate a valid public key with PublicKey function
-    publicKey := curve.Point().Mul(x, curve.Point().Base())
     // Original: Hash(m || r)
+    // e := Hash(m + r.String())
+    publicKey := curve.Point().Mul(x, curve.Point().Base())
     e := Hash(publicKey.String() + m + r.String())
+    
 
     // MAM:
     // DUVIDA: Aqui ele faz k - e*x, mas nos slides temos k + e * x. Tanto faz?
@@ -72,7 +75,9 @@ func Verify(m string, S Signature, y kyber.Point) bool {
     g := curve.Point().Base()
 
     // e = Hash(m || r)
+    // Hash(pubkey || m || r)
     e := Hash(y.String() + m + S.R.String())
+    // e := Hash(m + S.R.String())
 
     // Attempt to reconstruct 's * G' with a provided signature; s * G = r - e * y
     sGv := curve.Point().Sub(S.R, curve.Point().Mul(e, y))
@@ -87,6 +92,92 @@ func (S Signature) String() string {
     return fmt.Sprintf("(r=%s, s=%s)", S.R, S.S)
 }
 
+// m: Message
+// s: Signature
+// y: Public key
+func Verifygg(m0 string, S0 Signature, m1 string, S1 Signature) bool {
+    // Create a generator.
+    g := curve.Point().Base()
+
+    // Hash(pubkey || m || r)
+    tmph0          := Hash(m0 + S0.R.String())
+    var h0 kyber.Point
+	bufh0 := bytes.NewBuffer([]byte(tmph0.String()))
+	if err := curve.Read(bufh0, &h0); err != nil {
+		fmt.Printf("Error! value: %s\n",  err)
+		return false
+	}
+
+    tmph1          := Hash(m1 + S1.R.String())
+    var h1 kyber.Point
+	bufh1 := bytes.NewBuffer([]byte(tmph1.String()))
+	if err := curve.Read(bufh1, &h1); err != nil {
+		fmt.Printf("Error! value: %s\n",  err)
+		return false
+	}
+
+    tmpy0          := PublicKey(m0, S0)
+    var y0 kyber.Scalar
+	bufy0 := bytes.NewBuffer([]byte(tmpy0.String()))
+	if err := curve.Read(bufy0, &y0); err != nil {
+		fmt.Printf("Error! value: %s\n",  err)
+		return false
+	}
+
+    var S0R kyber.Scalar
+	bufS0R := bytes.NewBuffer([]byte(S0.R.String()))
+	if err := curve.Read(bufS0R, &S0R); err != nil {
+		fmt.Printf("Error! value: %s\n",  err)
+		return false
+	}
+
+    var S1R kyber.Scalar
+	bufS1R := bytes.NewBuffer([]byte(S1.R.String()))
+	if err := curve.Read(bufS1R, &S1R); err != nil {
+		fmt.Printf("Error! value: %s\n",  err)
+		return false
+	}
+
+    tmpy1          := curve.Point().Mul(S0R, curve.Point().Mul(y0, h0))
+    var y1 kyber.Scalar
+	bufy1 := bytes.NewBuffer([]byte(tmpy1.String()))
+	if err := curve.Read(bufy1, &y1); err != nil {
+		fmt.Printf("Error! value: %s\n",  err)
+		return false
+	}
+
+    var scalarS1 kyber.Scalar
+	bufscalarS1 := bytes.NewBuffer([]byte(S1.String()))
+	if err := curve.Read(bufscalarS1, &scalarS1); err != nil {
+		fmt.Printf("Error! value: %s\n",  err)
+		return false
+	}
+
+    leftside    := curve.Point().Mul(S1R, curve.Point().Mul(y1, h1))
+    rightside   := curve.Point().Mul(scalarS1, g)
+
+    // return equality result
+    return leftside.Equal(rightside)
+    
+    // h0 := Hash(r0.String() + m0 + S0.R.String())
+    // h1 := Hash(r1.String() + m1 + S1.R.String())
+
+    // verify r1 * ((r0 * y0) * h0) * h1 = g * s1
+    // y1 = r0 * y0 ^ h0
+    // r1 * y1 ^ h1 = g ^ s1  
+    // curve.Point().Mul(r0, curve.Point().Add(k, S0.R))
+    // curve.Point().Mul(r1, )
+
+
+    // Attempt to reconstruct 's * G' with a provided signature; s * G = r - e * y
+    // sGv := curve.Point().Sub(S.R, curve.Point().Mul(e, y))
+
+    // Construct the actual 's * G'
+    // sG := curve.Point().Mul(S.S, g)
+
+    // Equality check; ensure signature and public key outputs to s * G.
+    // return sG.Equal(sGv)
+}
 
 // func main() {
 

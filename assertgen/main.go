@@ -39,7 +39,10 @@ import (
 const (
 	// Workload API socket path
 	socketPath	= "unix:///tmp/spire-agent/public/api.sock"
+	
 )
+
+var curve = edwards25519.NewBlakeSHA256Ed25519()
 
 type keydata struct {
 	Kid			string `json:kid",omitempty"`
@@ -62,7 +65,6 @@ func GetOutboundIP() net.IP {
 
 func main() {
 	ParseEnvironment()
-	var curve = edwards25519.NewBlakeSHA256Ed25519()
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -517,14 +519,7 @@ Main functions:
     	publicKey 	:= curve.Point().Mul(privateKey, curve.Point().Base())
 
 		// Issuer
-		issbuf := bytes.Buffer{}
-		if err :=  curve.Write(&issbuf, &publicKey); err != nil {
-			fmt.Printf("Error! value: %s\n",  err)
-			os.Exit(1)
-		}
-		issuer := base64.RawURLEncoding.EncodeToString(issbuf.Bytes())
-
-		// issuer 	:= base64.RawURLEncoding.EncodeToString([]byte(fmt.Sprintf("%s", publicKey)))
+		issuer := pubkey2iss(publicKey)
 
 		// timestamp
 		issue_time 		:= time.Now().Round(0).Unix()
@@ -549,29 +544,32 @@ Main functions:
 
 	case "schver":
 		// 	Verify assertion signature
-		//  usage: ./assertgen news assertion
+		//  usage: ./assertgen schver assertion
 
 		assertion := os.Args[2]
 
 		validateschnorrassertion(assertion)
 		os.Exit(1)
 
+	case "ggschnorr":
+		// 	Verify assertion signature using Galindo Garcia
+		//  usage: ./assertgen schver assertion
+
+		assertion := os.Args[2]
+
+		validategg(assertion)
+		os.Exit(1)
+
 	case "appsch":
-		// Appent an assertion with schnorr signature
+		// Appent an assertion with schnorr signature, using a new keypair
 		// usage: ./main appsch originaltoken assertionKey assertionValue
 
 		// Generate Keypair
-		
 		privateKey := curve.Scalar().Pick(curve.RandomStream())
     	publicKey := curve.Point().Mul(privateKey, curve.Point().Base())
 
 		// Issuer
-		issbuf := bytes.Buffer{}
-		if err :=  curve.Write(&issbuf, &publicKey); err != nil {
-			fmt.Printf("Error! value: %s\n",  err)
-			os.Exit(1)
-		}
-		issuer := base64.RawURLEncoding.EncodeToString(issbuf.Bytes())
+		issuer := pubkey2iss(publicKey)
 
 		// timestamp
 		issue_time 		:= time.Now().Round(0).Unix()
@@ -596,68 +594,67 @@ Main functions:
 		fmt.Println("Generated assertion: ", fmt.Sprintf("%s",assertion))
 
 		os.Exit(1)
-
-
-
-
-
 	
-	case "concatenate_draft":
-	// Appent an assertion with schnorr signature, using previous signature as key
-	// usage: ./main concatenate_draft originaltoken assertionKey assertionValue
+	case "concatenate":
+		// Appent an assertion with schnorr signature, using previous signature as key
+		// usage: ./main concatenate_draft originaltoken assertionKey assertionValue
 
-	// timestamp
-	issue_time 		:= time.Now().Round(0).Unix()
+		// timestamp
+		issue_time 		:= time.Now().Round(0).Unix()
 
-	// Original token
-	oldmain 		:= os.Args[2]
-	parts 			:= strings.Split(oldmain, ".")
-	tmpsig, _ 		:= base64.RawURLEncoding.DecodeString(parts[1])
-	var origsignature dasvid.Signature
-	buf := bytes.NewBuffer(tmpsig)
-	if err := curve.Read(buf, &origsignature); err != nil {
-		fmt.Printf("Error! value: %s\n",  err)
-		os.Exit(1)
-	}
-	privateKey := origsignature.S
-	publicKey := curve.Point().Mul(privateKey, curve.Point().Base())
-	issuer 	:= base64.RawURLEncoding.EncodeToString([]byte(fmt.Sprintf("%s", publicKey)))
-
-	// assertion key:value
-	assertionkey 	:= os.Args[3]
-	assertionvalue 	:= os.Args[4]
-	assertionclaims := map[string]interface{}{
-		"iss"		:		issuer,
-		"iat"		:	 	issue_time,
-		assertionkey:		assertionvalue,
-	}
-	assertion, err := newschnorrencode(assertionclaims, oldmain, privateKey)
-	if err != nil {
-		fmt.Println("Error generating signed schnorr assertion!")
-		os.Exit(1)
-	} 
-
-	fmt.Println("Generated assertion: ", fmt.Sprintf("%s",assertion))
-
-	os.Exit(1)
-	
-	}
-
-	if endpoint != "" {
-
-		r, err := client.Get(endpoint)
+		// Original token
+		oldmain 		:= os.Args[2]
+		parts 			:= strings.Split(oldmain, ".")
+		fmt.Printf("Previous token: %s\n",  oldmain)
+		tmpsig, _ 		:= base64.RawURLEncoding.DecodeString(parts[1])
+		
+		var origsignature dasvid.Signature
+		buf := bytes.NewBuffer(tmpsig)
+		if err := curve.Read(buf, &origsignature); err != nil {
+			fmt.Printf("Error! value: %s\n",  err)
+			os.Exit(1)
+		}
+		privateKey := origsignature.S
+		publicKey := curve.Point().Mul(privateKey, curve.Point().Base())
+		
+		// Issuer
+		issuer := pubkey2iss(publicKey)
+		
+		// assertion key:value
+		assertionkey 	:= os.Args[3]
+		assertionvalue 	:= os.Args[4]
+		assertionclaims := map[string]interface{}{
+			"iss"		:		issuer,
+			"iat"		:	 	issue_time,
+			assertionkey:		assertionvalue,
+		}
+		assertion, err := newschnorrencode(assertionclaims, oldmain, privateKey)
 		if err != nil {
-			log.Fatalf("Error connecting to %q: %v", serverURL, err)
+			fmt.Println("Error generating signed schnorr assertion!")
+			os.Exit(1)
+		} 
+
+		fmt.Println("Generated assertion: ", fmt.Sprintf("%s",assertion))
+
+		os.Exit(1)
+		
 		}
 
-		defer r.Body.Close()
-		body, err := ioutil.ReadAll(r.Body)
-		if err != nil {
-			log.Fatalf("Unable to read body: %v", err)
-		}
+		if endpoint != "" {
 
-		fmt.Printf("%s", body)
-	}
+			r, err := client.Get(endpoint)
+			if err != nil {
+				log.Fatalf("Error connecting to %q: %v", serverURL, err)
+			}
+
+			defer r.Body.Close()
+			body, err := ioutil.ReadAll(r.Body)
+			if err != nil {
+				log.Fatalf("Unable to read body: %v", err)
+			}
+
+			fmt.Printf("%s", body)
+		}
 }
 
 // jwkEncode encodes public part of an RSA or ECDSA key into a JWK.
@@ -759,17 +756,9 @@ func validateassertion(token string) bool {
 		}
 
 		// retrieve key from IdP
-		decclaim, _ := base64.RawURLEncoding.DecodeString(parts[i])
-		var tmpkey map[string]interface{}
-		json.Unmarshal([]byte(decclaim), &tmpkey)
-		kid := tmpkey["kid"]
-		pkey, _ := getkey(fmt.Sprintf("%s", kid))
-		fmt.Printf("Search kid: %s\n", kid)
-
-		keys := strings.SplitAfter(fmt.Sprintf("%s", pkey), "}")
-		fmt.Printf("Number of Keys received from IdP: %d\n\n", len(keys)-1)
-		if (len(keys)-1 == 0){
-			fmt.Printf("\nError: No keys received!\n\n")
+		keys, err := getkeys(parts[i])
+		if err != nil {
+			fmt.Printf("Error decoding signature: %s\n", err)
 			return false
 		}
 
@@ -814,14 +803,11 @@ func validateassertion(token string) bool {
 	}
 
 	// retrieve key from IdP
-	decclaim, _ := base64.RawURLEncoding.DecodeString(parts[i])
-	var tmpkey map[string]interface{}
-	json.Unmarshal([]byte(decclaim), &tmpkey)
-	kid := tmpkey["kid"]
-	pkey, _ := getkey(fmt.Sprintf("%s", kid))
-	fmt.Printf("Search kid: %s\n", kid)
-	keys := strings.SplitAfter(fmt.Sprintf("%s", pkey), "}")
-	fmt.Printf("Number of Keys received from IdP: %d\n\n", len(keys)-1)
+	keys, err := getkeys(parts[i])
+	if err != nil {
+		fmt.Printf("Error decoding signature: %s\n", err)
+		return false
+	}
 
 	// fmt.Printf("Received Keys: %s\n", keys)
 	fmt.Printf("Claim     %d: %s\n", i, parts[i])
@@ -858,8 +844,6 @@ func validateassertion(token string) bool {
 func validateschnorrassertion(token string) bool {
 	defer timeTrack(time.Now(), "Validateassertion")
 
-	var curve = edwards25519.NewBlakeSHA256Ed25519()	
-
 	parts := strings.Split(token, ".")
 
 	//  Verify recursively all lvls except most inner
@@ -867,46 +851,65 @@ func validateschnorrassertion(token string) bool {
 	var j = len(parts)-1
 	for (i < len(parts)/2 && (i+1 < j-1)) {
 		// Extract first payload (parts[i]) and last signature (parts[j])
-		clean 			:= strings.Join(strings.Fields(strings.Trim(fmt.Sprintf("%s", parts[i+1:j]), "[]")), ".")
-		message 		:= strings.Join([]string{parts[i], clean}, ".")
-		tmpsig, err 	:= base64.RawURLEncoding.DecodeString(parts[j])
-		if err != nil {
-			fmt.Printf("Error decoding signature: %s\n", err)
-			return false
-		}
-		var signature dasvid.Signature
-		buf := bytes.NewBuffer(tmpsig)
-		if err := curve.Read(buf, &signature); err != nil {
-			fmt.Printf("Error! value: %s\n",  err)
-			os.Exit(1)
-		}
+		clean 	:= strings.Join(strings.Fields(strings.Trim(fmt.Sprintf("%s", parts[i+1:j]), "[]")), ".")
+		message := strings.Join([]string{parts[i], clean}, ".")
+		
+		// Load kyber.Signature from token
+		signature := loadsig(parts[j])
 
-		fmt.Printf("Received signature: %s\n", signature)
-		// derivedPublicKey := dasvid.PublicKey(message, signature)
-		// fmt.Printf("derived PublicKey: %s\n", derivedPublicKey)
+		// extract publickey (kyber.Point) from issuer claim
+		pubkey := iss2pubkey(parts[i])
+		fmt.Printf("Retrieved PublicKey from token: %s\n", pubkey.String())
 
-		fmt.Printf("parts[i] value: %s\n",  parts[i])
-		decodedparti, _ := base64.RawURLEncoding.DecodeString(parts[i])
-		fmt.Printf("decodedparti value: %s\n",  decodedparti)
-		var tmp map[string]interface{}
-		json.Unmarshal([]byte(decodedparti), &tmp)
-		tmppubkey, _ := base64.RawURLEncoding.DecodeString(fmt.Sprintf("%s", tmp["iss"]))
-		var pubkey kyber.Point
-		buf = bytes.NewBuffer(tmppubkey)
-		if err := curve.Read(buf, &pubkey); err != nil {
-			fmt.Printf("Error! value: %s\n",  err)
-			os.Exit(1)
-		}
-		fmt.Printf("derived PublicKey: %s\n", pubkey.String())
-
-    	fmt.Printf("Checking signature %t\n\n", dasvid.Verify(message, signature, pubkey))
+    	fmt.Printf("Signature verification: %t\n\n", dasvid.Verify(message, signature, pubkey))
 		i++
 		j--
 	}
 
 	// Verify Inner lvl
-	message 		:= parts[i]
-	tmpsig, err 	:= base64.RawURLEncoding.DecodeString(parts[j])
+	message := parts[i]
+		
+	// Load kyber.Signature from token
+	signature := loadsig(parts[j])
+
+	// extract publickey (kyber.Point) from issuer claim
+	pubkey := iss2pubkey(parts[i])
+	fmt.Printf("Retrieved PublicKey from token: %s\n", pubkey.String())
+
+	// Verify signature using extracted public key
+	sigresult := dasvid.Verify(message, signature, pubkey)
+
+   	fmt.Printf("Signature verification: %t\n\n", sigresult)
+	return sigresult
+}
+
+func validategg(token string) bool {
+	defer timeTrack(time.Now(), "validategg")
+
+	// UNDER DEVELOPMENT. NOT WORKING
+
+	parts := strings.Split(token, ".")
+
+	// First implementation aims to successfully execute galindo-garcia signature verification (2 hops only)
+	// Calculate h0 and h1 and retrieve r0 and r1
+
+	// r0 and h0
+	message 		:= parts[1]
+	// // Retrieve public key
+	// decodedmsg, _ := base64.RawURLEncoding.DecodeString(message)
+	// fmt.Printf("decodedparti value: %s\n",  decodedmsg)
+	// var tmpmsg map[string]interface{}
+	// json.Unmarshal([]byte(decodedmsg), &tmpmsg)
+	// tmppubkey, _ := base64.RawURLEncoding.DecodeString(fmt.Sprintf("%s", tmpmsg["iss"]))
+	// var pubkey0 kyber.Point
+	// buf = bytes.NewBuffer(tmppubkey)
+	// if err := curve.Read(buf, &pubkey0); err != nil {
+	// 	fmt.Printf("Error! value: %s\n",  err)
+	// 	os.Exit(1)
+	// }
+	// fmt.Printf("derived PublicKey: %s\n", pubkey0.String())
+
+	tmpsig, err 	:= base64.RawURLEncoding.DecodeString(parts[2])
 	if err != nil {
 		fmt.Printf("Error decoding signature: %s\n", err)
 		return false
@@ -917,25 +920,46 @@ func validateschnorrassertion(token string) bool {
 		fmt.Printf("Error! value: %s\n",  err)
 		os.Exit(1)
 	}
+	// r0 := signature.R
+	// TODO: ainda falta inserir a pubkey, como eu fiz no sign e verify. Senão vai falhar.
+	// tmp := pubkey0.String()+signature.R.String()+message
+	// h0 := dasvid.Hash(tmp)
 
-	fmt.Printf("Received signature: %s\n", signature)
-	// derivedPublicKey := dasvid.PublicKey(message, signature)
-	// fmt.Printf("derived PublicKey: %s\n", derivedPublicKey)
-	fmt.Printf("parts[i] value: %s\n",  parts[i])
-	decodedparti, _ := base64.RawURLEncoding.DecodeString(parts[i])
-	fmt.Printf("decodedparti value: %s\n",  decodedparti)
-	var tmp map[string]interface{}
-	json.Unmarshal([]byte(decodedparti), &tmp)
-	tmppubkey, _ := base64.RawURLEncoding.DecodeString(fmt.Sprintf("%s", tmp["iss"]))
-	var pubkey kyber.Point
-	buf = bytes.NewBuffer(tmppubkey)
-	if err := curve.Read(buf, &pubkey); err != nil {
+	// r1 and h1
+	message1		:= parts[0]
+	// // Retrieve public key
+	// decodedmsg1, _ := base64.RawURLEncoding.DecodeString(message1)
+	// fmt.Printf("decodedparti value: %s\n",  decodedmsg1)
+	// var tmpmsg1 map[string]interface{}
+	// json.Unmarshal([]byte(decodedmsg), &tmpmsg1)
+	// tmppubkey, _ = base64.RawURLEncoding.DecodeString(fmt.Sprintf("%s", tmpmsg1["iss"]))
+	// var pubkey1 kyber.Point
+	// buf = bytes.NewBuffer(tmppubkey)
+	// if err := curve.Read(buf, &pubkey1); err != nil {
+	// 	fmt.Printf("Error! value: %s\n",  err)
+	// 	os.Exit(1)
+	// }
+	// fmt.Printf("derived PublicKey: %s\n", pubkey1.String())
+
+	tmpsig1, err 	:= base64.RawURLEncoding.DecodeString(parts[3])
+	if err != nil {
+		fmt.Printf("Error decoding signature: %s\n", err)
+		return false
+	}
+	var signature1 dasvid.Signature
+	buf1 := bytes.NewBuffer(tmpsig1)
+	if err := curve.Read(buf1, &signature1); err != nil {
 		fmt.Printf("Error! value: %s\n",  err)
 		os.Exit(1)
 	}
-	fmt.Printf("derived PublicKey: %s\n", pubkey.String())
+	fmt.Printf("Received signature: %s\n", signature1)
+	// r1 := signature1.R
+	// TODO: ainda falta inserir a pubkey, como eu fiz no sign e verify. Senão vai falhar.
+	// tmp1 := pubkey1.String()+signature1.R.String()+message1
+	// h1 := dasvid.Hash(tmp1)	
 
-	fmt.Printf("Checking signature %t\n\n", dasvid.Verify(message, signature, pubkey))
+
+	fmt.Printf("Signature verification: %t\n\n", dasvid.Verifygg(message, signature, message1, signature1))
 
 	return true
 }
@@ -1007,31 +1031,43 @@ func addkey(key string) (string, error) {
 	return string(body), nil
 }
 
-func getkey(key string) (string, error) {
+func getkeys(message string) ([]string, error) {
 
-    // url := "http://"+filesrv+":"+filesrvport+"/addnft"
-	url := "http://localhost:8888/key/" + fmt.Sprintf("%s", key)
+	decclaim, _ := base64.RawURLEncoding.DecodeString(message)
+	var tmpkey map[string]interface{}
+	json.Unmarshal([]byte(decclaim), &tmpkey)
+	kid := tmpkey["kid"]
+	fmt.Printf("Search kid: %s\n", kid)
+
+	url := "http://localhost:8888/key/" + fmt.Sprintf("%s", kid)
     fmt.Printf("\nKey Server URL: %s\n", url)
 
-    var jsonStr = []byte(key)
+    var jsonStr = []byte(fmt.Sprintf("%s", kid))
     req, err := http.NewRequest("GET", url, bytes.NewBuffer(jsonStr))
-    // req.Header.Set("X-Custom-Header", "keydata")
-    // req.Header.Set("Content-Type", "application/json")
 
     client := &http.Client{}
     resp, err := client.Do(req)
     if err != nil {
         fmt.Errorf("error: %s", err)
-        return "", err
+        return nil, err
     }
     defer resp.Body.Close()
 
-    // fmt.Println("response Status:", resp.Status)
-    // fmt.Println("response Headers:", resp.Header)
-    body, _ := ioutil.ReadAll(resp.Body)
-    // fmt.Println("response Body:", string(body))
+    body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+        fmt.Errorf("error: %s", err)
+        return nil, err
+    }
 
-	return string(body), nil
+	keys := strings.SplitAfter(fmt.Sprintf("%s", string(body)), "}")
+	fmt.Printf("Number of Keys received from IdP: %d\n\n", len(keys)-1)
+	if (len(keys)-1 == 0){
+		fmt.Printf("\nError: No keys received!\n\n")
+		return  nil, err
+	}
+
+	return keys, nil
+
 }
 
 // EncodeECDSAPublicKey encodes an *ecdsa.PublicKey to PEM format.
@@ -1082,22 +1118,15 @@ func ParseECDSAPublicKey(pubPEM string) (interface{}, error){
 
 func newschnorrencode(claimset map[string]interface{}, oldmain string, key kyber.Scalar) (string, error) {
 	defer timeTrack(time.Now(), "newencode")
-	var curve = edwards25519.NewBlakeSHA256Ed25519()
 
 	//  Marshall received claimset into JSON
 	cs, _ := json.Marshal(claimset)
 	payload := base64.RawURLEncoding.EncodeToString(cs)
 		
-	// If no oldmain, generates a simple assertion
+	// If no oldmain, generates a simple assertion...
 	if oldmain == "" {
 		tmpsig := dasvid.Sign(payload, key)
 		fmt.Printf("Generated Signature: %s\n", tmpsig.String())
-		// derivedPublicKey := dasvid.PublicKey(payload, tmpsig)
-		// mod to set publickey
-		publicKey := curve.Point().Mul(key, curve.Point().Base())
-		
-		fmt.Printf("Derived Public Key: %s\n", publicKey)
-		fmt.Printf("Checking signature :%t\n\n", dasvid.Verify(payload, tmpsig, publicKey))
 
 		sigbuf := bytes.Buffer{}
 		if err :=  curve.Write(&sigbuf, &tmpsig); err != nil {
@@ -1108,20 +1137,19 @@ func newschnorrencode(claimset map[string]interface{}, oldmain string, key kyber
 
 		encoded := strings.Join([]string{payload, signature}, ".")
 
+		// debug
+		fmt.Printf("message size in base64	: %d\n", len(payload))
+		fmt.Printf("sig size in base64		: %d\n", len(signature))
+		fmt.Printf("Assertion size: %d\n", len(payload) + len(signature))
+
 		return encoded, nil
 	}
 	
 
-	// TODO: Ver o sem old acima, e replicar aqui...
-
-	//  Otherwise, append assertion to previous content (oldmain) and sign it
+	//  ...otherwise, append assertion to previous content (oldmain) and sign all
 	message := strings.Join([]string{payload, oldmain}, ".")
 	tmpsig := dasvid.Sign(message, key)
 	fmt.Printf("Generated Signature: %s\n", tmpsig.String())
-	derivedPublicKey := dasvid.PublicKey(message, tmpsig)
-	fmt.Printf("Derived Public Key: %s\n", derivedPublicKey)
-	fmt.Printf("Checking signature :%t\n\n", dasvid.Verify(message, tmpsig, derivedPublicKey))
-
 	buf := bytes.Buffer{}
 	if err :=  curve.Write(&buf, &tmpsig); err != nil {
 		fmt.Printf("Error! value: %s\n",  err)
@@ -1132,14 +1160,59 @@ func newschnorrencode(claimset map[string]interface{}, oldmain string, key kyber
 	encoded := strings.Join([]string{message, signature}, ".")
 
 	// debug
-	// fmt.Printf("payload size in base64	: %d\n", len(payload))
-	// fmt.Printf("oldpay size in base64	: %d\n", len(oldmain))
-	// fmt.Printf("sig size in base64		: %d\n", len(signature))
-	// fmt.Printf("Assertion size: %d\n", len(payload) + len(oldmain)+ len(signature))
+	fmt.Printf("message size in base64	: %d\n", len(message))
+	fmt.Printf("sig size in base64		: %d\n", len(signature))
+	fmt.Printf("Assertion size: %d\n", len(message) + len(signature))
 
 	return encoded, nil
 }
 
+func pubkey2iss(publicKey kyber.Point) string {
+	issbuf := bytes.Buffer{}
+	if err :=  curve.Write(&issbuf, &publicKey); err != nil {
+		fmt.Printf("Error! value: %s\n",  err)
+		os.Exit(1)
+	}
+	issuer := base64.RawURLEncoding.EncodeToString(issbuf.Bytes())
+	return issuer
+}
+
+func iss2pubkey(message string) kyber.Point {
+
+	// Decode from b64 and retrieve issuer claim (public key)
+	decodedparti, _ := base64.RawURLEncoding.DecodeString(message)
+	fmt.Printf("message value: %s\n",  decodedparti)
+	var tmp map[string]interface{}
+	json.Unmarshal([]byte(decodedparti), &tmp)
+	tmppubkey, _ := base64.RawURLEncoding.DecodeString(fmt.Sprintf("%s", tmp["iss"]))
+
+	// Convert claim to curve point
+	var pubkey kyber.Point
+	buf := bytes.NewBuffer(tmppubkey)
+	if err := curve.Read(buf, &pubkey); err != nil {
+		fmt.Printf("Error! value: %s\n",  err)
+		os.Exit(1)
+	}
+
+	return pubkey
+}
+
+func loadsig(sig string) dasvid.Signature {
+
+	tmpsig, err 	:= base64.RawURLEncoding.DecodeString(sig)
+	if err != nil {
+		fmt.Printf("Error decoding signature: %s\n", err)
+		os.Exit(1)
+	} 
+	var signature dasvid.Signature
+	buf := bytes.NewBuffer(tmpsig)
+	if err := curve.Read(buf, &signature); err != nil {
+		fmt.Printf("Error loading token signature to curve! Error: %s\n",  err)
+		os.Exit(1)
+	}
+
+	return signature
+}
 
 func ParseEnvironment() {
 
@@ -1338,7 +1411,7 @@ func setEnvVariable(env string, current string) {
 // 	}
 // 	fmt.Printf("derived PublicKey: %s\n", pubkey.String())
 
-// 	fmt.Printf("Checking signature %t\n\n", dasvid.Verify(parts[0], signature, pubkey))
+// 	fmt.Printf("Signature verification: %t\n\n", dasvid.Verify(parts[0], signature, pubkey))
 
 // 	os.Exit(1)	
 
@@ -1362,7 +1435,7 @@ func setEnvVariable(env string, current string) {
 
 // 	derivedPublicKey := dasvid.PublicKey(parts[0], signature)
 
-// 	fmt.Printf("Checking signature %t\n\n", dasvid.Verify(parts[0], signature, derivedPublicKey))
+// 	fmt.Printf("Signature verification: %t\n\n", dasvid.Verify(parts[0], signature, derivedPublicKey))
 
 // 	os.Exit(1)	
 
