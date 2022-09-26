@@ -180,11 +180,10 @@ func Verifygg(m0 string, S0 Signature, m1 string, S1 Signature) bool {
     // return sG.Equal(sGv)
 }
 
-// Não sei se faz sentido ter essa função. 
-// Pensei que poderia ser útil para as workloads terem/obterem seus respectivos keypair, dado um id secreto
+// Given ID, return a keypair 
 func IDKeyPair(id string) (kyber.Scalar, kyber.Point){
 
-    // Given ID, return a keypair 
+
     privateKey	:= Hash(id)
     publicKey 	:= curve.Point().Mul(privateKey, curve.Point().Base())
 
