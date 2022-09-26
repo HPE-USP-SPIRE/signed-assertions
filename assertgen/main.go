@@ -185,54 +185,38 @@ Main functions:
 		endpoint = "https://"+serverURL+"/introspect?DASVID="+dasvid
 		
 	case "next":
-		// 	Add next hop assertion to existing DASVID 
-		//  usage: ./assertgen next next_hop_ID DASVID spiffeid/svid
+		// 	Add next hop assertion to existing token
+		//  usage: ./assertgen next oldmain sourceprivatekey destinyprivatekey
 
-		// Fetch claims data
-		clientSVID := dasvid.FetchX509SVID()
-		clientID := clientSVID.ID.String()
-		clientkey := clientSVID.PrivateKey
+		// timestamp
+		issue_time 		:= time.Now().Round(0).Unix()
 
-		issue_time := time.Now().Round(0).Unix()
+		oldmain := os.Args[2]
 
-		// nxt being passed as argument. in poc it is retrieved from mTLS connection
-		next := os.Args[2]
-		maintoken := os.Args[3]
-		
-		svidAsIssuer := os.Args[4]
+		// Generate Keypair
+		// TODO: the soucerpublickey should match audience
+		// keyargument := os.Args[4]
+		sourceprivateKey, sourcepublicKey := dasvid.IDKeyPair(os.Args[3])
+		// _, publicKey := dasvid.RandomKeyPair()
+		fmt.Println("Generated private key  : ", sourceprivateKey.String())
+		fmt.Println("Generated publicKey key: ", sourcepublicKey.String())
 
-		//  Define issuer type:
-		var issuer string
-		switch svidAsIssuer {
-			case "spiffeid":
-				// Uses SPIFFE-ID as ISSUER
-				issuer = clientID
-			case "svid":
-				// Uses SVID cert bundle as ISSUER
-				tmp, _, err := clientSVID.Marshal()
-				if err != nil {
-					fmt.Println("Error retrieving SVID: ", err)
-					os.Exit(1)
-				}
-				issuer = fmt.Sprintf("%v", tmp)
-			default:
-				fmt.Println("Error defining issuer! Select spiffeid or svid.")
-				os.Exit(1)
-		}
+		// Generate next Keypair
+		nextprivateKey, nextpublicKey := dasvid.IDKeyPair(os.Args[4])
 		
 		tokenclaims := map[string]interface{}{
-			"iss":		issuer,
+			"iss":		pubkey2string(sourcepublicKey),
 			"iat":	 	issue_time,
-			"aud":		next,
-			"alg":		"ES256",
+			"aud":		pubkey2string(nextpublicKey),
 		}
-		assertion, err := newencode(tokenclaims, maintoken, clientkey)
+		assertion, err := newschnorrencode(tokenclaims, oldmain, sourceprivateKey)
 		if err != nil {
 			fmt.Println("Error generating signed assertion!")
 			os.Exit(1)
 		} 
 
 		fmt.Println("Generated assertion: ", fmt.Sprintf("%s",assertion))
+		fmt.Println("Next private key   : ", nextprivateKey.String())
 		os.Exit(1)
 	
 	case "ecdsagen":
@@ -510,16 +494,24 @@ Main functions:
 		os.Exit(1)
 
 
+	case "schkeypair":
+		privateKey, publicKey := dasvid.RandomKeyPair()
+		fmt.Println("Generated private key  : ", privateKey.String())
+		fmt.Println("Generated publicKey key: ", publicKey.String())
+		os.Exit(1)	
+		
 	case "schgen":
 		// Generate a new assertion with schnorr signature
-		// usage: ./main schnorr assertionKey assertionValue
+		// usage: ./main schgen assertionKey assertionValue sourceprivatekey destinyprivatekey
 
 		// Generate Keypair
-		privateKey	:= curve.Scalar().Pick(curve.RandomStream())
-    	publicKey 	:= curve.Point().Mul(privateKey, curve.Point().Base())
+		privateKey, publicKey := dasvid.IDKeyPair(os.Args[4])
+		// privateKey, publicKey := dasvid.RandomKeyPair()
+		fmt.Println("Generated private key  : ", privateKey.String())
+		fmt.Println("Generated publicKey key: ", publicKey.String())
 
-		// Issuer
-		issuer := pubkey2iss(publicKey)
+		// // Generate next Keypair
+		nextprivateKey, nextpublicKey := dasvid.IDKeyPair(os.Args[5])
 
 		// timestamp
 		issue_time 		:= time.Now().Round(0).Unix()
@@ -528,7 +520,8 @@ Main functions:
 		assertionkey 	:= os.Args[2]
 		assertionvalue 	:= os.Args[3]
 		assertionclaims := map[string]interface{}{
-			"iss"		:		issuer,
+			"iss"		:		pubkey2string(publicKey),
+			"aud"		:	 	pubkey2string(nextpublicKey),
 			"iat"		:	 	issue_time,
 			assertionkey:		assertionvalue,
 		}
@@ -539,6 +532,7 @@ Main functions:
 		} 
 
 		fmt.Println("Generated assertion: ", fmt.Sprintf("%s",assertion))
+		fmt.Println("Next private key   : ", nextprivateKey.String())
 
 		os.Exit(1)
 
@@ -565,11 +559,16 @@ Main functions:
 		// usage: ./main appsch originaltoken assertionKey assertionValue
 
 		// Generate Keypair
-		privateKey := curve.Scalar().Pick(curve.RandomStream())
-    	publicKey := curve.Point().Mul(privateKey, curve.Point().Base())
+		privateKey, publicKey := dasvid.RandomKeyPair()
 
 		// Issuer
-		issuer := pubkey2iss(publicKey)
+		issuer := pubkey2string(publicKey)
+
+		// Generate next Keypair
+		nextprivateKey, nextpublicKey := dasvid.RandomKeyPair()
+
+		// Audience
+		audience := pubkey2string(nextpublicKey)		
 
 		// timestamp
 		issue_time 		:= time.Now().Round(0).Unix()
@@ -582,6 +581,7 @@ Main functions:
 		assertionvalue 	:= os.Args[4]
 		assertionclaims := map[string]interface{}{
 			"iss"		:		issuer,
+			"aud"		:	 	audience,
 			"iat"		:	 	issue_time,
 			assertionkey:		assertionvalue,
 		}
@@ -592,6 +592,7 @@ Main functions:
 		} 
 
 		fmt.Println("Generated assertion: ", fmt.Sprintf("%s",assertion))
+		fmt.Println("Next private key   : ", nextprivateKey.String())
 
 		os.Exit(1)
 	
@@ -618,7 +619,7 @@ Main functions:
 		publicKey := curve.Point().Mul(privateKey, curve.Point().Base())
 		
 		// Issuer
-		issuer := pubkey2iss(publicKey)
+		issuer := pubkey2string(publicKey)
 		
 		// assertion key:value
 		assertionkey 	:= os.Args[3]
@@ -857,8 +858,14 @@ func validateschnorrassertion(token string) bool {
 		// Load kyber.Signature from token
 		signature := loadsig(parts[j])
 
+		// verify aud/iss link
+		link := checkaudlink(parts[i], parts[i+1])
+		if (link == false) {
+			return false
+		}	
+
 		// extract publickey (kyber.Point) from issuer claim
-		pubkey := iss2pubkey(parts[i])
+		pubkey := string2pubkey(parts[i])
 		fmt.Printf("Retrieved PublicKey from token: %s\n", pubkey.String())
 
     	fmt.Printf("Signature verification: %t\n\n", dasvid.Verify(message, signature, pubkey))
@@ -873,7 +880,7 @@ func validateschnorrassertion(token string) bool {
 	signature := loadsig(parts[j])
 
 	// extract publickey (kyber.Point) from issuer claim
-	pubkey := iss2pubkey(parts[i])
+	pubkey := string2pubkey(parts[i])
 	fmt.Printf("Retrieved PublicKey from token: %s\n", pubkey.String())
 
 	// Verify signature using extracted public key
@@ -1167,17 +1174,17 @@ func newschnorrencode(claimset map[string]interface{}, oldmain string, key kyber
 	return encoded, nil
 }
 
-func pubkey2iss(publicKey kyber.Point) string {
-	issbuf := bytes.Buffer{}
-	if err :=  curve.Write(&issbuf, &publicKey); err != nil {
+func pubkey2string(publicKey kyber.Point) string {
+	buf := bytes.Buffer{}
+	if err :=  curve.Write(&buf, &publicKey); err != nil {
 		fmt.Printf("Error! value: %s\n",  err)
 		os.Exit(1)
 	}
-	issuer := base64.RawURLEncoding.EncodeToString(issbuf.Bytes())
-	return issuer
+	result := base64.RawURLEncoding.EncodeToString(buf.Bytes())
+	return result
 }
 
-func iss2pubkey(message string) kyber.Point {
+func string2pubkey(message string) kyber.Point {
 
 	// Decode from b64 and retrieve issuer claim (public key)
 	decodedparti, _ := base64.RawURLEncoding.DecodeString(message)
@@ -1195,6 +1202,29 @@ func iss2pubkey(message string) kyber.Point {
 	}
 
 	return pubkey
+}
+
+func checkaudlink(issmsg string, audmsg string) bool {
+
+	// Decode issmsg from b64 and retrieve issuer claim 
+	decodediss, _ := base64.RawURLEncoding.DecodeString(issmsg)
+	// fmt.Printf("Issuer message value: %s\n",  decodediss)
+	var tmpiss map[string]interface{}
+	json.Unmarshal([]byte(decodediss), &tmpiss)
+
+	// Decode audmsg from b64 and retrieve audience claim 
+	decodedaud, _ := base64.RawURLEncoding.DecodeString(audmsg)
+	// fmt.Printf("Audience message value: %s\n",  decodediss)
+	var tmpaud map[string]interface{}
+	json.Unmarshal([]byte(decodedaud), &tmpaud)
+
+	// check if iss == aud
+	if (tmpiss["iss"] != tmpaud["aud"]) {
+		fmt.Printf("\nIssuer/Audience link fails!\n")
+		return false
+	}
+	fmt.Printf("\nIssuer/Audience link validated!\n")
+	return true
 }
 
 func loadsig(sig string) dasvid.Signature {

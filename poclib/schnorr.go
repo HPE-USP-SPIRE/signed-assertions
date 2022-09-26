@@ -88,6 +88,7 @@ func Verify(m string, S Signature, y kyber.Point) bool {
     // Equality check; ensure signature and public key outputs to s * G.
     return sG.Equal(sGv)
 }
+
 func (S Signature) String() string {
     return fmt.Sprintf("(r=%s, s=%s)", S.R, S.S)
 }
@@ -179,6 +180,29 @@ func Verifygg(m0 string, S0 Signature, m1 string, S1 Signature) bool {
     // return sG.Equal(sGv)
 }
 
+// Não sei se faz sentido ter essa função. 
+// Pensei que poderia ser útil para as workloads terem/obterem seus respectivos keypair, dado um id secreto
+func IDKeyPair(id string) (kyber.Scalar, kyber.Point){
+
+    // Given ID, return a keypair 
+    privateKey	:= Hash(id)
+    publicKey 	:= curve.Point().Mul(privateKey, curve.Point().Base())
+
+    return privateKey, publicKey
+}
+
+// Return a new random key pair
+func RandomKeyPair() (kyber.Scalar, kyber.Point){
+
+    privateKey	:= curve.Scalar().Pick(curve.RandomStream())
+    publicKey 	:= curve.Point().Mul(privateKey, curve.Point().Base())
+
+    return privateKey, publicKey
+}
+
+
+// Example
+
 // func main() {
 
 //     message := "abc"
@@ -203,4 +227,23 @@ func Verifygg(m0 string, S0 Signature, m1 string, S1 Signature) bool {
 
 //     fmt.Printf("Checking keys %t\n", publicKey.Equal(derivedPublicKey))
 //     fmt.Printf("Checking signature %t\n\n", Verify(message, signature, publicKey))
+// }
+
+
+// --------------- DRAFTS ---------------------
+// Tentando implementar func que retorna um ponto, dado uma string, para usar esse ponto como public key.
+//  not working. 
+
+// func HashPoint(s string) kyber.Point {
+//     sha256.Reset()
+//     sha256.Write([]byte(s))
+
+//     var pt kyber.Point
+// 	bufpt := bytes.NewBuffer(sha256.Sum(nil))
+// 	if err := curve.Read(bufpt, &pt); err != nil {
+// 		fmt.Printf("Error! value: %s\n",  err)
+// 		return nil
+// 	}
+
+//     return pt
 // }
