@@ -34,7 +34,7 @@ import (
 	// To sig. validation 
 	"crypto"
 	"crypto/rsa"
-	_ "crypto/sha256"
+	hash256 "crypto/sha256"
 	"encoding/binary"
 	"math/big"
 
@@ -61,6 +61,13 @@ import (
 	"github.com/spiffe/go-spiffe/v2/svid/x509svid"
 	"github.com/spiffe/go-spiffe/v2/workloadapi"
 	"github.com/spiffe/go-spiffe/v2/bundle/x509bundle"
+
+	"go.dedis.ch/kyber/v3"
+	// "go.dedis.ch/kyber/v3/group/edwards25519"
+	"crypto/ecdsa"
+	"io/ioutil"
+	"crypto/rand"
+
 )
 
 type SVID struct {
@@ -691,4 +698,580 @@ func Jwks2PEM(token string, path string) {
 			// ftest.Close()
 		}
 	}
+}
+
+// jwkEncode encodes public part of an RSA or ECDSA key into a JWK.
+// The result is also suitable for creating a JWK thumbprint.
+// https://tools.ietf.org/html/rfc7517
+func JwkEncode(pub crypto.PublicKey) (string, error) {
+	switch pub := pub.(type) {
+	case *rsa.PublicKey:
+		// https://tools.ietf.org/html/rfc7518#section-6.3.1
+		n := pub.N
+		e := big.NewInt(int64(pub.E))
+		// Field order is important.
+		// See https://tools.ietf.org/html/rfc7638#section-3.3 for details.
+		return fmt.Sprintf(`{"e":"%s","kty":"RSA","n":"%s"}`,
+			base64.RawURLEncoding.EncodeToString(e.Bytes()),
+			base64.RawURLEncoding.EncodeToString(n.Bytes()),
+		), nil
+	case *ecdsa.PublicKey:
+		// https://tools.ietf.org/html/rfc7518#section-6.2.1
+		p := pub.Curve.Params()
+		n := p.BitSize / 8
+		if p.BitSize%8 != 0 {
+			n++
+		}
+		x := pub.X.Bytes()
+		if n > len(x) {
+			x = append(make([]byte, n-len(x)), x...)
+		}
+		y := pub.Y.Bytes()
+		if n > len(y) {
+			y = append(make([]byte, n-len(y)), y...)
+		}
+		// Field order is important.
+		// See https://tools.ietf.org/html/rfc7638#section-3.3 for details.
+		return fmt.Sprintf(`{"crv":"%s","kty":"EC","x":"%s","y":"%s"}`,
+			p.Name,
+			base64.RawURLEncoding.EncodeToString(x),
+			base64.RawURLEncoding.EncodeToString(y),
+		), nil
+	}
+	return "", nil
+}
+
+// Function to perform ecdsa token validation from out level to inside (last -> first assertion)
+func ValidateECDSAeassertion(token string) bool {
+	defer timeTrack(time.Now(), "Validateassertion")
+
+	parts := strings.Split(token, ".")
+
+	//  Verify recursively all lvls except most inner
+	var i = 0
+	var j = len(parts)-1
+	for (i < len(parts)/2 && (i+1 < j-1)) {
+		// Extract first payload (parts[i]) and last signature (parts[j])
+		clean 			:= strings.Join(strings.Fields(strings.Trim(fmt.Sprintf("%s", parts[i+1:j]), "[]")), ".")
+		hash 			:= hash256.Sum256([]byte(parts[i] + "." + clean))
+		signature, err 	:= base64.RawURLEncoding.DecodeString(parts[j])
+		if err != nil {
+			fmt.Printf("Error decoding signature: %s\n", err)
+			return false
+		}
+
+		// retrieve key from IdP
+		keys, err := getkeys(parts[i])
+		if err != nil {
+			fmt.Printf("Error decoding signature: %s\n", err)
+			return false
+		}
+
+		fmt.Printf("Claim     %d: %s\n", i, parts[i])
+		fmt.Printf("Signature %d: %s\n", j, parts[j])
+
+		// Search for a valid key
+		var z = 0
+		for (z < len(keys)-1) {
+			cleankeys 		:= strings.Trim(fmt.Sprintf("%s", keys[z]), "\\")
+			
+			var tmpkey map[string]interface{}
+			json.Unmarshal([]byte(cleankeys), &tmpkey)
+			pkey, _ 		:= base64.RawURLEncoding.DecodeString(fmt.Sprintf("%s", tmpkey["Pkey"]))
+			finallykey, _ 	:= ParseECDSAPublicKey(fmt.Sprintf("%s", pkey))
+
+			verify 			:= ecdsa.VerifyASN1(finallykey.(*ecdsa.PublicKey), hash[:], signature)
+			if (verify == true){
+				fmt.Printf("Signature successfully validated!\n\n")
+				z = len(keys)-1
+			} else {
+				fmt.Printf("\nSignature validation failed!\n\n")
+				if (z == len(keys)-2) {
+					fmt.Printf("\nSignature validation failed! No keys remaining!\n\n")
+					return false
+				}
+			}
+			z++
+		}
+		i++
+		j--
+	}
+
+	// Verify Inner lvl
+
+	// Verify if signature j is valid to parts[i] (there is no remaining previous assertion)
+	hash 			:= hash256.Sum256([]byte(parts[i]))
+	signature, err 	:= base64.RawURLEncoding.DecodeString(parts[j])
+	if (err != nil){
+		fmt.Printf("Error decoding signature: %s\n", err)
+		return false
+	}
+
+	// retrieve key from IdP
+	keys, err := getkeys(parts[i])
+	if err != nil {
+		fmt.Printf("Error decoding signature: %s\n", err)
+		return false
+	}
+
+	// fmt.Printf("Received Keys: %s\n", keys)
+	fmt.Printf("Claim     %d: %s\n", i, parts[i])
+	fmt.Printf("Signature %d: %s\n", j, parts[j])
+
+	// verify if any of the received keys is valid
+	var z = 0
+	for (z < len(keys)-1) {
+		cleankeys 		:= strings.Trim(fmt.Sprintf("%s", keys[z]), "\\")
+
+		var lastkey map[string]interface{}
+		json.Unmarshal([]byte(cleankeys), &lastkey)
+		fmt.Printf("Search kid: %s\n", lastkey["Kid"])
+		key, _ 			:= base64.RawURLEncoding.DecodeString(fmt.Sprintf("%s", lastkey["Pkey"]))
+		finallykey, _ 	:= ParseECDSAPublicKey(fmt.Sprintf("%s", key))
+		
+		verify := ecdsa.VerifyASN1(finallykey.(*ecdsa.PublicKey), hash[:], signature)
+		if (verify == true){
+			fmt.Printf("Signature successfully validated!\n\n")
+			z = len(keys)-1
+		} else {
+			fmt.Printf("\nSignature validation failed!\n\n")
+			if (z == len(keys)-2) {
+				fmt.Printf("\nSignature validation failed! No keys remaining!\n\n")
+				return false
+			}
+		}
+		z++
+	}
+	return true
+}
+
+func NewSchnorrencode(claimset map[string]interface{}, oldmain string, key kyber.Scalar) (string, error) {
+	defer timeTrack(time.Now(), "newencode")
+
+	//  Marshall received claimset into JSON
+	cs, _ := json.Marshal(claimset)
+	payload := base64.RawURLEncoding.EncodeToString(cs)
+		
+	// If no oldmain, generates a simple assertion...
+	if oldmain == "" {
+		tmpsig := Sign(payload, key)
+		// fmt.Printf("Generated Signature: %s\n", tmpsig.String())
+
+		sigbuf := bytes.Buffer{}
+		if err :=  curve.Write(&sigbuf, &tmpsig); err != nil {
+			fmt.Printf("Error in newschnorrencode! value: %s\n",  err)
+			os.Exit(1)
+		}
+		signature := base64.RawURLEncoding.EncodeToString(sigbuf.Bytes())
+
+		encoded := strings.Join([]string{payload, signature}, ".")
+
+		// debug
+		fmt.Printf("message size in base64 : %d\n", len(payload))
+		fmt.Printf("sig size in base64     : %d\n", len(signature))
+		fmt.Printf("Assertion size         : %d\n", len(payload) + len(signature))
+
+		return encoded, nil
+	}
+	
+
+	//  ...otherwise, append assertion to previous content (oldmain) and sign all
+	message := strings.Join([]string{payload, oldmain}, ".")
+	tmpsig := Sign(message, key)
+	// fmt.Printf("Generated Signature: %s\n", tmpsig.String())
+	buf := bytes.Buffer{}
+	if err :=  curve.Write(&buf, &tmpsig); err != nil {
+		fmt.Printf("Error in append newschnorrencode! value: %s\n",  err)
+		os.Exit(1)
+	}
+	signature := base64.RawURLEncoding.EncodeToString(buf.Bytes())
+
+	encoded := strings.Join([]string{message, signature}, ".")
+
+	// debug
+	fmt.Printf("message size in base64 : %d\n", len(message))
+	fmt.Printf("sig size in base64     : %d\n", len(signature))
+	fmt.Printf("Assertion size         : %d\n", len(message) + len(signature))
+
+	return encoded, nil
+}
+
+func NewECDSAencode(claimset map[string]interface{}, oldmain string, key crypto.Signer) (string, error) {
+	defer timeTrack(time.Now(), "newencode")
+
+	//  Marshall received claimset into JSON
+	cs, _ := json.Marshal(claimset)
+	payload := base64.RawURLEncoding.EncodeToString(cs)
+
+	// If no oldmain, generates a simple assertion
+	if oldmain == "" {
+		hash 	:= hash256.Sum256([]byte(payload))
+		s, err 	:= ecdsa.SignASN1(rand.Reader, key.(*ecdsa.PrivateKey), hash[:])
+		if err 	!= nil {
+			fmt.Printf("Error signing: %s\n", err)
+			return "", err
+		}
+		sig := base64.RawURLEncoding.EncodeToString(s)
+		encoded := strings.Join([]string{payload, sig}, ".")
+
+		fmt.Printf("Assertion size: %d\n", len(payload) + len(sig))
+
+		return encoded, nil
+	}
+	
+	//  Otherwise, append assertion to previous content (oldmain) and sign it
+	hash	:= hash256.Sum256([]byte(payload + "." + oldmain))
+	s, err 	:= ecdsa.SignASN1(rand.Reader, key.(*ecdsa.PrivateKey), hash[:])
+	if err != nil {
+		fmt.Printf("Error signing: %s\n", err)
+		return "", err
+	}
+	signature := base64.RawURLEncoding.EncodeToString(s)
+	encoded := strings.Join([]string{payload, oldmain, signature}, ".")
+	
+	fmt.Printf("Assertion size: %d\n", len(payload) + len(oldmain)+ len(signature))
+
+	return encoded, nil
+}
+
+// validateschnorrtrace include iss/aud link validation
+func Validateschnorrtrace(token string) bool {
+	defer timeTrack(time.Now(), "Validateassertion")
+
+	parts := strings.Split(token, ".")
+
+	//  Verify recursively all lvls except most inner
+	var i = 0
+	var j = len(parts)-1
+	for (i < len(parts)/2 && (i+1 < j-1)) {
+		// Extract first payload (parts[i]) and last signature (parts[j])
+		clean 	:= strings.Join(strings.Fields(strings.Trim(fmt.Sprintf("%s", parts[i+1:j]), "[]")), ".")
+		message := strings.Join([]string{parts[i], clean}, ".")
+		
+		// Load kyber.Signature from token
+		signature := String2schsig(parts[j])
+
+		// verify aud/iss link
+		link := Checkaudlink(parts[i], parts[i+1])
+		if (link == false) {
+			return false
+		}	
+
+		// extract publickey (kyber.Point) from issuer claim
+		pubkey := Issuer2schpubkey(parts[i])
+		fmt.Printf("Retrieved PublicKey from token: %s\n", pubkey.String())
+
+    	fmt.Printf("Signature verification: %t\n\n", Verify(message, signature, pubkey))
+		i++
+		j--
+	}
+
+	// Verify Inner lvl
+	message := parts[i]
+		
+	// Load kyber.Signature from token
+	signature := String2schsig(parts[j])
+
+	// extract publickey (kyber.Point) from issuer claim
+	pubkey := Issuer2schpubkey(parts[i])
+	fmt.Printf("Retrieved PublicKey from token: %s\n", pubkey.String())
+
+	// Verify signature using extracted public key
+	sigresult := Verify(message, signature, pubkey)
+
+   	fmt.Printf("Signature verification: %t\n\n", sigresult)
+	return sigresult
+}
+
+// Function to perform schnorr token validation from out level to inside (last -> first assertion)
+// This function did not check iss/aud link
+func Validateschnorrassertion(token string) bool {
+	defer timeTrack(time.Now(), "Validateassertion")
+
+	parts := strings.Split(token, ".")
+
+	//  Verify recursively all lvls except most inner
+	var i = 0
+	var j = len(parts)-1
+	for (i < len(parts)/2 && (i+1 < j-1)) {
+		// Extract first payload (parts[i]) and last signature (parts[j])
+		clean 	:= strings.Join(strings.Fields(strings.Trim(fmt.Sprintf("%s", parts[i+1:j]), "[]")), ".")
+		message := strings.Join([]string{parts[i], clean}, ".")
+		
+		// Load kyber.Signature from token
+		signature := String2schsig(parts[j])
+
+		// extract publickey (kyber.Point) from issuer claim
+		pubkey := Issuer2schpubkey(parts[i])
+		fmt.Printf("Retrieved PublicKey from token: %s\n", pubkey.String())
+
+    	fmt.Printf("Signature verification: %t\n\n", Verify(message, signature, pubkey))
+		i++
+		j--
+	}
+
+	// Verify Inner lvl
+	message := parts[i]
+		
+	// Load kyber.Signature from token
+	signature := String2schsig(parts[j])
+
+	// extract publickey (kyber.Point) from issuer claim
+	pubkey := Issuer2schpubkey(parts[i])
+	fmt.Printf("Retrieved PublicKey from token: %s\n", pubkey.String())
+
+	// Verify signature using extracted public key
+	sigresult := Verify(message, signature, pubkey)
+
+   	fmt.Printf("Signature verification: %t\n\n", sigresult)
+	return sigresult
+}
+
+func Validategg(token string) bool {
+	defer timeTrack(time.Now(), "validategg")
+
+	// UNDER DEVELOPMENT. NOT WORKING
+
+	parts := strings.Split(token, ".")
+
+	// First implementation aims to successfully execute galindo-garcia signature verification (2 hops only)
+	// Calculate h0 and h1 and retrieve r0 and r1
+
+	// collect signatures
+	S0 := String2schsig(parts[2])
+	S1 := String2schsig(parts[3])
+	fmt.Printf("Received first signature : %s\n", S0)
+	fmt.Printf("Received second signature: %s\n", S1)
+
+	// collect msgs
+	m0 		:= parts[1]
+	m1		:= parts[0]
+
+	// collect public keys
+	pubkey0 := Issuer2schpubkey(parts[1])
+	pubkey1 := Issuer2schpubkey(parts[0])
+	fmt.Printf("Received pubkey0 : %s\n", pubkey0)
+	fmt.Printf("Received pubkey1: %s\n", pubkey1)
+
+	fmt.Printf("Signature verification: %t\n\n", Verifygg(m0, S0, pubkey0, m1, S1, pubkey1))
+
+	return true
+}
+
+func Schpubkey2string(publicKey kyber.Point) string {
+	buf := bytes.Buffer{}
+	if err :=  curve.Write(&buf, &publicKey); err != nil {
+		fmt.Printf("Error in pubkey2string! value: %s\n",  err)
+		os.Exit(1)
+	}
+	result := base64.RawURLEncoding.EncodeToString(buf.Bytes())
+	return result
+}
+
+func Issuer2schpubkey(message string) kyber.Point {
+
+	// Decode from b64 and retrieve issuer claim (public key)
+	decodedparti, _ := base64.RawURLEncoding.DecodeString(message)
+	tmppubkey, _ := base64.RawURLEncoding.DecodeString(fmt.Sprintf("%s", extractValue(string(decodedparti), "iss")))
+
+	// Convert claim to curve point
+	var pubkey kyber.Point
+	buf := bytes.NewBuffer(tmppubkey)
+	if err := curve.Read(buf, &pubkey); err != nil {
+		fmt.Printf("Error in  Issuer2schpubkey! value: %s\n",  err)
+		os.Exit(1)
+	}
+
+	return pubkey
+}
+
+func Schsig2string(signature Signature) string {
+	buf := bytes.Buffer{}
+	if err :=  curve.Write(&buf, &signature); err != nil {
+		fmt.Printf("Error in signature2string! value: %s\n",  err)
+		os.Exit(1)
+	}
+	result := base64.RawURLEncoding.EncodeToString(buf.Bytes())
+	return result
+}
+
+func String2schsig(message string) Signature {
+
+	// Decode from b64 and retrieve issuer claim (public key)
+	tmpsig, err := base64.RawURLEncoding.DecodeString(message)
+	if err != nil {
+		fmt.Printf("Error decoding signature: %s\n", err)
+		os.Exit(1)
+	}
+	// fmt.Printf("message value: %s\n",  decodedparti)
+	var signature Signature
+	buf := bytes.NewBuffer(tmpsig)
+	if err := curve.Read(buf, &signature); err != nil {
+		fmt.Printf("Error in signature2string! value: %s\n",  err)
+		os.Exit(1)
+	}
+
+	return signature
+}
+
+func Checkaudlink(issmsg string, audmsg string) bool {
+
+	// Decode issmsg from b64 and retrieve issuer claim 
+	decodediss, _ := base64.RawURLEncoding.DecodeString(issmsg)
+	tmpiss := extractValue(string(decodediss), "iss")
+
+	// Decode audmsg from b64 and retrieve audience claim 
+	decodedaud, _ := base64.RawURLEncoding.DecodeString(audmsg)
+	tmpaud := extractValue(string(decodedaud), "aud")
+
+	// check if iss == aud
+	if (tmpiss != tmpaud) {
+		fmt.Printf("\nIssuer/Audience link fails!\n")
+		return false
+	}
+	fmt.Printf("\nIssuer/Audience link validated!\n")
+	return true
+}
+
+
+func getkeys(message string) ([]string, error) {
+
+	decclaim, _ := base64.RawURLEncoding.DecodeString(message)
+	kid := extractValue(string(decclaim), "kid")
+	fmt.Printf("Search kid: %s\n", kid)
+
+	url := "http://localhost:8888/key/" + fmt.Sprintf("%s", kid)
+    fmt.Printf("\nKey Server URL: %s\n", url)
+
+    var jsonStr = []byte(fmt.Sprintf("%s", kid))
+    req, err := http.NewRequest("GET", url, bytes.NewBuffer(jsonStr))
+
+    client := &http.Client{}
+    resp, err := client.Do(req)
+    if err != nil {
+        fmt.Errorf("error: %s", err)
+        return nil, err
+    }
+    defer resp.Body.Close()
+
+    body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+        fmt.Errorf("error: %s", err)
+        return nil, err
+    }
+
+	keys := strings.SplitAfter(fmt.Sprintf("%s", string(body)), "}")
+	fmt.Printf("Number of Keys received from IdP: %d\n\n", len(keys)-1)
+	if (len(keys)-1 == 0){
+		fmt.Printf("\nError: No keys received!\n\n")
+		return  nil, err
+	}
+
+	return keys, nil
+
+}
+
+func Addkey(key string) (string, error) {
+
+    // url := "http://"+filesrv+":"+filesrvport+"/addnft"
+	url := "http://localhost:8888/addkey"
+    fmt.Printf("\nKey Server URL: %s\n", url)
+
+    var jsonStr = []byte(key)
+    req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonStr))
+    req.Header.Set("X-Custom-Header", "keydata")
+    req.Header.Set("Content-Type", "application/json")
+
+    client := &http.Client{}
+    resp, err := client.Do(req)
+    if err != nil {
+        fmt.Errorf("error: %s", err)
+        return "", err
+    }
+    defer resp.Body.Close()
+
+    body, _ := ioutil.ReadAll(resp.Body)
+
+	return string(body), nil
+}
+
+func ParseECDSAPublicKey(pubPEM string) (interface{}, error){
+	block, _ := pem.Decode([]byte(pubPEM))
+	if block == nil {
+		panic("failed to parse PEM block containing the public key")
+	}
+
+	pub, err := x509.ParsePKIXPublicKey(block.Bytes)
+	if err != nil {
+		panic("failed to parse DER encoded public key: " + err.Error())
+	}
+
+	// switch pub := pub.(type) {
+	// case *rsa.PublicKey:
+	// 	fmt.Println("pub is of type RSA:", pub)
+	// // case *dsa.PublicKey:
+	// // 	fmt.Println("pub is of type DSA:", pub)
+	// case *ecdsa.PublicKey:
+	// 	fmt.Println("pub is of type ECDSA:", pub)
+	// // case ed25519.PublicKey:
+	// // 	fmt.Println("pub is of type Ed25519:", pub)
+	// default:
+	// 	panic("unknown type of public key")
+	// }
+	
+	return pub,nil
+
+}
+
+// EncodeECDSAPublicKey encodes an *ecdsa.PublicKey to PEM format.
+//  TODO: FIX type, that should be different based on input key type
+// At this time it only support ECDSA
+func EncodeECDSAPublicKey(key *ecdsa.PublicKey) ([]byte, error) {
+
+	derKey, err := x509.MarshalPKIXPublicKey(key)
+		if err != nil {
+			return nil, err
+		}
+
+	keyBlock := &pem.Block{
+		Type:  "EC PUBLIC KEY",
+		Bytes: derKey,
+	}
+
+	return pem.EncodeToMemory(keyBlock), nil
+}
+
+func PrintAssertion(assertion string) {
+
+	// Split received token
+	parts := strings.Split(assertion, ".")
+	fmt.Println("Total parts: ", len(parts))
+	if (len(parts) < 2) {
+		fmt.Printf("Invalid number of parts!")
+		os.Exit(1)
+	}
+
+	// print single assertion
+	if (len(parts) < 3) {
+		dectmp, _ := base64.RawURLEncoding.DecodeString(parts[0])
+		fmt.Printf("Claim     [%d]	: %s\n", 0, dectmp)
+		fmt.Printf("Signature [%d]	: %s\n", 1, parts[1])
+		os.Exit(1)
+	}
+	
+	// print token claims
+	var i = 0
+	for (i < len(parts)/2) {
+		dectmp, _ := base64.RawURLEncoding.DecodeString(parts[i])
+		fmt.Printf("Claim     [%d]	: %s\n", i, dectmp)
+		i++
+	}
+
+	// print token  signatures
+	j := len(parts)/2
+	for ( j < len(parts)) {
+		fmt.Printf("Signature [%d]	: %s\n", j, parts[j])
+		j++
+	}
+
 }
