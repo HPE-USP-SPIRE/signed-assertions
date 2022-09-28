@@ -659,6 +659,7 @@ Main functions:
 		assertion := os.Args[2]
 
 		dasvid.Validategg(assertion)
+		// dasvid.Ggold(assertion)
 		os.Exit(1)
 		
 		}
