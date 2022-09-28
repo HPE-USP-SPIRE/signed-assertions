@@ -1040,22 +1040,27 @@ func Validategg(token string) bool {
 	// collect signatures
 	S0 := String2schsig(parts[2])
 	S1 := String2schsig(parts[3])
-	fmt.Printf("Received first signature : %s\n", S0)
-	fmt.Printf("Received second signature: %s\n", S1)
+	fmt.Printf("Received first signature : %s\n", S0.String())
+	fmt.Printf("Received second signature: %s\n", S1.String())
 
 	// collect msgs
 	m0 		:= parts[1]
-	m1		:= parts[0]
+	m1		:= strings.Join([]string{parts[0], parts[1], parts[2]}, ".")
+	fmt.Printf("Received first msgs : %s\n", m0)
+	fmt.Printf("Received second msgs: %s\n", m1)
 
 	// collect public keys
 	pubkey0 := Issuer2schpubkey(parts[1])
 	pubkey1 := Issuer2schpubkey(parts[0])
-	fmt.Printf("Received pubkey0 : %s\n", pubkey0)
-	fmt.Printf("Received pubkey1: %s\n", pubkey1)
+	fmt.Printf("Received pubkey0 : %s\n", pubkey0.String())
+	fmt.Printf("Received pubkey1: %s\n", pubkey1.String())
 
-	fmt.Printf("Signature verification: %t\n\n", Verifygg(m0, S0, pubkey0, m1, S1, pubkey1))
+	// Verify signature using galindo-garcia
+	sigresult := Verifygg(m0, S0, pubkey0, m1, S1, pubkey1)
 
-	return true
+	fmt.Printf("Signature verification: %t\n\n", sigresult)
+
+	return sigresult
 }
 
 func Schpubkey2string(publicKey kyber.Point) string {

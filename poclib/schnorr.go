@@ -25,7 +25,7 @@ func Hash(s string) kyber.Scalar {
 
 // m: Message
 // x: Private key
-func Sign(m string, x kyber.Scalar) Signature {
+func Sign(m string, z kyber.Scalar) Signature {
     // Get the base of the curve.
     g := curve.Point().Base()
 
@@ -35,15 +35,12 @@ func Sign(m string, x kyber.Scalar) Signature {
     // r = k * G (a.k.a the same operation as r = g^k)
     r := curve.Point().Mul(k, g)
 
-    // MAM:
-    // Sign function modified to add public key in hash. Otherwise it is possible to modify the token and generate a valid public key with PublicKey function
-    // Original: Hash(m || r)
-    // e := Hash(m + r.String())
-    publicKey := curve.Point().Mul(x, curve.Point().Base())
-    e := Hash(publicKey.String() + m + r.String())
+    // h := Hash(publicKey + m + r.String())
+    publicKey := curve.Point().Mul(z, g)
+    h := Hash(publicKey.String() + m + r.String())
     
     // s = k - e * x
-    s := curve.Scalar().Sub(k, curve.Scalar().Mul(e, x))
+    s := curve.Scalar().Add(k, curve.Scalar().Mul(h, z))
 
     return Signature{R: r, S: s}
 }
@@ -71,13 +68,11 @@ func Verify(m string, S Signature, y kyber.Point) bool {
     // Create a generator.
     g := curve.Point().Base()
 
-    // e = Hash(m || r)
-    // Hash(pubkey || m || r)
-    e := Hash(y.String() + m + S.R.String())
-    // e := Hash(m + S.R.String())
+    // h = Hash(pubkey || m || r)
+    h := Hash(y.String() + m + S.R.String())
 
-    // Attempt to reconstruct 's * G' with a provided signature; s * G = r - e * y
-    sGv := curve.Point().Sub(S.R, curve.Point().Mul(e, y))
+    // Attempt to reconstruct 's * G' with a provided signature; s * G = r - h * y
+    sGv := curve.Point().Add(S.R, curve.Point().Mul(h, y))
 
     // Construct the actual 's * G'
     sG := curve.Point().Mul(S.S, g)
@@ -98,8 +93,7 @@ func (S Signature) String() string {
 // verificar se (S1.R * y1)^h1 = g^s1
 func Verifygg(m0 string, s0 Signature, pubkey0 kyber.Point, m1 string, s1 Signature, pubkey1 kyber.Point) bool {
 
-    // UNDER DEVELOPMENT. NOT WORKING.
-
+    // working for max 2 hops.
 
     // Create a generator.
     g := curve.Point().Base()
@@ -108,21 +102,21 @@ func Verifygg(m0 string, s0 Signature, pubkey0 kyber.Point, m1 string, s1 Signat
     h0          := Hash(pubkey0.String() + m0 + s0.R.String())
     h1          := Hash(pubkey1.String() + m1 + s1.R.String())
 
-    // S0.R é um ponto e, por isso, não consigo multiplicar por (h0 * y0) pq é outro ponto.
-    // tentei com add sem sucesso
-    y1          := curve.Point().Sub(s0.R, curve.Point().Mul(h0, pubkey0))
+    // y1 = r0 - pubkey0 * h0 
+    y1          := curve.Point().Add(s0.R, curve.Point().Mul(h0, pubkey0))
+    // check y1 correctness
+    // testvalue   := curve.Point().Mul(s0.S, g)
+    // if y1.Equal(testvalue) == true {
+    //     fmt.Println("y1 valido")
+    // }
 
-    leftside    := curve.Point().Sub(s1.R, curve.Point().Mul(h1, y1))
-    rightside   := curve.Point().Mul(s1.S, g)
-
-    // return equality result
-    return leftside.Equal(rightside)
-
+    // check: g ^s1 == r1 - y1 ^h1 
+    leftside    := curve.Point().Mul(s1.S, g)
+    rightside   := curve.Point().Add(s1.R, curve.Point().Mul(h1, y1))
 
     // verify r1 * ((r0 * y0) * h0) * h1 = g * s1
-    // y1 = r0 * y0 ^ h0
-    // r1 * y1 ^ h1 = g ^ s1  
-    return false
+
+    return leftside.Equal(rightside)
 }
 
 // Given ID, return a keypair 

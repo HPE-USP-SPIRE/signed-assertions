@@ -451,6 +451,7 @@ Main functions:
 
 		// Generate Keypair
 		privateKey, publicKey := dasvid.RandomKeyPair()
+		fmt.Println("Generated publicKey: ", publicKey)
 
 		// timestamp
 		issue_time 		:= time.Now().Round(0).Unix()
@@ -524,7 +525,7 @@ Main functions:
 
 		os.Exit(1)
 	
-	case "tracenew":
+	case "tracegen":
 		// Generate a new schnorr signed assertion containing key:value and audience
 		// issuer: public key from secretkey
 		// audience: public key from nextsecretkey
@@ -561,7 +562,7 @@ Main functions:
 
 	case "traceadd":
 		// 	Add next hop assertion to existing tracetoken
-		//  usage: ./assertgen traceadd tracetoken sourceprivatekey destinyprivatekey
+		//  usage: ./assertgen traceadd tracetoken key value sourceprivatekey destinyprivatekey
 
 		// timestamp
 		issue_time 		:= time.Now().Round(0).Unix()
@@ -569,7 +570,7 @@ Main functions:
 		oldmain := os.Args[2]
 
 		// Generate Keypair
-		privateKey, publicKey := dasvid.IDKeyPair(os.Args[3])
+		privateKey, publicKey := dasvid.IDKeyPair(os.Args[5])
 
 		// check soucerpublickey vs audience
 		parts := strings.Split(oldmain, ".")
@@ -582,12 +583,13 @@ Main functions:
 		}	
 
 		// Generate next Keypair
-		_, nextpublicKey := dasvid.IDKeyPair(os.Args[4])
+		_, nextpublicKey := dasvid.IDKeyPair(os.Args[6])
 		
 		tokenclaims := map[string]interface{}{
-			"iss":		dasvid.Schpubkey2string(publicKey),
-			"iat":	 	issue_time,
-			"aud":		dasvid.Schpubkey2string(nextpublicKey),
+			"iss"		: dasvid.Schpubkey2string(publicKey),
+			"iat"		: issue_time,
+			os.Args[3]	: os.Args[4],
+			"aud"		: dasvid.Schpubkey2string(nextpublicKey),
 		}
 		assertion, err := dasvid.NewSchnorrencode(tokenclaims, oldmain, privateKey)
 		if err != nil {
@@ -609,10 +611,13 @@ Main functions:
 
 	case "concatenate":
 		// Append an assertion with schnorr signature, using previous signature.S as key
-		// usage: ./main concatenate_draft originaltoken assertionKey assertionValue
+		// usage: ./main concatenate originaltoken assertionKey assertionValue
 
 		// timestamp
 		issue_time 		:= time.Now().Round(0).Unix()
+
+		// set g
+		g := curve.Point().Base()
 
 		// Original token
 		oldmain 		:= os.Args[2]
@@ -620,10 +625,11 @@ Main functions:
 		// Retrieve signature from originaltoken 
 		origsignature := dasvid.String2schsig(parts[1])
 		// Ao assumir signature.S como chave privada:
-		// TODO:  remover S da assinatura. ver como "recuperar" o S na hora da validação
+		// TODO:  remove signature.S. ver como "recuperar" o S na hora da validação
 		privateKey := origsignature.S
 		// publicKey := origsignature.R
-		publicKey := curve.Point().Mul(privateKey, curve.Point().Base())
+		publicKey := curve.Point().Mul(privateKey, g)
+		fmt.Println("Generated publicKey: ", publicKey)
 		
 		// Issuer
 		issuer := dasvid.Schpubkey2string(publicKey)
@@ -646,7 +652,7 @@ Main functions:
 
 		os.Exit(1)
 		
-	case "ggschnorr_draft":
+	case "ggschnorr":
 		// 	Verify assertion signature using Galindo Garcia
 		//  usage: ./assertgen schver assertion
 
