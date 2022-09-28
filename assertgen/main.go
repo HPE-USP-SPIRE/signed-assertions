@@ -623,7 +623,7 @@ Main functions:
 		oldmain 		:= os.Args[2]
 		parts 			:= strings.Split(oldmain, ".")
 		// Retrieve signature from originaltoken 
-		origsignature := dasvid.String2schsig(parts[1])
+		origsignature := dasvid.String2schsig(parts[len(parts) -1])
 		// Ao assumir signature.S como chave privada:
 		// TODO:  remove signature.S. ver como "recuperar" o S na hora da validação
 		privateKey := origsignature.S
