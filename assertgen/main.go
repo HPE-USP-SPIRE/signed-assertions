@@ -625,9 +625,10 @@ Main functions:
 		// Retrieve signature from originaltoken 
 		origsignature := dasvid.String2schsig(parts[len(parts) -1])
 		// Ao assumir signature.S como chave privada:
-		// TODO:  remove signature.S. ver como "recuperar" o S na hora da validação
+		// TODO:  remove signature.S.
 		privateKey := origsignature.S
-		// publicKey := origsignature.R
+		parts[len(parts) -1] = dasvid.Schsig2string(origsignature)
+		oldmain = strings.Join(parts, ".")
 		publicKey := curve.Point().Mul(privateKey, g)
 		fmt.Println("Generated publicKey: ", publicKey)
 		
@@ -659,7 +660,6 @@ Main functions:
 		assertion := os.Args[2]
 
 		dasvid.Validategg(assertion)
-		// dasvid.Ggold(assertion)
 		os.Exit(1)
 		
 		}

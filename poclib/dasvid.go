@@ -40,11 +40,9 @@ import (
 
 	"time"
 	"os"
-    // "os/exec"
 	"net/http"
 	"encoding/json"
 	"io"
-	// "io/ioutil"
 		
 	// // to retrieve PrivateKey
 	"bufio"
@@ -63,7 +61,6 @@ import (
 	"github.com/spiffe/go-spiffe/v2/bundle/x509bundle"
 
 	"go.dedis.ch/kyber/v3"
-	// "go.dedis.ch/kyber/v3/group/edwards25519"
 	"crypto/ecdsa"
 	"io/ioutil"
 	"crypto/rand"
@@ -1027,48 +1024,41 @@ func Validateschnorrassertion(token string) bool {
 	return sigresult
 }
 
+// Collect necessary data to perform Galindo-Garcia validation to 'n' parts
 func Validategg(token string) bool {
 	defer timeTrack(time.Now(), "validategg")
 
+	// split received token
 	parts := strings.Split(token, ".")
 
-	// First implementation aims to successfully execute galindo-garcia signature verification (2 hops only)
-	// Calculate h0 and h1 and retrieve r0 and r1
-
-	// TODO:
-	// loop to collect  and construct all 'n' necessary parts
-	// Sn.r
-	// Hn
-	// pubkeyn
-
-	//  
 	var i = 0
 	var j = len(parts)-1
 	fmt.Printf("number of keys: %d\n", len(parts)/2)
 	var setpubkey []kyber.Point
 	var setSigR []kyber.Point
 	var setH []kyber.Scalar
+
+	// go through all token parts collecting and constructing necessary data
 	for (i < len(parts)/2 && (i+1 < j-1)) {
-		// 
+		// Construct message
 		clean 	:= strings.Join(strings.Fields(strings.Trim(fmt.Sprintf("%s", parts[i+1:j]), "[]")), ".")
 		message := strings.Join([]string{parts[i], clean}, ".")
 		
-		// Load kyber.Signature from token
+		// Load kyber.Signature
 		signature := String2schsig(parts[j])
-		// fmt.Printf("signature: %s\n", signature)
 
 		// extract signature.R
 		setSigR = append(setSigR, signature.R)
 		fmt.Printf("signature.R[%d]: %s\n", i, setSigR[i].String())
 
-		// Load PublicKey from token
+		// Load issuer PublicKey
 		pubkey := Issuer2schpubkey(parts[i])
 		setpubkey = append(setpubkey, pubkey)
-		fmt.Printf("PublicKey[%d]: %s\n", i, setpubkey[i].String())
+		fmt.Printf("PublicKey[%d]  : %s\n", i, setpubkey[i].String())
 
-		// calc hash
+		// calculate hash
 		setH = append(setH, Hash(pubkey.String() + message + signature.R.String()))
-		fmt.Printf("Hash[%d]: %s\n", i,  setH[i].String())
+		fmt.Printf("Hash[%d]       : %s\n\n", i,  setH[i].String())
 
 		i++
 		j--
@@ -1077,90 +1067,32 @@ func Validategg(token string) bool {
 	// Verify Inner lvl
 	message := parts[i]
 		
-	// Load kyber.Signature from token
+	// Load kyber.Signature
 	signature := String2schsig(parts[j])
 
 	// extract signature.R
 	setSigR = append(setSigR, signature.R)
 	fmt.Printf("signature.R[%d]: %s\n", i, setSigR[i].String())
 
-	// Load PublicKey from token
+	// Load PublicKey
+	// PS: This is the first (original) public key and its passed to gg 'y' first round
 	pubkey := Issuer2schpubkey(parts[i])
 	setpubkey = append(setpubkey, pubkey)
-	fmt.Printf("PublicKey[%d]: %s\n", i, setpubkey[i].String())
+	fmt.Printf("PublicKey[%d]  : %s\n", i, setpubkey[i].String())
 
 	// calc hash
 	setH = append(setH, Hash(pubkey.String() + message + signature.R.String()))
-	fmt.Printf("Hash[%d]: %s\n", i,  setH[i].String())
+	fmt.Printf("Hash[%d]       : %s\n", i,  setH[i].String())
 
 	sz := String2schsig(parts[len(parts)-1])
 	s1s := sz.S
-	fmt.Printf("s1s: %s\n",  sz.S.String())
+	fmt.Printf("s1s            : %s\n\n",  sz.S.String())
 
-	fmt.Printf("Signature verification: %t\n\n", Verifygg(pubkey, setSigR, setH, s1s))
+	sigver := Verifygg(pubkey, setSigR, setH, s1s)
 
+	fmt.Printf("Signature verification: %t\n\n", sigver)
 
-	// // collect signatures
-	// S0 := String2schsig(parts[2])
-	// S1 := String2schsig(parts[3])
-	// fmt.Printf("Received first signature : %s\n", S0.String())
-	// fmt.Printf("Received second signature: %s\n", S1.String())
-
-	// // collect msgs
-	// m0 		:= parts[1]
-	// m1		:= strings.Join([]string{parts[0], parts[1], parts[2]}, ".")
-	// fmt.Printf("Received first msgs : %s\n", m0)
-	// fmt.Printf("Received second msgs: %s\n", m1)
-
-	// // collect public keys
-	// pubkey0 := Issuer2schpubkey(parts[1])
-	// pubkey1 := Issuer2schpubkey(parts[0])
-	// fmt.Printf("Received pubkey0 : %s\n", pubkey0.String())
-	// fmt.Printf("Received pubkey1: %s\n", pubkey1.String())
-
-	// // Verify signature using galindo-garcia
-	// // TODO: pass just needed parameters. Nothing else.
-	// sigresult := Verifygg(m0, S0, pubkey0, m1, S1, pubkey1)
-
-	// fmt.Printf("Signature verification: %t\n\n", sigresult)
-
-	return true
-}
-
-func Ggold(token string) bool {
-	defer timeTrack(time.Now(), "validategg")
-
-	// UNDER DEVELOPMENT. NOT WORKING
-
-	parts := strings.Split(token, ".")
-
-	// First implementation aims to successfully execute galindo-garcia signature verification (2 hops only)
-	// Calculate h0 and h1 and retrieve r0 and r1
-
-	// collect signatures
-	S0 := String2schsig(parts[2])
-	S1 := String2schsig(parts[3])
-	fmt.Printf("Received first signature : %s\n", S0.String())
-	fmt.Printf("Received second signature: %s\n", S1.String())
-
-	// collect msgs
-	m0 		:= parts[1]
-	m1		:= strings.Join([]string{parts[0], parts[1], parts[2]}, ".")
-	fmt.Printf("Received first msgs : %s\n", m0)
-	fmt.Printf("Received second msgs: %s\n", m1)
-
-	// collect public keys
-	pubkey0 := Issuer2schpubkey(parts[1])
-	pubkey1 := Issuer2schpubkey(parts[0])
-	fmt.Printf("Received pubkey0 : %s\n", pubkey0.String())
-	fmt.Printf("Received pubkey1: %s\n", pubkey1.String())
-
-	// Verify signature using galindo-garcia
-	sigresult := Oldgold(m0, S0, pubkey0, m1, S1, pubkey1)
-
-	fmt.Printf("Signature verification: %t\n\n", sigresult)
-
-	return sigresult
+	return sigver
 }
 
 func Schpubkey2string(publicKey kyber.Point) string {
@@ -1202,7 +1134,6 @@ func Schsig2string(signature Signature) string {
 
 func String2schsig(message string) Signature {
 
-	// Decode from b64 and retrieve issuer claim (public key)
 	tmpsig, err := base64.RawURLEncoding.DecodeString(message)
 	if err != nil {
 		fmt.Printf("Error decoding signature: %s\n", err)
@@ -1237,7 +1168,6 @@ func Checkaudlink(issmsg string, audmsg string) bool {
 	fmt.Printf("\nIssuer/Audience link validated!\n")
 	return true
 }
-
 
 func getkeys(message string) ([]string, error) {
 

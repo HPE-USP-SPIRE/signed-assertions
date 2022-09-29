@@ -44,23 +44,6 @@ func Sign(m string, z kyber.Scalar) Signature {
 }
 
 // m: Message
-// S: Signature
-// MAM: This funcion is deprecated since public key is part of the hash.
-// func PublicKey(m string, S Signature) kyber.Point {
-//     // Create a generator.
-//     g := curve.Point().Base()
-
-//     // e = Hash(m || r)
-//     e := Hash(m + S.R.String())
-
-//     // y = (r - s * G) * (1 / e)
-//     y := curve.Point().Sub(S.R, curve.Point().Mul(S.S, g))
-//     y = curve.Point().Mul(curve.Scalar().Div(curve.Scalar().One(), e), y)
-
-//     return y
-// }
-
-// m: Message
 // s: Signature
 // y: Public key
 func Verify(m string, S Signature, y kyber.Point) bool {
@@ -84,74 +67,45 @@ func (S Signature) String() string {
     return fmt.Sprintf("(r=%s, s=%s)", S.R, S.S)
 }
 
-// m: Message
-// s: Signature
-// pubkey: Public keys
-// S0.R, S1.R, S1
-// y1 = (r0 * pubkey0)^h0
-// verificar se (S1.R * y1)^h1 = g^s1
-// func Verifygg(m0 string, s0 Signature, pubkey0 kyber.Point, m1 string, s1 Signature, pubkey1 kyber.Point) bool {
+// origpubkey = first public key
+// setSigR = array containing all Sig.R
+// setH = array containing all Hashes
+// s1s = last signature.S
 func Verifygg(origpubkey kyber.Point, setSigR []kyber.Point, setH []kyber.Scalar, s1s kyber.Scalar) bool {
+    // Verify n concatenated signatures using galindo-garcia
 
-       if (len(setSigR)) != len(setH) {
+    // Important to note that as new assertions are added in the beginning of the token, the content of arrays is in reverse order.
+    // e.g. setSigR[0] = last appended signature. Thats why 'i' starts from len(setSigR)-1
+    if (len(setSigR)) != len(setH) {
         fmt.Println("Incorrect parameters!")
         return false
     }
 
+    var i = len(setSigR)-1
+    var y kyber.Point
+
     // Create a generator.
     g := curve.Point().Base()
 
-    var i = len(setSigR)-1
-    var y kyber.Point
-    var rightside kyber.Point
-
+    // calculate all y's from first to last-1 parts
 	for (i > 0) {
         if (i == len(setSigR)-1) {
             y = origpubkey
         } else {
             y = curve.Point().Sub(setSigR[i+1], curve.Point().Mul(setH[i+1], y))
         }
-    i--
+        i--
     }
 
+    // calculate last y
     y = curve.Point().Sub(setSigR[i+1], curve.Point().Mul(setH[i+1], y))
 
+    // check if g ^ lastsig.S = lastsig.R - y ^ lastHash
     leftside    := curve.Point().Mul(s1s, g)
-    rightside   = curve.Point().Sub(setSigR[i], curve.Point().Mul(setH[i], y))
-
-
-    return leftside.Equal(rightside)
-}
-
-func Oldgold(m0 string, s0 Signature, pubkey0 kyber.Point, m1 string, s1 Signature, pubkey1 kyber.Point) bool {
-
-    // working for max 2 hops.
-
-    // Create a generator.
-    g := curve.Point().Base()
-
-    // Hash(pubkey || m || r)
-    h0          := Hash(pubkey0.String() + m0 + s0.R.String())
-    h1          := Hash(pubkey1.String() + m1 + s1.R.String())
-
-    // y1 = r0 - pubkey0 * h0 
-    y1          := curve.Point().Sub(s0.R, curve.Point().Mul(h0, pubkey0))
-    // check y1 correctness
-    // testvalue   := curve.Point().Mul(s0.S, g)
-    // if y1.Equal(testvalue) == true {
-    //     fmt.Println("y1 valido")
-    // }
-
-    // check: g ^s1 == r1 - y1 ^h1 
-    fmt.Println("s1.s: ", s1.S.String())
-    leftside    := curve.Point().Mul(s1.S, g)
-    rightside   := curve.Point().Sub(s1.R, curve.Point().Mul(h1, y1))
-
-    // verify r1 * ((r0 * y0) * h0) * h1 = g * s1
+    rightside   := curve.Point().Sub(setSigR[i], curve.Point().Mul(setH[i], y))
 
     return leftside.Equal(rightside)
 }
-
 
 // Given ID, return a keypair 
 func IDKeyPair(id string) (kyber.Scalar, kyber.Point){
