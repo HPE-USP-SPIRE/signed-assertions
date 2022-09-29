@@ -6,26 +6,20 @@ import (
   "go.dedis.ch/kyber/v3/group/edwards25519"
 )
 
+// Set parameters
 var curve = edwards25519.NewBlakeSHA256Ed25519()
 var sha256 = curve.Hash()
+var g = curve.Point().Base()
 
 type Signature struct {
     R kyber.Point
     S kyber.Scalar
 }
 
-func Hash(s string) kyber.Scalar {
-    sha256.Reset()
-    sha256.Write([]byte(s))
-
-    return curve.Scalar().SetBytes(sha256.Sum(nil))
-}
-
+// Sign using Schnorr EdDSA
 // m: Message
 // x: Private key
 func Sign(m string, z kyber.Scalar) Signature {
-    // Get the base of the curve.
-    g := curve.Point().Base()
 
     // Pick a random k from allowed set.
     k := curve.Scalar().Pick(curve.RandomStream())
@@ -43,14 +37,12 @@ func Sign(m string, z kyber.Scalar) Signature {
     return Signature{R: r, S: s}
 }
 
+// Verify Schnorr EdDSA signatures
 // m: Message
 // s: Signature
 // y: Public key
 func Verify(m string, S Signature, y kyber.Point) bool {
-    // Create a generator.
-    g := curve.Point().Base()
 
-    // h = Hash(pubkey || m || r)
     h := Hash(y.String() + m + S.R.String())
 
     // Attempt to reconstruct 's * G' with a provided signature; s * G = r - h * y
@@ -63,19 +55,15 @@ func Verify(m string, S Signature, y kyber.Point) bool {
     return sG.Equal(sGv)
 }
 
-func (S Signature) String() string {
-    return fmt.Sprintf("(r=%s, s=%s)", S.R, S.S)
-}
-
-// origpubkey = first public key
-// setSigR = array containing all Sig.R
-// setH = array containing all Hashes
-// lastsigS = last signature.S
+// Verify concatenated EdDSA signatures using Galindo-Garcia
+// origpubkey: first public key
+// setSigR: array with all Sig.R
+// setH: array with all Hashes
+// lastsigS: last signature.S
 func Verifygg(origpubkey kyber.Point, setSigR []kyber.Point, setH []kyber.Scalar, lastsigS kyber.Scalar) bool {
-    // Verify n concatenated signatures using galindo-garcia
 
     // Important to note that as new assertions are added in the beginning of the token, the content of arrays is in reverse order.
-    // e.g. setSigR[0] = last appended signature. Thats why 'i' starts from len(setSigR)-1
+    // e.g. setSigR[0] = last appended signature.
     if (len(setSigR)) != len(setH) {
         fmt.Println("Incorrect parameters!")
         return false
@@ -83,9 +71,6 @@ func Verifygg(origpubkey kyber.Point, setSigR []kyber.Point, setH []kyber.Scalar
 
     var i = len(setSigR)-1
     var y kyber.Point
-
-    // Create a generator.
-    g := curve.Point().Base()
 
     // calculate all y's from first to last-1 parts
 	for (i > 0) {
@@ -110,7 +95,6 @@ func Verifygg(origpubkey kyber.Point, setSigR []kyber.Point, setH []kyber.Scalar
 // Given ID, return a keypair 
 func IDKeyPair(id string) (kyber.Scalar, kyber.Point){
 
-
     privateKey	:= Hash(id)
     publicKey 	:= curve.Point().Mul(privateKey, curve.Point().Base())
 
@@ -124,4 +108,16 @@ func RandomKeyPair() (kyber.Scalar, kyber.Point){
     publicKey 	:= curve.Point().Mul(privateKey, curve.Point().Base())
 
     return privateKey, publicKey
+}
+
+// Given string, return hash Scalar
+func Hash(s string) kyber.Scalar {
+    sha256.Reset()
+    sha256.Write([]byte(s))
+
+    return curve.Scalar().SetBytes(sha256.Sum(nil))
+}
+
+func (S Signature) String() string {
+    return fmt.Sprintf("(r=%s, s=%s)", S.R, S.S)
 }

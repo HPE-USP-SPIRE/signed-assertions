@@ -43,18 +43,6 @@ type keydata struct {
 	Exp			int64  `json:exp",omitempty"`
 }
 
-func GetOutboundIP() net.IP {
-    conn, err := net.Dial("udp", "8.8.8.8:80")
-    if err != nil {
-        log.Fatal(err)
-    }
-    defer conn.Close()
-
-    localAddr := conn.LocalAddr().(*net.UDPAddr)
-
-    return localAddr.IP
-}
-
 func main() {
 	ParseEnvironment()
 
@@ -146,6 +134,7 @@ Main functions:
 `)
 	os.Exit(1)
 
+	//  __ Asserting Workload Interactions __ //
 	case "print":
 		// 	Print given token
 		//  usage: ./main print token
@@ -176,6 +165,7 @@ Main functions:
 		dasvid := os.Args[2]
 		endpoint = "https://"+serverURL+"/introspect?DASVID="+dasvid
 	
+	//  __ ECDSA __ //
 	case "ecdsagen":
 		// Generate a new assertion
 		// usage: ./main generic assertionKey assertionValue spiffeid/svid
@@ -444,7 +434,7 @@ Main functions:
 
 		os.Exit(1)
 
-	//  ____________ NEW _____________ //
+	//  __ Normal EdDSA Schnorr __ //
 	case "schgen":
 		// Generate a new schnorr signed assertion containing key:value with no specific audience
 		// usage: ./assertgen schgen assertionKey assertionValue
@@ -525,6 +515,7 @@ Main functions:
 
 		os.Exit(1)
 	
+	//  __ Tracing model (EdDSA Schnorr + issuer/audience verification + string based key) __ //
 	case "tracegen":
 		// Generate a new schnorr signed assertion containing key:value and audience
 		// issuer: public key from secretkey
@@ -609,9 +600,10 @@ Main functions:
 		dasvid.Validateschnorrtrace(assertion)
 		os.Exit(1)
 
+	//  __ Concatenated EdDSA Schnorr (sig.S as next private Key with full/compact mode) __ //
 	case "concatenate":
 		// Append an assertion with schnorr signature, using previous signature.S as key
-		// usage: ./main concatenate originaltoken assertionKey assertionValue
+		// usage: ./main concatenate originaltoken assertionKey assertionValue <full/compact>
 
 		// MAM: Analisando o full vs compact, há a possibilidade de misturar os dois tipos a cada novo append de uma assertion.
 		// TODO: Compatibilizar 
@@ -633,9 +625,8 @@ Main functions:
 
 			// Retrieve signature from originaltoken 
 			prevsignature := dasvid.String2schsig(parts[len(parts) -1])
-			// Ao assumir signature.S como chave privada:
-			// TODO:  remove signature.S. 
 			privateKey := prevsignature.S
+			// Discard sig.S
 			parts[len(parts) -1] = dasvid.Point2string(prevsignature.R)
 			oldmain = strings.Join(parts, ".")
 			publicKey := curve.Point().Mul(privateKey, g)
@@ -661,11 +652,7 @@ Main functions:
 
 			// Retrieve signature from originaltoken 
 			prevsignature := dasvid.String2schsig(parts[len(parts) -1])
-			// Ao assumir signature.S como chave privada:
-			// TODO:  remove signature.S. 
 			privateKey := prevsignature.S
-			// parts[len(parts) -1] = dasvid.Point2string(prevsignature.R)
-			// oldmain = strings.Join(parts, ".")
 			publicKey := curve.Point().Mul(privateKey, g)
 			// fmt.Println("Generated publicKey: ", publicKey)
 			
@@ -691,9 +678,10 @@ Main functions:
 
 		os.Exit(1)
 		
+	//  __ Galindo Garcia validation of EdDSA Schnorr signatures__ //
 	case "ggschnorr":
-		// 	Verify assertion signature using Galindo Garcia
-		//  usage: ./assertgen schver assertion
+		// 	Verify assertion signatures using Galindo Garcia
+		//  usage: ./assertgen schver assertion <full/compact>
 
 		assertion := os.Args[2]
 
@@ -762,4 +750,16 @@ func setEnvVariable(env string, current string) {
 			os.Setenv(key, value)
 		}
 	}
+}
+
+func GetOutboundIP() net.IP {
+    conn, err := net.Dial("udp", "8.8.8.8:80")
+    if err != nil {
+        log.Fatal(err)
+    }
+    defer conn.Close()
+
+    localAddr := conn.LocalAddr().(*net.UDPAddr)
+
+    return localAddr.IP
 }

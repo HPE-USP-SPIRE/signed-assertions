@@ -1112,6 +1112,7 @@ func ValidateCompactgg(token string) bool {
 
 
 	// go through all token parts collecting and constructing necessary data
+	// Compact mode have part[0] with full signature, and other parts just sig.R
 	for (i < len(parts)/2 && (i+1 < j-1)) {
 
 		// Construct message
