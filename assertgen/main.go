@@ -451,7 +451,7 @@ Main functions:
 
 		// Generate Keypair
 		privateKey, publicKey := dasvid.RandomKeyPair()
-		fmt.Println("Generated publicKey: ", publicKey)
+		// fmt.Println("Generated publicKey: ", publicKey)
 
 		// timestamp
 		issue_time 		:= time.Now().Round(0).Unix()
@@ -613,6 +613,9 @@ Main functions:
 		// Append an assertion with schnorr signature, using previous signature.S as key
 		// usage: ./main concatenate originaltoken assertionKey assertionValue
 
+		// MAM: Analisando o full vs compact, há a possibilidade de misturar os dois tipos a cada novo append de uma assertion.
+		// TODO: Compatibilizar 
+
 		// timestamp
 		issue_time 		:= time.Now().Round(0).Unix()
 
@@ -621,33 +624,68 @@ Main functions:
 
 		// Original token
 		oldmain 		:= os.Args[2]
-		parts 			:= strings.Split(oldmain, ".")
-		// Retrieve signature from originaltoken 
-		origsignature := dasvid.String2schsig(parts[len(parts) -1])
-		// Ao assumir signature.S como chave privada:
-		// TODO:  remove signature.S.
-		privateKey := origsignature.S
-		parts[len(parts) -1] = dasvid.Schsig2string(origsignature)
-		oldmain = strings.Join(parts, ".")
-		publicKey := curve.Point().Mul(privateKey, g)
-		fmt.Println("Generated publicKey: ", publicKey)
+		parts 			:= strings.Split(oldmain, ".")		
+
+		var assertion string
 		
-		// Issuer
-		issuer := dasvid.Schpubkey2string(publicKey)
-		
-		// assertion key:value
-		assertionkey 	:= os.Args[3]
-		assertionvalue 	:= os.Args[4]
-		assertionclaims := map[string]interface{}{
-			"iss"		:		issuer,
-			"iat"		:	 	issue_time,
-			assertionkey:		assertionvalue,
+		if os.Args[5] == "compact" {
+			
+
+			// Retrieve signature from originaltoken 
+			prevsignature := dasvid.String2schsig(parts[len(parts) -1])
+			// Ao assumir signature.S como chave privada:
+			// TODO:  remove signature.S. 
+			privateKey := prevsignature.S
+			parts[len(parts) -1] = dasvid.Point2string(prevsignature.R)
+			oldmain = strings.Join(parts, ".")
+			publicKey := curve.Point().Mul(privateKey, g)
+			// fmt.Println("Generated publicKey: ", publicKey)
+			
+			// Issuer
+			issuer := dasvid.Schpubkey2string(publicKey)
+			
+			// assertion key:value
+			assertionkey 	:= os.Args[3]
+			assertionvalue 	:= os.Args[4]
+			assertionclaims := map[string]interface{}{
+				"iss"		:		issuer,
+				"iat"		:	 	issue_time,
+				assertionkey:		assertionvalue,
+			}
+			assertion, err = dasvid.NewSchnorrencode(assertionclaims, oldmain, privateKey)
+			if err != nil {
+				fmt.Println("Error generating signed schnorr assertion!")
+				os.Exit(1)
+			} 
+		} else if os.Args[5] == "full" {
+
+			// Retrieve signature from originaltoken 
+			prevsignature := dasvid.String2schsig(parts[len(parts) -1])
+			// Ao assumir signature.S como chave privada:
+			// TODO:  remove signature.S. 
+			privateKey := prevsignature.S
+			// parts[len(parts) -1] = dasvid.Point2string(prevsignature.R)
+			// oldmain = strings.Join(parts, ".")
+			publicKey := curve.Point().Mul(privateKey, g)
+			// fmt.Println("Generated publicKey: ", publicKey)
+			
+			// Issuer
+			issuer := dasvid.Schpubkey2string(publicKey)
+			
+			// assertion key:value
+			assertionkey 	:= os.Args[3]
+			assertionvalue 	:= os.Args[4]
+			assertionclaims := map[string]interface{}{
+				"iss"		:		issuer,
+				"iat"		:	 	issue_time,
+				assertionkey:		assertionvalue,
+			}
+			assertion, err = dasvid.NewSchnorrencode(assertionclaims, oldmain, privateKey)
+			if err != nil {
+				fmt.Println("Error generating signed schnorr assertion!")
+				os.Exit(1)
+			} 
 		}
-		assertion, err := dasvid.NewSchnorrencode(assertionclaims, oldmain, privateKey)
-		if err != nil {
-			fmt.Println("Error generating signed schnorr assertion!")
-			os.Exit(1)
-		} 
 
 		fmt.Println("Generated assertion: ", fmt.Sprintf("%s",assertion))
 
@@ -659,7 +697,13 @@ Main functions:
 
 		assertion := os.Args[2]
 
-		dasvid.Validategg(assertion)
+		if os.Args[3] == "compact" {
+			dasvid.ValidateCompactgg(assertion)
+		} else{
+			dasvid.Validategg(assertion)
+		}
+		
+		
 		os.Exit(1)
 		
 		}

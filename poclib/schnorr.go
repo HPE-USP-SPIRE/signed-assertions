@@ -70,8 +70,8 @@ func (S Signature) String() string {
 // origpubkey = first public key
 // setSigR = array containing all Sig.R
 // setH = array containing all Hashes
-// s1s = last signature.S
-func Verifygg(origpubkey kyber.Point, setSigR []kyber.Point, setH []kyber.Scalar, s1s kyber.Scalar) bool {
+// lastsigS = last signature.S
+func Verifygg(origpubkey kyber.Point, setSigR []kyber.Point, setH []kyber.Scalar, lastsigS kyber.Scalar) bool {
     // Verify n concatenated signatures using galindo-garcia
 
     // Important to note that as new assertions are added in the beginning of the token, the content of arrays is in reverse order.
@@ -101,7 +101,7 @@ func Verifygg(origpubkey kyber.Point, setSigR []kyber.Point, setH []kyber.Scalar
     y = curve.Point().Sub(setSigR[i+1], curve.Point().Mul(setH[i+1], y))
 
     // check if g ^ lastsig.S = lastsig.R - y ^ lastHash
-    leftside    := curve.Point().Mul(s1s, g)
+    leftside    := curve.Point().Mul(lastsigS, g)
     rightside   := curve.Point().Sub(setSigR[i], curve.Point().Mul(setH[i], y))
 
     return leftside.Equal(rightside)

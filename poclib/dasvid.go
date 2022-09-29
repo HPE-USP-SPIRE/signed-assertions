@@ -864,9 +864,9 @@ func NewSchnorrencode(claimset map[string]interface{}, oldmain string, key kyber
 		encoded := strings.Join([]string{payload, signature}, ".")
 
 		// debug
-		fmt.Printf("message size in base64 : %d\n", len(payload))
-		fmt.Printf("sig size in base64     : %d\n", len(signature))
-		fmt.Printf("Assertion size         : %d\n", len(payload) + len(signature))
+		// fmt.Printf("message size in base64 : %d\n", len(payload))
+		// fmt.Printf("sig size in base64     : %d\n", len(signature))
+		fmt.Printf("\nAssertion size         : %d\n", len(payload) + len(signature))
 
 		return encoded, nil
 	}
@@ -886,9 +886,9 @@ func NewSchnorrencode(claimset map[string]interface{}, oldmain string, key kyber
 	encoded := strings.Join([]string{message, signature}, ".")
 
 	// debug
-	fmt.Printf("message size in base64 : %d\n", len(message))
-	fmt.Printf("sig size in base64     : %d\n", len(signature))
-	fmt.Printf("Assertion size         : %d\n", len(message) + len(signature))
+	// fmt.Printf("message size in base64 : %d\n", len(message))
+	// fmt.Printf("sig size in base64     : %d\n", len(signature))
+	fmt.Printf("\nAssertion size         : %d\n", len(message) + len(signature))
 
 	return encoded, nil
 }
@@ -911,7 +911,7 @@ func NewECDSAencode(claimset map[string]interface{}, oldmain string, key crypto.
 		sig := base64.RawURLEncoding.EncodeToString(s)
 		encoded := strings.Join([]string{payload, sig}, ".")
 
-		fmt.Printf("Assertion size: %d\n", len(payload) + len(sig))
+		fmt.Printf("\nAssertion size: %d\n", len(payload) + len(sig))
 
 		return encoded, nil
 	}
@@ -926,7 +926,7 @@ func NewECDSAencode(claimset map[string]interface{}, oldmain string, key crypto.
 	signature := base64.RawURLEncoding.EncodeToString(s)
 	encoded := strings.Join([]string{payload, oldmain, signature}, ".")
 	
-	fmt.Printf("Assertion size: %d\n", len(payload) + len(oldmain)+ len(signature))
+	fmt.Printf("\nAssertion size: %d\n", len(payload) + len(oldmain)+ len(signature))
 
 	return encoded, nil
 }
@@ -1038,16 +1038,18 @@ func Validategg(token string) bool {
 	var setSigR []kyber.Point
 	var setH []kyber.Scalar
 
+
 	// go through all token parts collecting and constructing necessary data
 	for (i < len(parts)/2 && (i+1 < j-1)) {
+
 		// Construct message
 		clean 	:= strings.Join(strings.Fields(strings.Trim(fmt.Sprintf("%s", parts[i+1:j]), "[]")), ".")
 		message := strings.Join([]string{parts[i], clean}, ".")
-		
+
 		// Load kyber.Signature
 		signature := String2schsig(parts[j])
 
-		// extract signature.R
+		// extract and store signature.R
 		setSigR = append(setSigR, signature.R)
 		fmt.Printf("signature.R[%d]: %s\n", i, setSigR[i].String())
 
@@ -1056,15 +1058,15 @@ func Validategg(token string) bool {
 		setpubkey = append(setpubkey, pubkey)
 		fmt.Printf("PublicKey[%d]  : %s\n", i, setpubkey[i].String())
 
-		// calculate hash
-		setH = append(setH, Hash(pubkey.String() + message + signature.R.String()))
+		// calculate and store hash
+		setH = append(setH, Hash(pubkey.String() + message + setSigR[i].String()))
 		fmt.Printf("Hash[%d]       : %s\n\n", i,  setH[i].String())
 
 		i++
 		j--
 	}
 
-	// Verify Inner lvl
+	// Collect Inner lvl
 	message := parts[i]
 		
 	// Load kyber.Signature
@@ -1074,22 +1076,97 @@ func Validategg(token string) bool {
 	setSigR = append(setSigR, signature.R)
 	fmt.Printf("signature.R[%d]: %s\n", i, setSigR[i].String())
 
-	// Load PublicKey
-	// PS: This is the first (original) public key and its passed to gg 'y' first round
+	// Load first original PublicKey
 	pubkey := Issuer2schpubkey(parts[i])
 	setpubkey = append(setpubkey, pubkey)
 	fmt.Printf("PublicKey[%d]  : %s\n", i, setpubkey[i].String())
 
 	// calc hash
-	setH = append(setH, Hash(pubkey.String() + message + signature.R.String()))
+	setH = append(setH, Hash(pubkey.String() + message + setSigR[i].String()))
 	fmt.Printf("Hash[%d]       : %s\n", i,  setH[i].String())
 
+	// collect last signature.S
 	sz := String2schsig(parts[len(parts)-1])
-	s1s := sz.S
-	fmt.Printf("s1s            : %s\n\n",  sz.S.String())
+	lastsigS := sz.S
+	fmt.Printf("s1s            : %s\n\n",  lastsigS.String())
 
-	sigver := Verifygg(pubkey, setSigR, setH, s1s)
+	sigver := Verifygg(pubkey, setSigR, setH, lastsigS)
+	fmt.Printf("Signature verification: %t\n\n", sigver)
 
+	return sigver
+}
+
+// Collect necessary data to perform Galindo-Garcia validation to 'n' parts
+func ValidateCompactgg(token string) bool {
+	defer timeTrack(time.Now(), "validategg")
+
+	// split received token
+	parts := strings.Split(token, ".")
+
+	var i = 0
+	var j = len(parts)-1
+	fmt.Printf("number of keys: %d\n", len(parts)/2)
+	var setpubkey []kyber.Point
+	var setSigR []kyber.Point
+	var setH []kyber.Scalar
+
+
+	// go through all token parts collecting and constructing necessary data
+	for (i < len(parts)/2 && (i+1 < j-1)) {
+
+		// Construct message
+		clean 	:= strings.Join(strings.Fields(strings.Trim(fmt.Sprintf("%s", parts[i+1:j]), "[]")), ".")
+		message := strings.Join([]string{parts[i], clean}, ".")
+	
+		if i==0 {
+			// extract and store signature.R
+			// Load kyber.Signature
+			signature := String2schsig(parts[j])
+			setSigR = append(setSigR, signature.R)
+			fmt.Printf("signature.R[%d]: %s\n", i, setSigR[i].String())
+		} else {
+			// Load kyber.Point
+			kyPoint := String2point(parts[j])
+			setSigR = append(setSigR, kyPoint)
+			fmt.Printf("kyPoint.R[%d]: %s\n", i, setSigR[i].String())
+		}
+
+		// Load issuer PublicKey
+		pubkey := Issuer2schpubkey(parts[i])
+		setpubkey = append(setpubkey, pubkey)
+		fmt.Printf("PublicKey[%d]  : %s\n", i, setpubkey[i].String())
+
+		// calculate and store hash
+		setH = append(setH, Hash(pubkey.String() + message + setSigR[i].String()))
+		fmt.Printf("Hash[%d]       : %s\n\n", i,  setH[i].String())
+
+		i++
+		j--
+	}
+
+	// Collect Inner lvl
+	message := parts[i]
+
+	// Load kyber.Point
+	kyPoint := String2point(parts[j])
+	setSigR = append(setSigR, kyPoint)
+	fmt.Printf("kyPoint.R[%d]: %s\n", i, setSigR[i].String())
+
+	// Load first original PublicKey
+	pubkey := Issuer2schpubkey(parts[i])
+	setpubkey = append(setpubkey, pubkey)
+	fmt.Printf("PublicKey[%d]  : %s\n", i, setpubkey[i].String())
+
+	// calc hash
+	setH = append(setH, Hash(pubkey.String() + message + setSigR[i].String()))
+	fmt.Printf("Hash[%d]       : %s\n", i,  setH[i].String())
+
+	// collect last signature.S
+	sz := String2schsig(parts[len(parts)-1])
+	lastsigS := sz.S
+	fmt.Printf("s1s            : %s\n\n",  lastsigS.String())
+
+	sigver := Verifygg(pubkey, setSigR, setH, lastsigS)
 	fmt.Printf("Signature verification: %t\n\n", sigver)
 
 	return sigver
@@ -1103,6 +1180,33 @@ func Schpubkey2string(publicKey kyber.Point) string {
 	}
 	result := base64.RawURLEncoding.EncodeToString(buf.Bytes())
 	return result
+}
+
+func Point2string(sourcepoint kyber.Point) string {
+	buf := bytes.Buffer{}
+	if err :=  curve.Write(&buf, &sourcepoint); err != nil {
+		fmt.Printf("Error in point2string! value: %s\n",  err)
+		os.Exit(1)
+	}
+	result := base64.RawURLEncoding.EncodeToString(buf.Bytes())
+	return result
+}
+
+func String2point(message string) kyber.Point {
+	tmppt, err := base64.RawURLEncoding.DecodeString(message)
+	if err != nil {
+		fmt.Printf("Error decoding point string: %s\n", err)
+		os.Exit(1)
+	}
+	// fmt.Printf("message value: %s\n",  decodedparti)
+	var point kyber.Point
+	buf := bytes.NewBuffer(tmppt)
+	if err := curve.Read(buf, &point); err != nil {
+		fmt.Printf("Error in string2point! value: %s\n",  err)
+		os.Exit(1)
+	}
+
+	return point
 }
 
 func Issuer2schpubkey(message string) kyber.Point {
