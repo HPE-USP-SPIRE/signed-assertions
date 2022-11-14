@@ -25,6 +25,7 @@ import (
 
 	// EdDSA
 	"go.dedis.ch/kyber/v3/group/edwards25519"
+
 )
 
 const (
@@ -147,6 +148,17 @@ Main functions:
 		//  usage: ./assertgen mint OAuthtoken
 		token := os.Args[2]
 		endpoint = "https://"+serverURL+"/mint?AccessToken="+token
+    case "mintassertion":
+		// 	Ask asserting-wl for a new minted DASVID
+		//  usage: ./assertgen mint OAuthtoken
+		token := os.Args[2]
+		endpoint = "https://"+serverURL+"/mintassertion?AccessToken="+token
+
+    case "ecdsaassertion":
+		// 	Ask asserting-wl for a new minted DASVID
+		//  usage: ./assertgen mint OAuthtoken
+		token := os.Args[2]
+		endpoint = "https://"+serverURL+"/ecdsaassertion?AccessToken="+token
 
     case "keys":
 		// 	Ask asserting-wl Public Key
@@ -246,6 +258,96 @@ Main functions:
 
 		os.Exit(1)
 
+	case "ecdsapq":
+		// Generate a new assertion using ECDSA + Dilithium
+		// usage: ./main ecdsapq assertionKey assertionValue spiffeid/svid/anonymous
+
+		// Fetch claims data
+		clientSVID 		:= dasvid.FetchX509SVID()
+		clientID 		:= clientSVID.ID.String()
+		clientkey 		:= clientSVID.PrivateKey
+
+		// timestamp
+		issue_time 		:= time.Now().Round(0).Unix()
+
+		// assertion key:value
+		assertionkey 	:= os.Args[2]
+		assertionvalue 	:= os.Args[3]
+
+		// uses spiffeid or svid as issuer
+		svidAsIssuer 	:= os.Args[4]
+
+		// generate encoded key
+		pubkey := clientkey.Public().(*ecdsa.PublicKey)
+		encKey, _ := dasvid.EncodeECDSAPublicKey(pubkey)
+
+		//  Define issuer type:
+		var issuer string
+		switch svidAsIssuer {
+		case "spiffeid":
+			// Uses SPIFFE-ID as ISSUER
+			issuer = clientID
+		case "svid":
+			// Uses SVID cert bundle as ISSUER
+			tmp, _, err := clientSVID.Marshal()
+			if err != nil {
+				fmt.Println("Error retrieving SVID: ", err)
+				os.Exit(1)
+			}
+			issuer = fmt.Sprintf("%s", tmp)
+		case "anonymous":
+			// Uses public key as ISSUER
+			issuer = fmt.Sprintf("%s", encKey)
+
+		default:
+			fmt.Println("Error defining issuer! Select spiffeid or svid.")
+			os.Exit(1)
+		}
+		
+		// Define assertion claims
+		kid 			:= base64.RawURLEncoding.EncodeToString([]byte(clientID))
+		assertionclaims := map[string]interface{}{
+			"iss"		:		issuer,
+			"iat"		:	 	issue_time,
+			"kid"		:		kid,
+			assertionkey:		assertionvalue,
+		}
+		assertion, err := dasvid.NewECDSAencode(assertionclaims, "", clientkey)
+		if err != nil {
+			fmt.Println("Error generating signed assertion!")
+			os.Exit(1)
+		} 
+
+		diliassertion, err := dasvid.NewDilithiumencode(assertionclaims, "")
+		if err != nil {
+			fmt.Println("Error generating Dilithium signed assertion!")
+			os.Exit(1)
+		} 
+
+
+		fmt.Println("Generated assertion: ", fmt.Sprintf("%s",assertion))
+		
+		fmt.Println("Generated dilithium assertion: ", fmt.Sprintf("%s",diliassertion))
+
+		//  save public key in IdP
+		key := &keydata{
+			Kid		:	kid,
+			Alg		:	"EC256",
+			Pkey	:	encKey,
+			Exp		:	time.Now().Add(time.Hour * 1).Round(0).Unix(),
+		}
+		mkey, _ := json.Marshal(key)
+		savekey, err := dasvid.Addkey(fmt.Sprintf("%s",mkey))
+		if err != nil {
+			fmt.Errorf("error: %s", err)
+			os.Exit(1)
+		}
+		fmt.Println("Key successfully stored: ", savekey)
+
+
+		os.Exit(1)
+
+
 	case "ecdsaver":
 		// 	Verify ECDSA assertion signature
 		//  usage: ./assertgen ecdsaver assertion
@@ -306,7 +408,7 @@ Main functions:
 				issuer = fmt.Sprintf("%s", encKey)
 
 			default:
-				fmt.Println("Error defining issuer! Select spiffeid or svid.")
+				fmt.Println("Error defining issuer! Select spiffeid, svid or anonymous.")
 				os.Exit(1)
 		}
 
@@ -446,11 +548,18 @@ Main functions:
 		// timestamp
 		issue_time 		:= time.Now().Round(0).Unix()
 
+		// issuer
+		issuer, err := dasvid.Point2string(publicKey)
+		if err != nil {
+			fmt.Println("Error decoding point string!")
+			os.Exit(1)
+		} 
+
 		// assertion key:value
 		assertionkey 	:= os.Args[2]
 		assertionvalue 	:= os.Args[3]
 		assertionclaims := map[string]interface{}{
-			"iss"		:		dasvid.Schpubkey2string(publicKey),
+			"iss"		:		issuer,
 			"iat"		:	 	issue_time,
 			assertionkey:		assertionvalue,
 		}
@@ -473,21 +582,29 @@ Main functions:
 		dasvid.Validateschnorrassertion(assertion)
 		os.Exit(1)
 
-	case "schapp":
+	case "schadd":
 		// Append an assertion with schnorr signature, using a new random keypair
 		// usage: ./main schapp originaltoken assertionKey assertionValue
 
 		// Generate Keypair
 		privateKey, publicKey := dasvid.RandomKeyPair()
 
-		// Issuer
-		issuer := dasvid.Schpubkey2string(publicKey)
+		// issuer
+		issuer, err := dasvid.Point2string(publicKey)
+		if err != nil {
+			fmt.Println("Error decoding point string!")
+			os.Exit(1)
+		} 
 
 		// Generate next Keypair
 		_, nextpublicKey := dasvid.RandomKeyPair()
 
 		// Audience
-		audience := dasvid.Schpubkey2string(nextpublicKey)		
+		audience, err := dasvid.Point2string(nextpublicKey)		
+		if err != nil {
+			fmt.Println("Error decoding point string!")
+			os.Exit(1)
+		} 
 
 		// timestamp
 		issue_time 		:= time.Now().Round(0).Unix()
@@ -534,10 +651,24 @@ Main functions:
 		// timestamp
 		issue_time 		:= time.Now().Round(0).Unix()
 
+		// issuer
+		issuer, err := dasvid.Point2string(publicKey)
+		if err != nil {
+			fmt.Println("Error decoding point string!")
+			os.Exit(1)
+		} 
+		
+		// Audience
+		audience, err := dasvid.Point2string(nextpublicKey)		
+		if err != nil {
+			fmt.Println("Error decoding point string!")
+			os.Exit(1)
+		} 
+
 		// assertion claims
 		assertionclaims := map[string]interface{}{
-			"iss"		:		dasvid.Schpubkey2string(publicKey),
-			"aud"		:	 	dasvid.Schpubkey2string(nextpublicKey),
+			"iss"		:		issuer,
+			"aud"		:	 	audience,
 			"iat"		:	 	issue_time,
 			os.Args[2]  :		os.Args[3],
 		}
@@ -565,22 +696,45 @@ Main functions:
 
 		// check soucerpublickey vs audience
 		parts := strings.Split(oldmain, ".")
-		decodedpart, _ := base64.RawURLEncoding.DecodeString(parts[0])
+		decodedpart, err := base64.RawURLEncoding.DecodeString(parts[0])
+		if err != nil {
+			fmt.Println("Error decoding token!")
+			os.Exit(1)
+		}		
 		var tmpkey map[string]interface{}
 		json.Unmarshal(decodedpart, &tmpkey)
-		if (dasvid.Schpubkey2string(publicKey) != tmpkey["aud"]) {
+		pkey, err := dasvid.Point2string(publicKey)
+		if err != nil {
+			fmt.Println("Error decoding point string!")
+			os.Exit(1)
+		} 
+		if (pkey != tmpkey["aud"]) {
 			fmt.Println("Incorrect append key!")
 			os.Exit(1)
 		}	
 
 		// Generate next Keypair
 		_, nextpublicKey := dasvid.IDKeyPair(os.Args[6])
+
+		// issuer
+		issuer, err := dasvid.Point2string(publicKey)
+		if err != nil {
+			fmt.Println("Error decoding point string!")
+			os.Exit(1)
+		} 
+		
+		// Audience
+		audience, err := dasvid.Point2string(nextpublicKey)		
+		if err != nil {
+			fmt.Println("Error decoding point string!")
+			os.Exit(1)
+		} 
 		
 		tokenclaims := map[string]interface{}{
-			"iss"		: dasvid.Schpubkey2string(publicKey),
+			"iss"		: issuer,
 			"iat"		: issue_time,
 			os.Args[3]	: os.Args[4],
-			"aud"		: dasvid.Schpubkey2string(nextpublicKey),
+			"aud"		: audience,
 		}
 		assertion, err := dasvid.NewSchnorrencode(tokenclaims, oldmain, privateKey)
 		if err != nil {
@@ -600,13 +754,10 @@ Main functions:
 		dasvid.Validateschnorrtrace(assertion)
 		os.Exit(1)
 
-	//  __ Concatenated EdDSA Schnorr (sig.S as next private Key with full/compact mode) __ //
+	//  __ Concatenated EdDSA Schnorr (sig.S as next private Key) __ //
 	case "concatenate":
 		// Append an assertion with schnorr signature, using previous signature.S as key
-		// usage: ./main concatenate originaltoken assertionKey assertionValue <full/compact>
-
-		// MAM: Analisando o full vs compact, há a possibilidade de misturar os dois tipos a cada novo append de uma assertion.
-		// TODO: Compatibilizar 
+		// usage: ./main concatenate originaltoken assertionKey assertionValue 
 
 		// timestamp
 		issue_time 		:= time.Now().Round(0).Unix()
@@ -619,82 +770,173 @@ Main functions:
 		parts 			:= strings.Split(oldmain, ".")		
 
 		var assertion string
+
+		// Retrieve signature from originaltoken 
+		prevsignature, err := dasvid.String2schsig(parts[len(parts) -1])
+		if err != nil {
+			fmt.Println("Error converting string to schnorr signature!")
+			os.Exit(1)
+		} 
+		privateKey := prevsignature.S
+		// Discard sig.S
+		parts[len(parts) -1], err = dasvid.Point2string(prevsignature.R)
+		if err != nil {
+			fmt.Println("Error decoding point string!")
+			os.Exit(1)
+		} 
+
+		oldmain = strings.Join(parts, ".")
+		publicKey := curve.Point().Mul(privateKey, g)
+		// fmt.Println("Generated publicKey: ", publicKey)
 		
-		if os.Args[5] == "compact" {
-			
-
-			// Retrieve signature from originaltoken 
-			prevsignature := dasvid.String2schsig(parts[len(parts) -1])
-			privateKey := prevsignature.S
-			// Discard sig.S
-			parts[len(parts) -1] = dasvid.Point2string(prevsignature.R)
-			oldmain = strings.Join(parts, ".")
-			publicKey := curve.Point().Mul(privateKey, g)
-			// fmt.Println("Generated publicKey: ", publicKey)
-			
-			// Issuer
-			issuer := dasvid.Schpubkey2string(publicKey)
-			
-			// assertion key:value
-			assertionkey 	:= os.Args[3]
-			assertionvalue 	:= os.Args[4]
-			assertionclaims := map[string]interface{}{
-				"iss"		:		issuer,
-				"iat"		:	 	issue_time,
-				assertionkey:		assertionvalue,
-			}
-			assertion, err = dasvid.NewSchnorrencode(assertionclaims, oldmain, privateKey)
-			if err != nil {
-				fmt.Println("Error generating signed schnorr assertion!")
-				os.Exit(1)
-			} 
-		} else if os.Args[5] == "full" {
-
-			// Retrieve signature from originaltoken 
-			prevsignature := dasvid.String2schsig(parts[len(parts) -1])
-			privateKey := prevsignature.S
-			publicKey := curve.Point().Mul(privateKey, g)
-			// fmt.Println("Generated publicKey: ", publicKey)
-			
-			// Issuer
-			issuer := dasvid.Schpubkey2string(publicKey)
-			
-			// assertion key:value
-			assertionkey 	:= os.Args[3]
-			assertionvalue 	:= os.Args[4]
-			assertionclaims := map[string]interface{}{
-				"iss"		:		issuer,
-				"iat"		:	 	issue_time,
-				assertionkey:		assertionvalue,
-			}
-			assertion, err = dasvid.NewSchnorrencode(assertionclaims, oldmain, privateKey)
-			if err != nil {
-				fmt.Println("Error generating signed schnorr assertion!")
-				os.Exit(1)
-			} 
+		// Issuer
+		issuer, err := dasvid.Point2string(publicKey)
+		if err != nil {
+			fmt.Println("Error decoding point string!")
+			os.Exit(1)
+		} 
+		
+		// assertion key:value
+		assertionkey 	:= os.Args[3]
+		assertionvalue 	:= os.Args[4]
+		assertionclaims := map[string]interface{}{
+			"iss"		:		issuer,
+			"iat"		:	 	issue_time,
+			assertionkey:		assertionvalue,
 		}
+		assertion, err = dasvid.NewSchnorrencode(assertionclaims, oldmain, privateKey)
+		if err != nil {
+			fmt.Println("Error generating signed schnorr assertion!")
+			os.Exit(1)
+		} 
 
 		fmt.Println("Generated assertion: ", fmt.Sprintf("%s",assertion))
 
 		os.Exit(1)
 		
-	//  __ Galindo Garcia validation of EdDSA Schnorr signatures__ //
+	//  __ Galindo Garcia validation of EdDSA concatenated Schnorr signatures__ //
 	case "ggschnorr":
 		// 	Verify assertion signatures using Galindo Garcia
-		//  usage: ./assertgen schver assertion <full/compact>
-
+		//  usage: ./assertgen ggschnorr assertion
 		assertion := os.Args[2]
 
-		if os.Args[3] == "compact" {
-			dasvid.ValidateCompactgg(assertion)
-		} else{
-			dasvid.Validategg(assertion)
-		}
-		
+		dasvid.Validategg(assertion)
 		
 		os.Exit(1)
 		
+	case "selectors":
+		//  Generate a selector-based assertion
+		//  usage: ./assertgen selectors <issuer type>
+
+
+		// Generate a new assertion
+		// usage: ./main generic assertionKey assertionValue spiffeid/svid
+
+		// Fetch claims data
+		clientSVID 		:= dasvid.FetchX509SVID()
+		clientID 		:= clientSVID.ID.String()
+		clientkey 		:= clientSVID.PrivateKey
+		pid 			:= os.Getpid()
+
+		// timestamp
+		issue_time 		:= time.Now().Round(0).Unix()
+
+		// assertion key:value
+		// assertionkey 	:= os.Args[2]
+		// assertionvalue 	:= os.Args[3]
+
+		// uses spiffeid or svid as issuer
+		svidAsIssuer 	:= os.Args[2]
+
+		// generate encoded key
+		pubkey := clientkey.Public().(*ecdsa.PublicKey)
+		encKey, _ := dasvid.EncodeECDSAPublicKey(pubkey)
+
+		//  Define issuer type:
+		var issuer string
+		switch svidAsIssuer {
+		case "spiffeid":
+			// Uses SPIFFE-ID as ISSUER
+			issuer = clientID
+		case "svid":
+			// Uses SVID cert bundle as ISSUER
+			tmp, _, err := clientSVID.Marshal()
+			if err != nil {
+				fmt.Println("Error retrieving SVID: ", err)
+				os.Exit(1)
+			}
+			issuer = fmt.Sprintf("%s", tmp)
+		case "anonymous":
+			// Uses public key as ISSUER
+			issuer = fmt.Sprintf("%s", encKey)
+
+		default:
+			fmt.Println("Error defining issuer! Select spiffeid or svid.")
+			os.Exit(1)
 		}
+
+		// Retrieve selectors
+		selectors, err := dasvid.ReturnSelectors(pid)
+		if err != nil {
+			fmt.Println("Error retrieving selectors!")
+			os.Exit(1)
+		}
+		// fmt.Println("Retrieved selectors: ", selectors)
+
+		// tmp := strings.Split(strings.Trim(fmt.Sprintf("%s", selectors), "[]"), " ")
+		// i := 0
+		// var cleanselectors []string
+		// var parts []string
+		// for (i < len(tmp)) {
+		// 	if (tmp[i] != "") {
+		// 		parts = strings.Split(tmp[i], `"`)
+		// 		if (parts[0] == "value:") {
+		// 			cleanselectors = append(cleanselectors, parts[1])
+		// 		}
+		// 	}
+		// 	i++
+		// }
+
+		fmt.Printf("Selectors array %s\n", selectors)
+
+		// Define assertion claims
+		kid 			:= base64.RawURLEncoding.EncodeToString([]byte(clientID))
+		assertionclaims := map[string]interface{}{
+			"iss"		:		issuer,
+			"iat"		:	 	issue_time,
+			"kid"		:		kid,
+			"sel"		:		selectors,
+			// "sel": map[string]interface{}{ 
+			// 	"type" : x,
+			// 	"value": y,
+			// },
+		}
+		assertion, err := dasvid.NewECDSAencode(assertionclaims, "", clientkey)
+		if err != nil {
+			fmt.Println("Error generating signed assertion!")
+			os.Exit(1)
+		} 
+
+		fmt.Println("Generated assertion: ", fmt.Sprintf("%s",assertion))
+
+		//  save public key in IdP
+		key := &keydata{
+			Kid		:	kid,
+			Alg		:	"EC256",
+			Pkey	:	encKey,
+			Exp		:	time.Now().Add(time.Hour * 1).Round(0).Unix(),
+		}
+		mkey, _ := json.Marshal(key)
+		savekey, err := dasvid.Addkey(fmt.Sprintf("%s",mkey))
+		if err != nil {
+			fmt.Errorf("error: %s", err)
+			os.Exit(1)
+		}
+		fmt.Println("Key successfully stored: ", savekey)
+
+
+		os.Exit(1)
+	}
 
 	if endpoint != "" {
 
@@ -762,4 +1004,15 @@ func GetOutboundIP() net.IP {
     localAddr := conn.LocalAddr().(*net.UDPAddr)
 
     return localAddr.IP
+}
+
+func assertSelectors(pid int) string{
+
+	selectors, err := dasvid.ReturnSelectors(pid)
+	if err != nil {
+		log.Fatalf("Errors retrieving selectors: %v", err)
+	}
+	log.Printf("Selectors retrieved: ", selectors)
+
+	return selectors
 }

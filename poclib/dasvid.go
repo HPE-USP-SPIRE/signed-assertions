@@ -60,10 +60,18 @@ import (
 	"github.com/spiffe/go-spiffe/v2/workloadapi"
 	"github.com/spiffe/go-spiffe/v2/bundle/x509bundle"
 
+	// To Dilithium sig.
 	"go.dedis.ch/kyber/v3"
 	"crypto/ecdsa"
 	"io/ioutil"
 	"crypto/rand"
+	"github.com/cloudflare/circl/sign/dilithium"
+
+	// To selectors assertion
+	"github.com/spiffe/spire/proto/spire/common"
+	"github.com/spiffe/spire/pkg/agent/catalog"
+	"github.com/spiffe/spire/pkg/agent/plugin/workloadattestor"
+	"github.com/sirupsen/logrus/hooks/test"
 
 )
 
@@ -114,9 +122,7 @@ func timeTrack(start time.Time, name string) {
     log.Printf("%s execution time is %s", name, elapsed)
 }
 
-// Verify JWT token signature.
-// currently supporting RSA. Adding new switch cases to support ECDSA and HMAC.
-// 
+// Verify JWT token signature. Currently supports RSA. Add new switch cases to support ECDSA and HMAC.
 func VerifySignature(jwtToken string, key JWK) error {
 	defer timeTrack(time.Now(), "Verify Signature")
 
@@ -163,6 +169,7 @@ func VerifySignature(jwtToken string, key JWK) error {
 	}
 }
 
+// Mint a new DASVID
 func Mintdasvid(kid string, iss string, sub string, dpa string, dpr string, oam []byte, zkp string, key interface{}) string{
 	defer timeTrack(time.Now(), "Mintdasvid")
 
@@ -227,6 +234,7 @@ func Mintdasvid(kid string, iss string, sub string, dpa string, dpr string, oam 
 	return tokenString
 }
 
+// Parse a JWT token like content (3 parts)
 func ParseTokenClaims(strAT string) map[string]interface{} {
 	// defer timeTrack(time.Now(), "Parse token claims")
 
@@ -241,6 +249,7 @@ func ParseTokenClaims(strAT string) map[string]interface{} {
 		return claims
 }
 
+// Validate a JWT token Exp
 func ValidateTokenExp(claims map[string]interface{}) (expresult bool, remainingtime string) {
 	// defer timeTrack(time.Now(), "Validate token exp")
 
@@ -257,6 +266,7 @@ func ValidateTokenExp(claims map[string]interface{}) (expresult bool, remainingt
 
 }
 
+// Generate a ZKP proof for RSA OAuth token
 func GenZKPproof(OAuthToken string) string {
 	defer timeTrack(time.Now(), "Generate ZKP")
 
@@ -333,6 +343,7 @@ func GenZKPproof(OAuthToken string) string {
     return goresults
 }
 
+// Verify generated proof
 func VerifyHexProof(hexproof string, msg []byte, reckey *C.EVP_PKEY) bool {
 	defer timeTrack(time.Now(), "Verify ZKP")
 
@@ -378,9 +389,7 @@ func VerifyHexProof(hexproof string, msg []byte, reckey *C.EVP_PKEY) bool {
 
 // Receive a JWT token, identify the original OAuth token issuer and contact endpoint to retrieve JWK public key.
 // Convert the JWT to PEM and finally PEM to OpenSSL vkey.
-// 
 // Oauth issuer field: 0 - iss (OAuth token); 1 - dpa (DA-SVID token);
-// 
 func Token2vkey(token string, issfield int) *C.EVP_PKEY {
 	// defer timeTrack(time.Now(), "Token2vkey")
 
@@ -581,6 +590,7 @@ func RetrieveJWKSPublicKey(path string) JWKS {
 	return jwks
 }
 
+// Fetch workload X509 SVID
 func FetchX509SVID() *x509svid.SVID {
 	// defer timeTrack(time.Now(), "Fetchx509svid")
 
@@ -599,12 +609,72 @@ func FetchX509SVID() *x509svid.SVID {
 		log.Fatalf("Unable to fetch SVID: %v", err)
 	}
 
-	// fmt.Println("svid.PrivateKey", svid.PrivateKey)
-
 	return svid
 }
 
-// extracts the value for a key from a JSON-formatted string
+// returnSelectors return selectors of a given PID
+func ReturnSelectors(pid int) (string, error) {
+	defer timeTrack(time.Now(), "returnSelectors")
+
+	logg, _ := test.NewNullLogger()
+
+	// set config parameters
+	minimalConfig := func() catalog.Config {
+		return catalog.Config{
+			Log: logg,
+			PluginConfig: catalog.HCLPluginConfigMap{
+				"KeyManager": {
+					"memory": {},
+				},
+				"NodeAttestor": {
+					"join_token": {},
+				},
+				"WorkloadAttestor": {
+					"docker": {},
+					"unix": {},
+				},
+			},
+		}
+	}
+	config := minimalConfig()
+
+	// retrieve attestators
+	repo, _ := catalog.Load(context.Background(), config)
+	plugins := repo.GetWorkloadAttestors()
+
+	sChan := make(chan []*common.Selector)
+	errChan := make(chan error)
+
+	// Attest
+	for _, p := range plugins {
+		go func(p workloadattestor.WorkloadAttestor) {
+			if selectors, err := p.Attest(context.Background(), pid); err == nil {
+				sChan <- selectors
+			} else {
+				errChan <- err
+			}
+		}(p)
+	}
+
+	// Collect the results
+	selectors := []*common.Selector{}
+	for i := 0; i < len(plugins); i++ {
+		select {
+		case s := <-sChan:
+			selectors = append(selectors, s...)
+		case err := <-errChan:
+			log.Fatal("Failed to collect all selectors for PID", err)
+		}
+	}
+	result, err := json.Marshal(selectors)
+	if err != nil {
+		log.Fatal("Error marshalling selectors", err)
+	}
+
+	return fmt.Sprintf("%s", result), nil
+}
+
+// extract the value for a key from a JSON-formatted string
 // body - the JSON-response as a string. Usually retrieved via the request body
 // key - the key for which the value should be extracted
 // returns - the value for the given key
@@ -616,8 +686,9 @@ func extractValue(body string, key string) string {
     return strings.ReplaceAll(keyValMatch[1], "\"", "")
 }
 
+// Convert JWKS to correpondent PEM file
 func Jwks2PEM(token string, path string) {
-	defer timeTrack(time.Now(), "RetrieveDERPublicKey")
+	defer timeTrack(time.Now(), "Jwks2PEM")
 
 	pubkey := RetrieveJWKSPublicKey(path)
 
@@ -842,6 +913,7 @@ func ValidateECDSAeassertion(token string) bool {
 	return true
 }
 
+// generate a new schnorr signed encoded assertion
 func NewSchnorrencode(claimset map[string]interface{}, oldmain string, key kyber.Scalar) (string, error) {
 	defer timeTrack(time.Now(), "newencode")
 
@@ -857,7 +929,7 @@ func NewSchnorrencode(claimset map[string]interface{}, oldmain string, key kyber
 		sigbuf := bytes.Buffer{}
 		if err :=  curve.Write(&sigbuf, &tmpsig); err != nil {
 			fmt.Printf("Error in newschnorrencode! value: %s\n",  err)
-			os.Exit(1)
+			return "", err
 		}
 		signature := base64.RawURLEncoding.EncodeToString(sigbuf.Bytes())
 
@@ -879,7 +951,7 @@ func NewSchnorrencode(claimset map[string]interface{}, oldmain string, key kyber
 	buf := bytes.Buffer{}
 	if err :=  curve.Write(&buf, &tmpsig); err != nil {
 		fmt.Printf("Error in append newschnorrencode! value: %s\n",  err)
-		os.Exit(1)
+		return "", err
 	}
 	signature := base64.RawURLEncoding.EncodeToString(buf.Bytes())
 
@@ -893,6 +965,7 @@ func NewSchnorrencode(claimset map[string]interface{}, oldmain string, key kyber
 	return encoded, nil
 }
 
+// generate a new ecdsa signed encoded assertion
 func NewECDSAencode(claimset map[string]interface{}, oldmain string, key crypto.Signer) (string, error) {
 	defer timeTrack(time.Now(), "newencode")
 
@@ -946,7 +1019,7 @@ func Validateschnorrtrace(token string) bool {
 		message := strings.Join([]string{parts[i], clean}, ".")
 		
 		// Load kyber.Signature from token
-		signature := String2schsig(parts[j])
+		signature, _ := String2schsig(parts[j])
 
 		// verify aud/iss link
 		link := Checkaudlink(parts[i], parts[i+1])
@@ -967,7 +1040,7 @@ func Validateschnorrtrace(token string) bool {
 	message := parts[i]
 		
 	// Load kyber.Signature from token
-	signature := String2schsig(parts[j])
+	signature, _ := String2schsig(parts[j])
 
 	// extract publickey (kyber.Point) from issuer claim
 	pubkey := Issuer2schpubkey(parts[i])
@@ -996,7 +1069,8 @@ func Validateschnorrassertion(token string) bool {
 		message := strings.Join([]string{parts[i], clean}, ".")
 		
 		// Load kyber.Signature from token
-		signature := String2schsig(parts[j])
+		signature, _ := String2schsig(parts[j])
+		fmt.Printf("Retrieved signature from token: %s\n", parts[j])
 
 		// extract publickey (kyber.Point) from issuer claim
 		pubkey := Issuer2schpubkey(parts[i])
@@ -1011,7 +1085,8 @@ func Validateschnorrassertion(token string) bool {
 	message := parts[i]
 		
 	// Load kyber.Signature from token
-	signature := String2schsig(parts[j])
+	signature, _ := String2schsig(parts[j])
+	fmt.Printf("Retrieved signature from token: %s\n", parts[j])
 
 	// extract publickey (kyber.Point) from issuer claim
 	pubkey := Issuer2schpubkey(parts[i])
@@ -1026,18 +1101,17 @@ func Validateschnorrassertion(token string) bool {
 
 // Collect necessary data to perform Galindo-Garcia validation to 'n' parts
 func Validategg(token string) bool {
-	defer timeTrack(time.Now(), "validategg")
+	defer timeTrack(time.Now(), "Galindo-Garcia Validation")
 
 	// split received token
 	parts := strings.Split(token, ".")
 
 	var i = 0
 	var j = len(parts)-1
-	fmt.Printf("number of keys: %d\n", len(parts)/2)
+	fmt.Printf("Number of keys			: %d\n", len(parts)/2)
 	var setpubkey []kyber.Point
 	var setSigR []kyber.Point
 	var setH []kyber.Scalar
-
 
 	// go through all token parts collecting and constructing necessary data
 	for (i < len(parts)/2 && (i+1 < j-1)) {
@@ -1047,20 +1121,32 @@ func Validategg(token string) bool {
 		message := strings.Join([]string{parts[i], clean}, ".")
 
 		// Load kyber.Signature
-		signature := String2schsig(parts[j])
-
-		// extract and store signature.R
-		setSigR = append(setSigR, signature.R)
-		fmt.Printf("signature.R[%d]: %s\n", i, setSigR[i].String())
+		signature, err := String2schsig(parts[j])
+		if err!=nil {
+			// Load kyber.Point
+			// fmt.Printf("Fail loading signature! Value		:  %s\n",  err)
+			// fmt.Printf("Trying compact mode.\n")
+			kyPoint, err := String2point(parts[j])
+			if err != nil {
+				fmt.Println("Error converting string to point!")
+				return false
+			} 				
+			setSigR = append(setSigR, kyPoint)
+			fmt.Printf("Retrieved signature from token: %s\n",parts[j])
+		} else {
+			// extract and store signature.R
+			setSigR = append(setSigR, signature.R)
+			fmt.Printf("Retrieved signature from token: %s\n",parts[j])
+		}
 
 		// Load issuer PublicKey
 		pubkey := Issuer2schpubkey(parts[i])
 		setpubkey = append(setpubkey, pubkey)
-		fmt.Printf("PublicKey[%d]  : %s\n", i, setpubkey[i].String())
+		fmt.Printf("Retrieved PublicKey from token: %s\n\n",setpubkey[i].String())
 
 		// calculate and store hash
-		setH = append(setH, Hash(pubkey.String() + message + setSigR[i].String()))
-		fmt.Printf("Hash[%d]       : %s\n\n", i,  setH[i].String())
+		setH = append(setH, Hash(setSigR[i].String()+ message + pubkey.String()))
+		// fmt.Printf("Hash[%d]							: %s\n\n", setH[i].String())
 
 		i++
 		j--
@@ -1070,109 +1156,49 @@ func Validategg(token string) bool {
 	message := parts[i]
 		
 	// Load kyber.Signature
-	signature := String2schsig(parts[j])
-
-	// extract signature.R
-	setSigR = append(setSigR, signature.R)
-	fmt.Printf("signature.R[%d]: %s\n", i, setSigR[i].String())
-
-	// Load first original PublicKey
-	pubkey := Issuer2schpubkey(parts[i])
-	setpubkey = append(setpubkey, pubkey)
-	fmt.Printf("PublicKey[%d]  : %s\n", i, setpubkey[i].String())
-
-	// calc hash
-	setH = append(setH, Hash(pubkey.String() + message + setSigR[i].String()))
-	fmt.Printf("Hash[%d]       : %s\n", i,  setH[i].String())
-
-	// collect last signature.S
-	sz := String2schsig(parts[len(parts)-1])
-	lastsigS := sz.S
-	fmt.Printf("s1s            : %s\n\n",  lastsigS.String())
-
-	sigver := Verifygg(pubkey, setSigR, setH, lastsigS)
-	fmt.Printf("Signature verification: %t\n\n", sigver)
-
-	return sigver
-}
-
-// Collect necessary data to perform Galindo-Garcia validation to 'n' parts
-func ValidateCompactgg(token string) bool {
-	defer timeTrack(time.Now(), "validategg")
-
-	// split received token
-	parts := strings.Split(token, ".")
-
-	var i = 0
-	var j = len(parts)-1
-	fmt.Printf("number of keys: %d\n", len(parts)/2)
-	var setpubkey []kyber.Point
-	var setSigR []kyber.Point
-	var setH []kyber.Scalar
-
-
-	// go through all token parts collecting and constructing necessary data
-	// Compact mode have part[0] with full signature, and other parts just sig.R
-	for (i < len(parts)/2 && (i+1 < j-1)) {
-
-		// Construct message
-		clean 	:= strings.Join(strings.Fields(strings.Trim(fmt.Sprintf("%s", parts[i+1:j]), "[]")), ".")
-		message := strings.Join([]string{parts[i], clean}, ".")
-	
-		if i==0 {
-			// extract and store signature.R
-			// Load kyber.Signature
-			signature := String2schsig(parts[j])
-			setSigR = append(setSigR, signature.R)
-			fmt.Printf("signature.R[%d]: %s\n", i, setSigR[i].String())
-		} else {
-			// Load kyber.Point
-			kyPoint := String2point(parts[j])
-			setSigR = append(setSigR, kyPoint)
-			fmt.Printf("kyPoint.R[%d]: %s\n", i, setSigR[i].String())
-		}
-
-		// Load issuer PublicKey
-		pubkey := Issuer2schpubkey(parts[i])
-		setpubkey = append(setpubkey, pubkey)
-		fmt.Printf("PublicKey[%d]  : %s\n", i, setpubkey[i].String())
-
-		// calculate and store hash
-		setH = append(setH, Hash(pubkey.String() + message + setSigR[i].String()))
-		fmt.Printf("Hash[%d]       : %s\n\n", i,  setH[i].String())
-
-		i++
-		j--
+	signature, err := String2schsig(parts[j])
+	if err!=nil {
+		// Load kyber.Point
+		// fmt.Printf("Fail loading signature! Value		: %s\n",  err)
+		// fmt.Printf("Trying compact mode.\n")
+		kyPoint, err := String2point(parts[j])
+		if err != nil {
+			fmt.Println("Error converting string to point!")
+			return false
+		} 
+		setSigR = append(setSigR, kyPoint)
+		fmt.Printf("Retrieved signature from token: %s\n", parts[j])
+	} else {
+		// extract and store signature.R
+		setSigR = append(setSigR, signature.R)
+		fmt.Printf("Retrieved signature from token: %s\n", parts[j])
 	}
-
-	// Collect Inner lvl
-	message := parts[i]
-
-	// Load kyber.Point
-	kyPoint := String2point(parts[j])
-	setSigR = append(setSigR, kyPoint)
-	fmt.Printf("kyPoint.R[%d]: %s\n", i, setSigR[i].String())
+	
 
 	// Load first original PublicKey
 	pubkey := Issuer2schpubkey(parts[i])
 	setpubkey = append(setpubkey, pubkey)
-	fmt.Printf("PublicKey[%d]  : %s\n", i, setpubkey[i].String())
+	fmt.Printf("Retrieved PublicKey from token: %s\n\n", setpubkey[i].String())
 
 	// calc hash
-	setH = append(setH, Hash(pubkey.String() + message + setSigR[i].String()))
-	fmt.Printf("Hash[%d]       : %s\n", i,  setH[i].String())
+	setH = append(setH, Hash(setSigR[i].String()+ message + pubkey.String()))
+	// fmt.Printf("Hash[%d]              					: %s\n", setH[i].String())
 
 	// collect last signature.S
-	sz := String2schsig(parts[len(parts)-1])
-	lastsigS := sz.S
-	fmt.Printf("s1s            : %s\n\n",  lastsigS.String())
+	lastsigS, err := String2schsig(parts[len(parts)-1])
+	if err != nil {
+		fmt.Println("Error converting string to schnorr signature!")
+		return false
+	} 
+	// fmt.Printf("\nLastsig.S             					: %s\n",  lastsigS.S.String())
 
-	sigver := Verifygg(pubkey, setSigR, setH, lastsigS)
-	fmt.Printf("Signature verification: %t\n\n", sigver)
+	sigver := Verifygg(pubkey, setSigR, setH, lastsigS.S)
+	fmt.Println("Signature verification: ", sigver)
 
 	return sigver
 }
 
+// Convert a schnorr public key to string
 func Schpubkey2string(publicKey kyber.Point) string {
 	buf := bytes.Buffer{}
 	if err :=  curve.Write(&buf, &publicKey); err != nil {
@@ -1183,33 +1209,37 @@ func Schpubkey2string(publicKey kyber.Point) string {
 	return result
 }
 
-func Point2string(sourcepoint kyber.Point) string {
+// Convert a kyber.point to string
+func Point2string(sourcepoint kyber.Point) (string, error) {
 	buf := bytes.Buffer{}
 	if err :=  curve.Write(&buf, &sourcepoint); err != nil {
 		fmt.Printf("Error in point2string! value: %s\n",  err)
-		os.Exit(1)
+		return "", err
 	}
 	result := base64.RawURLEncoding.EncodeToString(buf.Bytes())
-	return result
+	return result, nil
 }
 
-func String2point(message string) kyber.Point {
+// Convert a string to kyber.point
+func String2point(message string) (kyber.Point, error) {
+	var point kyber.Point
+
 	tmppt, err := base64.RawURLEncoding.DecodeString(message)
 	if err != nil {
 		fmt.Printf("Error decoding point string: %s\n", err)
-		os.Exit(1)
+		return point, err
 	}
 	// fmt.Printf("message value: %s\n",  decodedparti)
-	var point kyber.Point
 	buf := bytes.NewBuffer(tmppt)
 	if err := curve.Read(buf, &point); err != nil {
 		fmt.Printf("Error in string2point! value: %s\n",  err)
-		os.Exit(1)
+		return point, err
 	}
 
-	return point
+	return point, nil
 }
 
+// Convert issuer claim to kyber.point
 func Issuer2schpubkey(message string) kyber.Point {
 
 	// Decode from b64 and retrieve issuer claim (public key)
@@ -1227,6 +1257,7 @@ func Issuer2schpubkey(message string) kyber.Point {
 	return pubkey
 }
 
+// Convert a schnorr signature to string
 func Schsig2string(signature Signature) string {
 	buf := bytes.Buffer{}
 	if err :=  curve.Write(&buf, &signature); err != nil {
@@ -1237,24 +1268,26 @@ func Schsig2string(signature Signature) string {
 	return result
 }
 
-func String2schsig(message string) Signature {
+// Convert a string to schnorr signature
+func String2schsig(message string) (Signature, error) {
+	var signature Signature
 
 	tmpsig, err := base64.RawURLEncoding.DecodeString(message)
 	if err != nil {
 		fmt.Printf("Error decoding signature: %s\n", err)
-		os.Exit(1)
+		return signature, err
 	}
 	// fmt.Printf("message value: %s\n",  decodedparti)
-	var signature Signature
 	buf := bytes.NewBuffer(tmpsig)
 	if err := curve.Read(buf, &signature); err != nil {
-		fmt.Printf("Error in signature2string! value: %s\n",  err)
-		os.Exit(1)
+		// fmt.Printf("Error reading string to signature: %s\n",  err)
+		return signature, err
 	}
 
-	return signature
+	return signature, nil
 }
 
+// verify if aud==iss
 func Checkaudlink(issmsg string, audmsg string) bool {
 
 	// Decode issmsg from b64 and retrieve issuer claim 
@@ -1274,6 +1307,7 @@ func Checkaudlink(issmsg string, audmsg string) bool {
 	return true
 }
 
+// Retrieve key in kid claim from local Key server (PoC function)
 func getkeys(message string) ([]string, error) {
 
 	decclaim, _ := base64.RawURLEncoding.DecodeString(message)
@@ -1311,9 +1345,10 @@ func getkeys(message string) ([]string, error) {
 
 }
 
+// Add a key in local Key server (PoC function)
 func Addkey(key string) (string, error) {
 
-    // url := "http://"+filesrv+":"+filesrvport+"/addnft"
+    // url := "http://"+filesrv+":"+filesrvport+"/addkey"
 	url := "http://localhost:8888/addkey"
     fmt.Printf("\nKey Server URL: %s\n", url)
 
@@ -1335,6 +1370,7 @@ func Addkey(key string) (string, error) {
 	return string(body), nil
 }
 
+// Parse an ECDSA public key
 func ParseECDSAPublicKey(pubPEM string) (interface{}, error){
 	block, _ := pem.Decode([]byte(pubPEM))
 	if block == nil {
@@ -1381,6 +1417,7 @@ func EncodeECDSAPublicKey(key *ecdsa.PublicKey) ([]byte, error) {
 	return pem.EncodeToMemory(keyBlock), nil
 }
 
+// Print content of an encoded assertion
 func PrintAssertion(assertion string) {
 
 	// Split received token
@@ -1414,4 +1451,68 @@ func PrintAssertion(assertion string) {
 		j++
 	}
 
+}
+
+// generate a new Dilithium signed encoded assertion
+func NewDilithiumencode(claimset map[string]interface{}, oldmain string) (string, error) {
+	defer timeTrack(time.Now(), "NewDilithiumencode")
+
+	//Creates a Dilithium instance with recommended security level
+	mode := dilithium.Mode3
+	// Generates a keypair.
+	pk, sk, err := mode.GenerateKey(nil)
+	if err != nil {
+		fmt.Printf("Error signing: %s\n", err)
+		return "", err
+	}
+	// // Packs public and private key
+	// packedSk := sk.Bytes()
+	// packedPk := pk.Bytes()
+
+	// // Load it again
+	// sk2 := mode.PrivateKeyFromBytes(packedSk)
+	// pk2 := mode.PublicKeyFromBytes(packedPk)
+
+	//  Marshall received claimset into JSON
+	// dilikey 			:= base64.RawURLEncoding.EncodeToString([]byte(fmt.Sprint(pk2)))
+	// claimset["dilikey"] = dilikey
+	cs, _ := json.Marshal(claimset)
+	payload := base64.RawURLEncoding.EncodeToString(cs)
+
+	// If no oldmain, generates a simple assertion
+	if oldmain == "" {
+		hash 	:= hash256.Sum256([]byte(payload))
+		s		:= mode.Sign(sk, hash[:])
+		if s 	== nil {
+			fmt.Printf("Error signing!\n")
+			return "", err
+		}
+		// Checks whether a signature is correct
+		// Here just to test. In PoC maybe interesting remove the verification from signature function, reducing execution time.
+		if !mode.Verify(pk, hash[:], s) {
+			panic("incorrect signature")
+		} else {
+			fmt.Printf("Dilithium signature verification successful!\n")}
+
+		sig := base64.RawURLEncoding.EncodeToString(s)
+		encoded := strings.Join([]string{payload, sig}, ".")
+
+		fmt.Printf("\nAssertion size: %d\n", len(payload) + len(sig))
+
+		return encoded, nil
+	}
+	
+	//  Otherwise, append assertion to previous content (oldmain) and sign it
+	hash	:= hash256.Sum256([]byte(payload + "." + oldmain))
+	s 		:= mode.Sign(sk, hash[:])
+	if s 	== nil {
+		fmt.Printf("Error signing!\n")
+		return "", err
+	}
+	signature := base64.RawURLEncoding.EncodeToString(s)
+	encoded := strings.Join([]string{payload, oldmain, signature}, ".")
+	
+	fmt.Printf("\nAssertion size: %d\n", len(payload) + len(oldmain)+ len(signature))
+
+	return encoded, nil
 }

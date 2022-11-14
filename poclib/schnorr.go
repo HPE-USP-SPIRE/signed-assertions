@@ -29,7 +29,7 @@ func Sign(m string, z kyber.Scalar) Signature {
 
     // h := Hash(publicKey + m + r.String())
     publicKey := curve.Point().Mul(z, g)
-    h := Hash(publicKey.String() + m + r.String())
+    h := Hash(r.String() + m + publicKey.String())
     
     // s = k - e * x
     s := curve.Scalar().Sub(k, curve.Scalar().Mul(h, z))
@@ -43,7 +43,7 @@ func Sign(m string, z kyber.Scalar) Signature {
 // y: Public key
 func Verify(m string, S Signature, y kyber.Point) bool {
 
-    h := Hash(y.String() + m + S.R.String())
+    h := Hash(S.R.String()+ m + y.String())
 
     // Attempt to reconstruct 's * G' with a provided signature; s * G = r - h * y
     sGv := curve.Point().Sub(S.R, curve.Point().Mul(h, y))
