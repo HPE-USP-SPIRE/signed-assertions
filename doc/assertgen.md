@@ -75,11 +75,44 @@ After that, its endpoints are acessible through assertgen, using the following c
 
 `./assergen ecdsagen <assertionKey> <assertionValue> <spiffeid/svid>`
 Allows the creation of a new ECDSA token, containing given key/value.
-
 |Parameter|Type|Required|Description|
 |--|--|--|--|
 |`<assertionKey>`|string|yes|The key to be added in token claims|
 |`<assertionValue>`|string|yes|The correspondent value to be added in 'key' claim |
+|`<spiffeid/svid/anonymous>`|string|yes|The identity model to be used. spiffeid set the identities as their respective SPIFFE-ID; svid set the identities as their respective certificates; anonymous uses the public keys as the identities|
+
+`./assergen ecdsaadd <originaltoken> <assertionKey> <assertionValue> <spiffeid/svid>`
+Allows to add a new key/value to an existing token, using the nested model.
+|Parameter|Type|Required|Description|
+|--|--|--|--|
+|`<originaltoken>`|string|yes|The original token to which the new key/value will be added|
+|`<assertionKey>`|string|yes|The key to be added in token claims|
+|`<assertionValue>`|string|yes|The correspondent value to be added in 'key' claim |
+|`<spiffeid/svid/anonymous>`|string|yes|The identity model to be used. spiffeid set the identities as their respective SPIFFE-ID; svid set the identities as their respective certificates; anonymous uses the public keys as the identities|
+
+`./assergen multiappend <originaltoken> <assertionKey> <assertionValue> <howmany> <spiffeid/svid>`
+Append a specific number of ECDSA assertions to an existing token (for test purposes in some scenarios).
+|Parameter|Type|Required|Description|
+|--|--|--|--|
+|`<originaltoken>`|string|yes|The original token to which the new key/value will be added|
+|`<assertionKey>`|string|yes|The key to be added in token claims|
+|`<assertionValue>`|string|yes|The correspondent value to be added in 'key' claim |
+|`<howmany>`|integer|yes|The number of nested tokens to be created, using given key /value.|
+|`<spiffeid/svid/anonymous>`|string|yes|The identity model to be used. spiffeid set the identities as their respective SPIFFE-ID; svid set the identities as their respective certificates; anonymous uses the public keys as the identities|
+
+`./assergen ecdsaver <token>`
+Verify all ECDSA nested token signatures, starting from last one.
+|Parameter|Type|Required|Description|
+|--|--|--|--|
+|`<token>`|string|yes|The token to be verified|
+
+`./assergen ecdsapq <token>`
+Create the ECDSA nested token and an additional token using Dillithium post-quantum algorithm, for PoC purposes.
+|Parameter|Type|Required|Description|
+|--|--|--|--|
+|`<assertionKey>`|string|yes|The key to be added in token claims|
+|`<assertionValue>`|string|yes|The correspondent value to be added in 'key' claim |
+|`<howmany>`|integer|yes|The number of nested tokens to be created, using given key /value.|
 |`<spiffeid/svid/anonymous>`|string|yes|The identity model to be used. spiffeid set the identities as their respective SPIFFE-ID; svid set the identities as their respective certificates; anonymous uses the public keys as the identities|
 
 # License
