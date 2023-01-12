@@ -1,11 +1,11 @@
-# Poclib
+# PocLib
 ## _Go library to support nested token creation_
 
 [![Build Status](https://travis-ci.org/joemccann/dillinger.svg?branch=master)](https://travis-ci.org/joemccann/dillinger)
 
-Poclib is a Go library that provides functionality for creating, validating, and parsing nested tokens signed using various algorithms, such as ECDSA and Schnorr EdDSA.
+PocLib is a Go library that provides functionality for creating, validating, and parsing nested tokens signed using various algorithms, such as ECDSA and Schnorr EdDSA.
 
-Poclib also support SPIFFE/SPIRE integration, allowing the usage of SVID keys and certificates in the assertion/token generation process.
+PocLib also support SPIFFE/SPIRE integration, allowing the usage of SVID keys and certificates in the assertion/token generation process.
 
 Finally, it can also generate zero-knowledge proofs (ZKP) for RSA signatures,c ommonly used for OAuth tokens. 
 
