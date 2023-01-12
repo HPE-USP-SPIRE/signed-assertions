@@ -15,7 +15,7 @@ This project is licensed under the terms of the [Apache 2.0 license](https://www
 
 ## Features
 
-The main features available can be divided in:
+The main functions available can be divided in:
 
 - SPIRE interaction
 - OAuth 2.0 and JWT support and integration
@@ -25,7 +25,7 @@ The main features available can be divided in:
 
 ### SPIRE interaction
 
-One of the benefits offered by PocLib is the possibility of interacting with SPIRE. It allow applications to use workloads SPIRE private key to sign and validate tokens and assertions. The following functionalities can be performed using PocLib:
+One of the benefits offered by PocLib is the possibility of interacting with SPIRE. It allow applications to use workloads SPIRE private key to sign and validate tokens and assertions. As default, is expected that a SPIRE environment is running locally, for development purposes. The following functionalities can be performed using PocLib:
 
 |Function|Description|
 |---|---|
