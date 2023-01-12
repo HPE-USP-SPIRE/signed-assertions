@@ -1,8 +1,6 @@
 # Poclib
 ## _Go library to support nested token creation_
 
-[![N|Solid](https://cldup.com/dTxpPi9lDf.thumb.png)](https://nodesource.com/products/nsolid)
-
 [![Build Status](https://travis-ci.org/joemccann/dillinger.svg?branch=master)](https://travis-ci.org/joemccann/dillinger)
 
 Poclib is a Go library that provides functionality for creating, validating, and parsing nested tokens signed using various algorithms, such as ECDSA and Schnorr EdDSA.
@@ -54,110 +52,38 @@ Considering the proof of concept implementation, it is important to grant that t
 |GenZKPproof| Generate a ZKP given an existing OAuth token. Return the proof in JSON format|
 |VerifyHexProof|Verify a previously generated ZKP. It requires as argument the message, the proof, and the public key|
 
+### Nested token functionalities
+
+The [nested token](ref1) is the token scheme adopted in PocLib. The token can be created using ECDSA, standard or concatenated Schnorr signatures. There are also available the corresponding validation functions.
+
+|Function|Description|
+|---|---|
+|NewECDSAencode|Generate a new ecdsa signed encoded assertion|
+|NewSchnorrencode|Generate a new schnorr signed encoded assertion|
+|NewDilithiumencode|Generate a new Dilithium signed encoded assertion|
+|ValidateECDSAeassertion|ECDSA token validation from out level to inside (last -> first assertion)|
+|Validateschnorrassertion|Standard Schnorr token validation from out level to inside|
+|Validategg|Concatenated Schnorr token validation based in Galindo-Garcia model|
 
 
----- DRAFT bellow----
+### Helper functions
 
-# Poclib
+Additionally, PocLib contains a set of helper functions that perform many acessory functions.
 
-Poclib is a Go library that provides functionality for creating, validating, and parsing nested tokens that are signed using various algorithms, such as ECDSA and Schnorr EdDSA.
-
-In addition to these capabilities, Poclib also enables the generation of zero-knowledge proofs (ZKP) for RSA signed tokens, commonly used for OAuth tokens. This allows for the proof of token validity without disclosing the actual signature.
-
-## Using Poclib
-
-Poclib can be integrated directly into other applications by calling its functions within the code.
-
-Additionally, the library also comes with a command-line interface (CLI) tool called assertgen, which can be used to access the functionalities of Poclib.
-
-## Example
-
-```go
-package main
-
-import (
-	"fmt"
-	"log"
-	"poclib"
-)
-
-func main() {
-	// minting a new token
-	token, err := poclib.Mint("OAuthtoken")
-	if err != nil {
-		log.Fatal(err)
-	}
-	fmt.Println("Token: ", token)
-}
-```
-This example mints a new token, using an OAuth token as input. The generated token will be returned and printed
-
-Note
-It's important to check errors when using Poclib methods, there could be some errors like invalid input, failing connection to assert server and others.
-
-# Description of available functions
-
-## ValidateECDSAeassertion
-
-The function ValidateECDSAeassertion takes a token string as an input and returns a Boolean value indicating the validity of the token. It performs validation of a token using ECDSA algorithm, starting from the outermost level to the innermost level.
-
-### Defer timeTrack
-The function starts by executing timeTrack(time.Now(), "Validateassertion") which is used to track the execution time of the function, but it is deferred to the end of the function execution.
-
-### Split token into parts
-The input token is split into parts using the strings.Split() method. The . character is used as the separator. The resulting parts variable is an array of strings, where each element is a part of the original token.
-
-### Verifying recursively
-The function performs verification of the signature and the claims of the token recursively. The outermost claim and signature are verified first and the process continues inward to the innermost claim and signature. For each claim and signature pair (i and j respectively), the following steps are performed:
-
-1. Extract the first payload (parts[i]) and the last signature (parts[j]).
-2. Concatenate payload and cleaned parts and take sha256 hash
-3. decode signature
-4. Extract public key from claim and decode it
-5. Verify the signature using ecdsa.VerifyASN1
-6. move to next lvl
-
-### Inner lvl Verification
-Once the function reaches the innermost level, the following steps are performed:
-
-1. Take the sha256 hash of the innermost claim
-2. Decode the signature
-3. Retrieve the public key from the claim
-4. Verify the signature
-
-
-### Return Boolean
-The function returns **true** if the token is successfully verified or **false** otherwise.
-
-## NewSchnorrencode
-The NewSchnorrencode function allows the creation of new Schnorr-signed encoded assertions. This function takes three parameters as input:
-- claimset: a map[string]interface{} variable that contains the claims of the assertion.
-- oldmain: a string variable that is used when appending new assertion to a previous one. If no oldmain is provided (empty string), the function will generate a simple assertion.
-- key: a kyber.Scalar variable that is used to sign the assertion.
-
-The function starts by marshalling the claimset into JSON and then encoding it using the base64.RawURLEncoding method. If no oldmain is provided, the function creates a new Schnorr signature for the payload using the Sign function and the provided key. Then, it writes the signature into a bytes buffer and encodes it using base64.RawURLEncoding. The payload and the signature are joined using "." as separator and returned as the encoded assertion. 
-
-Otherwise, if oldmain is provided, the function appends the new assertion to the previous content and signs all of them using the Sign function and the provided key. 
-The payload, oldmain and signature are joined using "." as separator and returned as the encoded assertion. 
-In both cases, the function also prints some debugging information about the assertion size, for convenience of developer.
-
-
-## NewECDSAEncode
-The NewECDSAencode function is used for creating a new ECDSA signed encoded assertion. This function takes in 3 arguments:
-
-- claimset: A map of key-value pairs representing the claims being asserted. This is marshalled into a JSON object and encoded into a string (payload).
-- oldmain: A string representing the previous encoded assertion that is being appended to (if any).
-- key: An ECDSA private key in the form of a crypto.Signer used for signing the encoded assertion.
-
-When this function is called, it first marshals the claimset into a JSON object and encodes it into a string payload. If oldmain is an empty string, the function proceeds to generate a simple assertion. It calculates the SHA-256 hash of the payload and uses the provided private key to sign the hash using ECDSA ASN.1 encoding. The resulting signature is then encoded into a string and joined together with the payload using a "." separator. The resulting encoded assertion is returned along with a nil error value.
-
-Otherwise, the function will append the payload to the previous assertion (oldmain) and sign it. The function will take the string resulting from joining the payload and oldmain with "." separator, calculates the SHA-256 hash of this new message, then sign this hash with the provided private key using ECDSA ASN.1 encoding. The resulting signature is then encoded into a string and joined together with the payload and oldmain using a "." separator, resulting in the final encoded assertion, that is returned.
-
-## ValidateSchnorrAssertion
-The function "Validateschnorrassertion" takes in a single input, a string "token" which represents a token that needs to be verified. It uses the Schnorr signature scheme to check the validity of the token. The function uses the defer statement to call the function "timeTrack" with the current time and the string "Validateassertion" as inputs.
-
-The function then splits the input token into parts by using the "strings.Split" function, which splits the token into an array of strings separated by ".". It then performs a recursive verification of the token, going from the outermost level to the innermost level.
-
-The for loop, starting at the i=0 and j= len(parts)-1, in this function verifies all levels of the token except for the innermost level. It extracts the first payload (parts[i]) and last signature (parts[j]), then concatenates the payload and clean strings to form the message. Next, it loads the kyber.Signature from token by calling the function "String2schsig" and passing in the extracted signature. It then extracts the publickey (kyber.Point) from the issuer claim by calling the function "Issuer2schpubkey" and passing in the extracted payload. Finally, it uses the Verify() function to verify the signature using the extracted message and public key, which returns a boolean value indicating whether the signature is valid or not.
-
-Finally, the function verifies the innermost level by extracting the payload and signature from the token, extracting the public key from the issuer claim, and calling the Verify() function to check the validity of the signature. The function then returns the result of this final verification.
+|Function|Description|
+|---|---|
+|PrintAssertion|Print content of an encoded nested token|
+|EncodeECDSAPublicKey|Encodes an *ecdsa.PublicKey to PEM format|
+|ParseECDSAPublicKey|Parse an ECDSA public key|
+|Addkey|Add a key in local Key server (PoC function)|
+|getkeys| Retrieve key in kid claim from local Key server (PoC function)|
+|Checkaudlink|verify if token0 audience == token 1 issuer|
+|String2schsig|Convert a string to schnorr signature|
+|Schsig2string|Convert a schnorr signature to string|
+|Issuer2schpubkey|Convert issuer claim to kyber.point|
+|String2point|Convert a string to kyber.point|
+|Point2string|Convert a kyber.point to string|
+|Schpubkey2string|Convert a schnorr public key to string|
+|JwkEncode|encodes public part of an RSA or ECDSA key into a JWK|
+|Jwks2PEM|Convert JWKS to correpondent PEM file|
+|extractValue|extract the value for a key from a JSON-formatted string|
