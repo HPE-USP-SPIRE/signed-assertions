@@ -12,10 +12,25 @@ When Target Workload receives a request with DA-SVID, it check its expiration an
 
 There are two scenarios developed to this proof of concept: 
 
-- Transitivity using ID-mode
+### Transitivity using ID-mode
 ![ID-mode](https://github.com/HPE-USP-SPIRE/signed-assertions/blob/main/doc/PoC_1_ecdsa_idmode_flow.jpg)
 
-- Transitivity using anonymous-mode
+In ID-mode, the objective is to validate all the nested token signatures using the signer certificate. In this mode, when a workload append new claims to an existing token, it set the issuer as its own public key and the audience with the public key of next hop. Then, the it send both token and certificates to the next hop. Each time new information is added to a token, the signer certificate is added to this trust bundle. The validation consists in two steps: 
+
+1 - Verify if the issuer of Token(n) is the same ID in the audience of Token(n-1).
+2 - Retrieve the public keys from the trust bundle and use it to validate all sequential signatures.
+
+The Figure ID-mode depicts the application of ID-mode in the PoC application:
+
+1.  The user log in application using an OKTA OAuth token
+2.  The front-end (subject-wl) send the OAuth token to asserting-wl /ecdsaassertion endpoint, that should return a new ECDSA nested token identifying the user and the workload that is allowed to access in behalf of the user.
+3.  The asserting-wl mint the new nested token using ECDSA scheme with its private key, retrieved from SPIRE SVID.
+4.  Asserting-wl return to front-end the token and its own certificate.
+5.  Before sending the token, Front-end add new claims, specifically the issuer (front-end public key) and audience (middle-tier public key). The resulting payload is signed by front-end using its SVID private key. The token and both certificates (asserting-wl and front-end) are sent to middle-tier.
+6.  Similarly, middle-tier add the issuer (middle-tier public key) and audience (Target-wl public key) claims. The resulting payload is signed by middle-tier using its SVID private key. The token and all certificates (asserting-wl, front-end, and middle-tier) are sent to Target-wl.
+7.  Finally, Target-wl uses all certificates in the receiving order to validate all sequential signatures, identifying the signers and verifying if the issuer/audience link hold for all hops. If all perform correctly, Target-wl return user data to front-end.
+
+### Transitivity using anonymous-mode
 ![anonymous-mode](https://github.com/HPE-USP-SPIRE/signed-assertions/blob/main/doc/PoC_2_anonymousmode_flow.jpg)
 
 ## Prerequisites
