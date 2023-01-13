@@ -11,7 +11,7 @@ It main features can be grouped as follows:
 -  ECDSA token creation and validation
 -  Standard Schnorr token creation and validation
 -  Concatenated Schnorr token creation and validation
--  Tracing model (poc scenario)
+-  Standard tracing model (poc scenario)
 -  Selector-based assertion (poc scenario)
 
 ### General functions
@@ -49,27 +49,27 @@ After that, its endpoints are acessible through assertgen, using the following c
 `./assergen mint <OAuth_token>`
 |Parameter|Type|Required|Description|
 |--|--|--|--|
-|`<OAuth_token>`|string|yes|OKTA OAuth token to be used as reference in the generation of a new JWT ECDSA token. Mint a token allowing the workload identified in subject claim to act in behalf of the end user identified by given OAuth token|
+|`<OAuth_token>`|string|yes|Contact asserting workload, passing an OKTA OAuth token to be used as reference in the generation of a new JWT ECDSA token. The minted token allows the workload identified in subject claim to act in behalf of the end user identified by given OAuth token|
 
 `./assergen ecdsaassertion <OAuth_token>`
 |Parameter|Type|Required|Description|
 |--|--|--|--|
-|`<OAuth_token>`|string|yes|OKTA OAuth token to be used as reference in the generation of a new ECDSA nested token. The objective is to allow the workload identified in subject claim to act in behalf of the end user identified by given OAuth token|
+|`<OAuth_token>`|string|yes|Contact asserting workload, passing an OKTA OAuth token to be used as reference in the generation of a new ECDSA nested token. The minted token allows the workload identified in subject claim to act in behalf of the end user identified by given OAuth token|
 
 `./assergen mintassertion <OAuth_token>`
 |Parameter|Type|Required|Description|
 |--|--|--|--|
-|`<OAuth_token>`|string|yes|OKTA OAuth token to be used as reference in the generation of a new Schnorr nested token. The objective is to allow the workload identified in subject claim to act in behalf of the end user identified by given OAuth token|
+|`<OAuth_token>`|string|yes|Contact asserting workload, passing an OKTA OAuth token to be used as reference in the generation of a new Schnorr nested token. The minted token allows the workload identified in subject claim to act in behalf of the end user identified by given OAuth token|
 
 `./assergen validate <dasvid>`
 |Parameter|Type|Required|Description|
 |--|--|--|--|
-|`<dasvid>`|string|yes|Ask asserting workload to validate the given dasvid. Only accepts JWT ECDSA tokens. It will return the validity considering expiration time and signature|
+|`<dasvid>`|string|yes|Contact asserting workload, passing an dasvid to be validated. Only accepts JWT ECDSA tokens. It will return the validity considering expiration time and signature|
 
 `./assergen zkp <dasvid>`
 |Parameter|Type|Required|Description|
 |--|--|--|--|
-|`<dasvid>`|string|yes|Ask asserting workload to return a ZKP of the OAuth token that is behind the given dasvid. It will return the ZKP in JSON format considering PoC configurations|
+|`<dasvid>`|string|yes|Contact asserting workload, passing an dasvid and expecting a ZKP of the RSA signature of OAuth token that is behind the given dasvid. It will return the OAuth claims and the ZKP in JSON format, considering PoC configurations|
 
 ### ECDSA token creation and validation
 
@@ -113,6 +113,84 @@ Create the ECDSA nested token and an additional token using Dillithium post-quan
 |`<assertionKey>`|string|yes|The key to be added in token claims|
 |`<assertionValue>`|string|yes|The correspondent value to be added in 'key' claim |
 |`<howmany>`|integer|yes|The number of nested tokens to be created, using given key /value.|
+|`<spiffeid/svid/anonymous>`|string|yes|The identity model to be used. spiffeid set the identities as their respective SPIFFE-ID; svid set the identities as their respective certificates; anonymous uses the public keys as the identities|
+
+### Standard Schnorr token creation and validation
+
+`./assergen schgen <assertionKey> <assertionValue>`
+Create a new schnorr nested token containing key:value, with no specific audience. A key pair is generated, being the issuer public key stored in 'iss' claim.
+|Parameter|Type|Required|Description|
+|--|--|--|--|
+|`<assertionKey>`|string|yes|The key to be added in token claims|
+|`<assertionValue>`|string|yes|The correspondent value to be added in 'key' claim |
+
+`./assergen schadd <originaltoken> <assertionKey> <assertionValue>`
+Create a new schnorr nested token containing key:value. A new key pair is generated, being the public key stored in 'aud' (audience) claim. The corresponding private key needs to be passed off-band (similar to Biscuits approach)
+|Parameter|Type|Required|Description|
+|--|--|--|--|
+|`<originaltoken>`|string|yes|The original token to which the new key/value will be added|
+|`<assertionKey>`|string|yes|The key to be added in token claims|
+|`<assertionValue>`|string|yes|The correspondent value to be added in 'key' claim |
+
+`./assergen schver <token>`
+Validate Schnorr nested token signatures.
+|Parameter|Type|Required|Description|
+|--|--|--|--|
+|`<token>`|string|yes|The token to be validated|
+
+### Concatenated Schnorr token creation and validation
+
+This set of functions allow to create nested tokens using the concatenated Schnorr signature and validation schemes, that allows to use part of previous signature as private key of the next, reducing the resulting token size, avoiding key pair creation, and reducing the validation execution time.
+
+`./assergen concatenate <originaltoken> <assertionKey> <assertionValue>`
+Append an assertion to an existing token using concatenated Schnorr signature scheme and previous signature.S as key.
+|Parameter|Type|Required|Description|
+|--|--|--|--|
+|`<originaltoken>`|string|yes|The original token to which the new key/value will be added using concatenated model|
+|`<assertionKey>`|string|yes|The key to be added in token claims|
+|`<assertionValue>`|string|yes|The correspondent value to be added in 'key' claim |
+
+`./assergen ggschnorr <token>`
+Uses the concatenated signature validation scheme to validate the given nested token
+|Parameter|Type|Required|Description|
+|--|--|--|--|
+|`<token>`|string|yes|The original concatenated schnorr nested token to be validated|
+
+### Standard Schnorr tracing model 
+
+This set of functions allows to create a token tracing model using a issuer / audience verification. In this model, a token is aways minted with an aud claim, that must be the public key to be used in the validation of next token. The keys are generated based in a password.
+
+`./assertgen tracegen <assertionKey> <assertionValue> <secretkey> <nextsecretkey>`
+Generate a new schnorr nested token containing key:value and audience
+|Parameter|Type|Required|Description|
+|--|--|--|--|
+|`<assertionKey>`|string|yes|The key to be added in token claims|
+|`<assertionValue>`|string|yes|The correspondent value to be added in 'key' claim |
+|`<secretkey>`|string|yes|The current token secretkey|
+|`<nextsecretkey>`|string|yes|The secret key to be used to in next token generation. Must be send to next workload|
+
+`./assertgen traceadd  <tracetoken> <assertionKey> <assertionValue> <sourceprivatekey> <nextsecretkey>`
+Append a new schnorr signed assertion containing key:value and audience to an existing token
+|Parameter|Type|Required|Description|
+|--|--|--|--|
+|`<tracetoken>`|string|yes|The token to be appended|
+|`<assertionKey>`|string|yes|The key to be added in token claims|
+|`<assertionValue>`|string|yes|The correspondent value to be added in 'key' claim |
+|`<sourceprivatekey>`|string|yes|The private key to be used to sign current token|
+|`<nextsecretkey>`|string|yes|The secret key to be used to in next token generation|
+
+`./assertgen tracever  <token>`
+Verify nested token Schnorr std signatures and also validate if iss/aud links matches.
+|Parameter|Type|Required|Description|
+|--|--|--|--|
+|`<token>`|string|yes|The token to be validated|
+
+### Selector-based assertion (poc scenario)
+
+`./assertgen selectors <spiffeid/svid/anonymous>`
+Generate an ECDSA token, signed with workload SVID private key, containing its selectors, used in its attestation process, performed by SPIRE-Agent.
+|Parameter|Type|Required|Description|
+|--|--|--|--|
 |`<spiffeid/svid/anonymous>`|string|yes|The identity model to be used. spiffeid set the identities as their respective SPIFFE-ID; svid set the identities as their respective certificates; anonymous uses the public keys as the identities|
 
 # License
