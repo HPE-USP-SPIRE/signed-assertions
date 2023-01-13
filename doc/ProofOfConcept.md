@@ -78,7 +78,7 @@ This endpoint does not require any parameter, and returns the public key set nec
 ### `/mint <AccessToken>`
 |Parameter|Type|Required|Description|
 |--|--|--|--|
-|`<AccessToken>`|string|yes|Mint a new DA-SVID based in OKTA OAuth token received as  parameter.
+|`<AccessToken>`|string|yes|Mint a new DA-SVID based in OKTA OAuth token received as  parameter.|
 
 When a mint call is received, the Asserting Workload validate the OAuth token received. If the token is valid, it fetchs the SPIFFE-ID from the current mTLS session and uses it as DA-SVID subject claim. Asserting Workload also fetchs its own SPIFFE-ID and use it as DA-SVID issuer claim.
 
@@ -89,27 +89,27 @@ In the end, the Asserting Workload sends to client Oauth token expiration and si
 ### `/introspect <DA-SVID>`
 |Parameter|Type|Required|Description|
 |--|--|--|--|
-|`<DA-SVID>`|string|yes|Return OAuth token ZKP, given DA-SVID.
+|`<DA-SVID>`|string|yes|Return OAuth token ZKP, given DA-SVID.|
 
 This endpoint return the DA-SVID original claims and a Zero Knowledge Proof (ZKP) in JSON format if a valid OAuth token was used to generate that DA-SVID.
 
 ### `/validate <DA-SVID>`
 |Parameter|Type|Required|Description|
 |--|--|--|--|
-|`<DA-SVID>`|string|yes|DA-SVID to be validated.
+|`<DA-SVID>`|string|yes|DA-SVID to be validated.|
 
 This endpoint return the result of expiration time and signature validation of given DA-SVID.
 
 ### `/ecdsaassertion <AccessToken>`
 |Parameter|Type|Required|Description|
 |--|--|--|--|
-|`<AccessToken>`|string|yes|Mint a new ECDSA nested token based in OKTA OAuth token received as AccessToken parameter.
+|`<AccessToken>`|string|yes|Mint a new ECDSA nested token based in OKTA OAuth token received as AccessToken parameter.|
 This endpoint return a new ECDSA nested token. Basically it is the same DA-SVID, but in nested model format, insted JWT (2 part token vs 3 part token).
 
 ### `/mintassertion <AccessToken>`
 |Parameter|Type|Required|Description|
 |--|--|--|--|
-|`<AccessToken>`|string|yes|Mint a new Schnorr nested token based in OKTA OAuth token received as AccessToken parameter.
+|`<AccessToken>`|string|yes|Mint a new Schnorr nested token based in OKTA OAuth token received as AccessToken parameter.|
 
 This endpoint return a new Schnorr nested token. Basically it is the same DA-SVID, but in nested model format, insted JWT (2 part token vs 3 part token).
 
