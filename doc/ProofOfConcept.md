@@ -104,6 +104,7 @@ This endpoint return the result of expiration time and signature validation of g
 |Parameter|Type|Required|Description|
 |--|--|--|--|
 |`<AccessToken>`|string|yes|Mint a new ECDSA nested token based in OKTA OAuth token received as AccessToken parameter.|
+
 This endpoint return a new ECDSA nested token. Basically it is the same DA-SVID, but in nested model format, insted JWT (2 part token vs 3 part token).
 
 ### `/mintassertion <AccessToken>`
