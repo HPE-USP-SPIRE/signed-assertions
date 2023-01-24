@@ -135,7 +135,7 @@ func VerifySignature(jwtToken string, key JWK) error {
 
 	decodedheader, _ := base64.RawURLEncoding.DecodeString(parts[0])
 	jsonheader := string(decodedheader)   
-	algtype := extractValue(jsonheader, "alg")
+	algtype := ExtractValue(jsonheader, "alg")
 
 	switch {
 		//  TODO.
@@ -678,7 +678,7 @@ func ReturnSelectors(pid int) (string, error) {
 // body - the JSON-response as a string. Usually retrieved via the request body
 // key - the key for which the value should be extracted
 // returns - the value for the given key
-func extractValue(body string, key string) string {
+func ExtractValue(body string, key string) string {
     keystr := "\"" + key + "\":[^,;\\]}]*"
     r, _ := regexp.Compile(keystr)
     match := r.FindString(body)
@@ -1244,7 +1244,7 @@ func Issuer2schpubkey(message string) kyber.Point {
 
 	// Decode from b64 and retrieve issuer claim (public key)
 	decodedparti, _ := base64.RawURLEncoding.DecodeString(message)
-	tmppubkey, _ := base64.RawURLEncoding.DecodeString(fmt.Sprintf("%s", extractValue(string(decodedparti), "iss")))
+	tmppubkey, _ := base64.RawURLEncoding.DecodeString(fmt.Sprintf("%s", ExtractValue(string(decodedparti), "iss")))
 
 	// Convert claim to curve point
 	var pubkey kyber.Point
@@ -1292,11 +1292,11 @@ func Checkaudlink(issmsg string, audmsg string) bool {
 
 	// Decode issmsg from b64 and retrieve issuer claim 
 	decodediss, _ := base64.RawURLEncoding.DecodeString(issmsg)
-	tmpiss := extractValue(string(decodediss), "iss")
+	tmpiss := ExtractValue(string(decodediss), "iss")
 
 	// Decode audmsg from b64 and retrieve audience claim 
 	decodedaud, _ := base64.RawURLEncoding.DecodeString(audmsg)
-	tmpaud := extractValue(string(decodedaud), "aud")
+	tmpaud := ExtractValue(string(decodedaud), "aud")
 
 	// check if iss == aud
 	if (tmpiss != tmpaud) {
@@ -1311,7 +1311,7 @@ func Checkaudlink(issmsg string, audmsg string) bool {
 func getkeys(message string) ([]string, error) {
 
 	decclaim, _ := base64.RawURLEncoding.DecodeString(message)
-	kid := extractValue(string(decclaim), "kid")
+	kid := ExtractValue(string(decclaim), "kid")
 	fmt.Printf("Search kid: %s\n", kid)
 
 	url := "http://localhost:8888/key/" + fmt.Sprintf("%s", kid)
@@ -1516,3 +1516,90 @@ func NewDilithiumencode(claimset map[string]interface{}, oldmain string) (string
 
 	return encoded, nil
 }
+
+// func CompactGGValidation(token string) bool {
+//     defer timeTrack(time.Now(), "Single step Galindo-Garcia Validation")
+
+
+
+
+	
+//     // split received token
+//     parts := strings.Split(token, ".")
+
+//     var i = 0
+//     var j = len(parts)-1
+//     fmt.Printf("Number of keys			: %d\n", len(parts)/2)
+//     var concatenatedMessage string
+//     var concatenatedR string
+//     var concatenatedH string
+
+//     // go through all token parts collecting and constructing necessary data
+//     for (i < len(parts)/2 && (i+1 < j-1)) {
+
+//         // Construct concatenated message
+//         clean 	:= strings.Join(strings.Fields(strings.Trim(fmt.Sprintf("%s", parts[i+1:j]), "[]")), ".")
+//         message := strings.Join([]string{parts[i], clean}, ".")
+//         concatenatedMessage += message
+
+//         // Load kyber.Signature
+//         signature, err := String2schsig(parts[j])
+//         if err!=nil {
+//             // Load kyber.Point
+//             kyPoint, err := String2point(parts[j])
+//             if err != nil {
+//                 fmt.Println("Error converting string to point!")
+//                 return false
+//             } 				
+//             concatenatedR += kyPoint.String()
+//             fmt.Printf("Retrieved signature from token: %s\n",parts[j])
+//         } else {
+//             // extract and store signature.R
+//             concatenatedR += signature.R.String()
+//             fmt.Printf("Retrieved signature from token: %s\n",parts[j])
+//         }
+
+//         // Load issuer PublicKey
+//         pubkey := Issuer2schpubkey(parts[i])
+//         fmt.Printf("Retrieved PublicKey from token: %s\n\n", pubkey.String())
+
+//         // calculate and store concatenated H
+//         concatenatedH += Hash(concatenatedR + concatenatedMessage + pubkey.String()).String()
+//     }
+
+//     // Collect Inner lvl
+//     message := parts[i]
+		
+//     // Load kyber.Signature
+//     signature, err := String2schsig(parts[j])
+//     if err!=nil {
+//         // Load kyber.Point
+//         kyPoint, err := String2point(parts[j])
+//         if err != nil {
+//             fmt.Println("Error converting string to point!")
+//             return false
+//         } 
+//         concatenatedR += kyPoint.String()
+//         fmt.Printf("Retrieved signature from token: %s\n", parts[j])
+//     } else {
+//         // extract and store signature.R
+//         concatenatedR += signature.R.String()
+//         fmt.Printf("Retrieved signature from token: %s\n", parts[j])
+//     }
+
+//     // Load first original PublicKey
+//     pubkey := Issuer2schpubkey(parts[i])
+//     fmt.Printf("Retrieved PublicKey from token: %s\n\n", pubkey.String())
+
+// 	// calculate and store concatenated H
+// 	concatenatedH += Hash(concatenatedR + concatenatedMessage + pubkey.String()).String()
+	
+// 	// check if H is correct
+// 	if !Verify(pubkey, concatenatedH, concatenatedR) {
+// 		fmt.Println("Error: Invalid token")
+// 		return false
+// 	}
+	
+// 	fmt.Println("Token validation successful.")
+// 	return true
+// }
