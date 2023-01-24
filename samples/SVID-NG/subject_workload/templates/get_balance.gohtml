@@ -1,0 +1,51 @@
+{{template "header" .}}
+
+{{if .IsAuthenticated}}
+<div id="content" class="ui text container">
+  <h2>Total balance</h2>
+
+
+    <table style="width:100%" class="table table-striped" align="center">
+        <thead>
+        <tr>
+          <th>Total balance</th>
+        </tr>
+        </thead>
+        <tbody>
+            <tr>
+              <td>Client</td>
+              <td id="claim-Client">{{.DASVIDClaims.dpr}}</td>
+            </tr>
+            <tr>
+              <td>Authorized App</td>
+              <td id="claim-Authorized-App">{{.DASVIDClaims.sub}}</td>
+            </tr>   
+            <tr>
+              <td>Token Issuer</td>
+              <td id="claim-Token-Issuer">{{.DASVIDClaims.iss}}</td>
+            </tr>   
+            <tr>
+              <td>Issued at</td>
+              <td id="claim-Issued-at">{{.DASVIDClaims.iat}}</td>
+            </tr>                                 
+<br>
+            <tr>
+              <td>Request time</td>
+              <td id="claim-Request-time">{{.DASVIDClaims.iat}}</td>
+            </tr>     
+            <tr>
+              <td>Balance</td>
+              <td id="claim-Request-time">{{.Balance}}</td>
+            </tr>                        
+        </tbody>
+    </table>
+{{else}}
+  <div>
+        <p style="color: red; font-size: 20px; text-align:center;">Please login to access Bank App services.</p>
+  </div>
+ {{end}}
+
+
+
+</div>
+{{template "footer"}}
