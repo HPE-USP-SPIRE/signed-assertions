@@ -1,0 +1,230 @@
+#!/bin/bash
+
+set -e
+
+### Start SPIRE environment
+sudo cp ./lib/start_spire_env.sh /opt/spire/
+# echo -e "\n\nCopy the commands below and run them in another terminal"
+# echo "cd /opt/spire/"
+# echo "sudo bash start_spire_env.sh"
+# read -rsn1 -p"Now press any key to continue... "
+##########
+
+### Grab values from *config* and change all required .cfg files
+OKTA_CODE="96738186"
+CLIENT_ID="0oa6lnkzcvzrcqTv25d7"
+CLIENT_SECRET="D7a5Tof8sfPEWFWMf-xRgoVv8iCDKuzSscZ1pNKI"
+HOST_IP="192.168.1.102"
+ASSERTING_PORT="8443"
+TARGET_PORT="8444"
+MIDDLE_TIER_PORT="8445"
+MIDDLE_TIER2_PORT="8446"
+MIDDLE_TIER3_PORT="8447"
+MIDDLE_TIER4_PORT="8448"
+MIDDLE_TIER5_PORT="8449"
+
+## Read config file and copy values to VARs
+cp_data_config(){
+while IFS= read -r LINE
+do
+  if grep -q "OKTA_DEVELOPER_CODE" <<< "$LINE"; then
+    OKTA_CODE=${LINE#*=}
+  elif grep -q "CLIENT_ID" <<< "$LINE"; then
+    CLIENT_ID=${LINE#*=}
+  elif grep -q "CLIENT_SECRET" <<< "$LINE"; then
+    CLIENT_SECRET=${LINE#*=}
+  elif grep -q "HOSTIP" <<< "$LINE"; then
+    HOST_IP=${LINE#*=}
+  elif grep -q "Asserting-wl port" <<< "$LINE"; then
+    ASSERTING_PORT=${LINE#*=}
+  elif grep -q "Target-wl port" <<< "$LINE"; then
+    TARGET_PORT=${LINE#*=}
+  elif grep -q "Middle-tier-wl port" <<< "$LINE"; then
+    MIDDLE_TIER_PORT=${LINE#*=}
+  elif grep -q "Middle-tier2-wl port" <<< "$LINE"; then
+    MIDDLE_TIER2_PORT=${LINE#*=}
+  elif grep -q "Middle-tier3-wl port" <<< "$LINE"; then
+    MIDDLE_TIER3_PORT=${LINE#*=}
+  elif grep -q "Middle-tier4-wl port" <<< "$LINE"; then
+    MIDDLE_TIER4_PORT=${LINE#*=}
+  elif grep -q "Middle-tier5-wl port" <<< "$LINE"; then
+    MIDDLE_TIER5_PORT=${LINE#*=}
+  else
+    continue
+  fi
+done < "./.cfg"
+}
+cp_data_config
+
+## \/ Change .cfg file of Subject Workload
+CFG_PATH="./subject_workload/.cfg"
+
+LINE_MATCH=$(awk '/ISSUER=/{ print NR;}' $CFG_PATH)
+if test $LINE_MATCH -gt 0; then
+  TMP_VAR="ISSUER=https://dev-${OKTA_CODE}.okta.com/oauth2/default"
+  sudo sed -i "$LINE_MATCH c \\$TMP_VAR" $CFG_PATH
+else
+  trap "\"ISSUER=\" string not found in .cfg file." EXIT
+fi
+
+LINE_MATCH=$(awk '/CLIENT_ID=/{ print NR;}' $CFG_PATH)
+if test $LINE_MATCH -gt 0; then
+  TMP_VAR="CLIENT_ID=${CLIENT_ID}"
+  sudo sed -i "$LINE_MATCH c \\$TMP_VAR" $CFG_PATH
+else
+  trap "\"CLIENT_ID=\" string not found in .cfg file." EXIT
+fi
+
+LINE_MATCH=$(awk '/CLIENT_SECRET=/{ print NR;}' $CFG_PATH)
+if test $LINE_MATCH -gt 0; then
+  TMP_VAR="CLIENT_SECRET=${CLIENT_SECRET}"
+  sudo sed -i "$LINE_MATCH c \\$TMP_VAR" $CFG_PATH
+else
+  trap "\"CLIENT_SECRET=\" string not found in .cfg file." EXIT
+fi
+
+LINE_MATCH=$(awk '/HOSTIP=/{ print NR;}' $CFG_PATH)
+if test $LINE_MATCH -gt 0; then
+  TMP_VAR="HOSTIP=${HOST_IP}:8080"
+  sudo sed -i "$LINE_MATCH c \\$TMP_VAR" $CFG_PATH
+else
+  trap "\"HOSTIP=\" string not found in .cfg file." EXIT
+fi
+
+LINE_MATCH=$(awk '/ASSERTINGWLIP=/{ print NR;}' $CFG_PATH)
+if test $LINE_MATCH -gt 0; then
+  ASSERTINGWLIP="ASSERTINGWLIP=${HOST_IP}:${ASSERTING_PORT}"
+  sudo sed -i "$LINE_MATCH c \\$ASSERTINGWLIP" $CFG_PATH
+else
+  trap "\"ASSERTINGWLIP=\" string not found in .cfg file." EXIT
+fi
+
+LINE_MATCH=$(awk '/TARGETWLIP=/{ print NR;}' $CFG_PATH)
+if test $LINE_MATCH -gt 0; then
+  TARGETWLIP="TARGETWLIP=${HOST_IP}:${TARGET_PORT}"
+  sudo sed -i "$LINE_MATCH c \\$TARGETWLIP" $CFG_PATH
+else
+  trap "\"TARGETWLIP=\" string not found in .cfg file." EXIT
+fi
+
+LINE_MATCH=$(awk '/MIDDLETIERIP=/{ print NR;}' $CFG_PATH)
+if test $LINE_MATCH -gt 0; then
+  MIDDLETIERIP="MIDDLETIERIP=${HOST_IP}:${MIDDLE_TIER_PORT}"
+  sudo sed -i "$LINE_MATCH c \\$MIDDLETIERIP" $CFG_PATH
+else
+  trap "\"MIDDLETIERIP=\" string not found in .cfg file." EXIT
+fi
+## /\Change .cfg file of Subject Workload
+
+########################################
+
+##\/ Change .cfg file of Middler-Tier Workload
+CFG_PATH="./middle-tier/.cfg"
+
+LINE_MATCH=$(awk '/ASSERTINGWLIP=/{ print NR;}' $CFG_PATH)
+if test $LINE_MATCH -gt 0; then
+  ASSERTINGWLIP="ASSERTINGWLIP=${HOST_IP}:${ASSERTING_PORT}"
+  sudo sed -i "$LINE_MATCH c \\$ASSERTINGWLIP" $CFG_PATH
+else
+  trap "\"ASSERTINGWLIP=\" string not found in .cfg file." EXIT
+fi
+
+LINE_MATCH=$(awk '/MIDDLE_TIER2_IP=/{ print NR;}' $CFG_PATH)
+if test $LINE_MATCH -gt 0; then
+  MIDDLE_TIER2_IP="MIDDLE_TIER2_IP=${HOST_IP}:${MIDDLE_TIER2_PORT}"
+  sudo sed -i "$LINE_MATCH c \\$MIDDLE_TIER2_IP" $CFG_PATH
+else
+  trap "\"MIDDLE_TIER2_IP=\" string not found in .cfg file." EXIT
+fi
+#Middle-tier 2
+CFG_PATH="./middle-tier2/.cfg"
+
+LINE_MATCH=$(awk '/ASSERTINGWLIP=/{ print NR;}' $CFG_PATH)
+if test $LINE_MATCH -gt 0; then
+  ASSERTINGWLIP="ASSERTINGWLIP=${HOST_IP}:${ASSERTING_PORT}"
+  sudo sed -i "$LINE_MATCH c \\$ASSERTINGWLIP" $CFG_PATH
+else
+  trap "\"ASSERTINGWLIP=\" string not found in .cfg file." EXIT
+fi
+
+LINE_MATCH=$(awk '/MIDDLE_TIER3_IP=/{ print NR;}' $CFG_PATH)
+if test $LINE_MATCH -gt 0; then
+  MIDDLE_TIER3_IP="MIDDLE_TIER3_IP=${HOST_IP}:${MIDDLE_TIER3_PORT}"
+  sudo sed -i "$LINE_MATCH c \\$MIDDLE_TIER3_IP" $CFG_PATH
+else
+  trap "\"MIDDLE_TIER3_IP=\" string not found in .cfg file." EXIT
+fi
+
+#Middle-tier 3
+CFG_PATH="./middle-tier3/.cfg"
+
+LINE_MATCH=$(awk '/ASSERTINGWLIP=/{ print NR;}' $CFG_PATH)
+if test $LINE_MATCH -gt 0; then
+  ASSERTINGWLIP="ASSERTINGWLIP=${HOST_IP}:${ASSERTING_PORT}"
+  sudo sed -i "$LINE_MATCH c \\$ASSERTINGWLIP" $CFG_PATH
+else
+  trap "\"ASSERTINGWLIP=\" string not found in .cfg file." EXIT
+fi
+
+LINE_MATCH=$(awk '/MIDDLE_TIER4_IP=/{ print NR;}' $CFG_PATH)
+if test $LINE_MATCH -gt 0; then
+  MIDDLE_TIER4_IP="MIDDLE_TIER4_IP=${HOST_IP}:${MIDDLE_TIER4_PORT}"
+  sudo sed -i "$LINE_MATCH c \\$MIDDLE_TIER4_IP" $CFG_PATH
+else
+  trap "\"MIDDLE_TIER4_IP=\" string not found in .cfg file." EXIT
+fi
+
+#Middle-tier 4
+CFG_PATH="./middle-tier4/.cfg"
+
+LINE_MATCH=$(awk '/ASSERTINGWLIP=/{ print NR;}' $CFG_PATH)
+if test $LINE_MATCH -gt 0; then
+  ASSERTINGWLIP="ASSERTINGWLIP=${HOST_IP}:${ASSERTING_PORT}"
+  sudo sed -i "$LINE_MATCH c \\$ASSERTINGWLIP" $CFG_PATH
+else
+  trap "\"ASSERTINGWLIP=\" string not found in .cfg file." EXIT
+fi
+
+LINE_MATCH=$(awk '/MIDDLE_TIER5_IP=/{ print NR;}' $CFG_PATH)
+if test $LINE_MATCH -gt 0; then
+  MIDDLE_TIER5_IP="MIDDLE_TIER5_IP=${HOST_IP}:${MIDDLE_TIER5_PORT}"
+  sudo sed -i "$LINE_MATCH c \\$MIDDLE_TIER5_IP" $CFG_PATH
+else
+  trap "\"MIDDLE_TIER5_IP=\" string not found in .cfg file." EXIT
+fi
+
+#Middle-tier 5
+CFG_PATH="./middle-tier5/.cfg"
+
+LINE_MATCH=$(awk '/ASSERTINGWLIP=/{ print NR;}' $CFG_PATH)
+if test $LINE_MATCH -gt 0; then
+  ASSERTINGWLIP="ASSERTINGWLIP=${HOST_IP}:${ASSERTING_PORT}"
+  sudo sed -i "$LINE_MATCH c \\$ASSERTINGWLIP" $CFG_PATH
+else
+  trap "\"ASSERTINGWLIP=\" string not found in .cfg file." EXIT
+fi
+
+LINE_MATCH=$(awk '/TARGETWLIP=/{ print NR;}' $CFG_PATH)
+if test $LINE_MATCH -gt 0; then
+  TARGETWLIP="TARGETWLIP=${HOST_IP}:${TARGET_PORT}"
+  sudo sed -i "$LINE_MATCH c \\$TARGETWLIP" $CFG_PATH
+else
+  trap "\"TARGETWLIP=\" string not found in .cfg file." EXIT
+fi
+## /\Change .cfg file of Middle-Tier Workload
+
+########################################
+
+## \/Change .cfg file of Target Workload
+CFG_PATH="./target_workload/.cfg"
+
+LINE_MATCH=$(awk '/ASSERTINGWLIP=/{ print NR;}' $CFG_PATH)
+if test $LINE_MATCH -gt 0; then
+  ASSERTINGWLIP="ASSERTINGWLIP=${HOST_IP}:${ASSERTING_PORT}"
+  sudo sed -i "$LINE_MATCH c \\$ASSERTINGWLIP" $CFG_PATH
+else
+  trap "\"ASSERTINGWLIP=\" string not found in .cfg file." EXIT
+fi
+########################################
+echo "Environment configured according to .cfg file"
+

@@ -1,0 +1,28 @@
+{{template "header" .}}
+
+{{if and .IsAuthenticated (eq .Returnmsg "")}}
+<div id="content" class="ui text container">
+  <h2>Hello, <span>{{.Profile.name}}</span>!</h2>
+
+  <div>
+    <p></p>
+    <p>Deposit</p>
+    <p>Enter a value to deposit in your account:</p> 
+
+  <div class="box">
+  <form action="/deposit" method="POST" class="form-inline">
+    <input type="number" id="deposit" name="deposit" placeholder="Value to deposit">
+    <input type="submit" value="Deposit" class="btn btn-success">
+  </form>   
+  </div>
+
+    <button onclick="location.href='http://{{.AppURI}}/get_balance'"  class="btn btn-danger">Check your balance</button></p>
+  </div>
+{{else}}
+  <div>
+
+        <p style="color: red; font-size: 20px; text-align:center;">Please login to access Bank App services.</p>
+  </div>
+ {{end}}
+</div>
+{{template "footer"}}

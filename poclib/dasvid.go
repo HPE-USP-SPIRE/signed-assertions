@@ -122,7 +122,9 @@ func timeTrack(start time.Time, name string) {
     log.Printf("%s execution time is %s", name, elapsed)
 }
 
-// Verify JWT token signature. Currently supports RSA. Add new switch cases to support ECDSA and HMAC.
+// Verify JWT token signature.
+// currently supporting RSA. Adding new switch cases to support ECDSA and HMAC.
+// 
 func VerifySignature(jwtToken string, key JWK) error {
 	defer timeTrack(time.Now(), "Verify Signature")
 
@@ -133,6 +135,7 @@ func VerifySignature(jwtToken string, key JWK) error {
 		return err
 	}
 
+	log.Printf("DASVID token identified. Checking header... ")
 	decodedheader, _ := base64.RawURLEncoding.DecodeString(parts[0])
 	jsonheader := string(decodedheader)   
 	algtype := ExtractValue(jsonheader, "alg")
@@ -445,6 +448,75 @@ func Token2vkey(token string, issfield int) *C.EVP_PKEY {
 	return vkey
 }
 
+// Receive a JWT token, identify the original OAuth token issuer and contact endpoint to retrieve JWK public key.
+// Convert the JWT to PEM and finally PEM to OpenSSL vkey.
+// 
+// Oauth issuer field: 0 - iss (OAuth token); 1 - dpa (DA-SVID token);
+// 
+func Assertion2vkey(assertion string, issfield int) *C.EVP_PKEY {
+	// defer timeTrack(time.Now(), "Token2vkey")
+
+	var vkey *C.EVP_PKEY
+    var filepem *C.FILE
+
+	// extract OAuth token issuer (i.e. issuer in OAuth, dpa in DA-SVID) and generate path to /keys endpoint
+    // assertionclaims := ParseTokenClaims(token)
+	parts := strings.Split(assertion, ".")
+	claims, _ := base64.RawURLEncoding.DecodeString(parts[0])
+	log.Printf(string(claims))
+	var assertionclaims map[string]interface{}
+	
+	err := json.Unmarshal(claims, &assertionclaims)
+	if err != nil {
+		log.Fatalf("error:", err)
+	}
+
+	var issuer string
+	if issfield == 0 {
+		issuer = fmt.Sprintf("%v", assertionclaims["iss"])
+		log.Printf("OAuth issuer claim: %s", issuer)
+	} else if issfield ==1 {
+		issuer = fmt.Sprintf("%v", assertionclaims["dpa"])
+		log.Printf("DASVID issuer claim: %s", issuer)
+	} else {
+		log.Fatal("No issuer field informed.")
+	}
+
+	uri, result := ValidateISS(issuer) 
+	if result != true {
+		log.Fatal("OAuth token issuer not identified!")
+	}
+	
+	resp, err := http.Get(uri)
+	defer resp.Body.Close()
+
+	out, err := os.Create("./keys/oauth.json")
+	if err != nil {
+		log.Printf("Error creating Oauth public key cache file: %v", err)
+	}
+	defer out.Close()
+	io.Copy(out, resp.Body)
+
+	AssertionJwks2PEM(assertion, "./keys/oauth.json")
+
+    // Open OAuth PEM file containing Public Key
+    filepem = C.fopen((C.CString)(os.Getenv("PEM_PATH")),(C.CString)("r")) 
+	if filepem == nil {
+        log.Fatal("Error opening PEM file!")
+    }
+
+	// log.Printf("filepem generated: %v", filepem)
+  
+    // Load key from PEM file to VKEY
+	vkey = nil
+    C.PEM_read_PUBKEY(filepem, &vkey, nil, nil)
+
+	// log.Printf("vkey generated: %v", vkey)
+	C.fclose(filepem)
+
+	return vkey
+}
+
 // Validate if OAuth token issuer is known. 
 // Supported OAuth tokens and public key endpoint:
 // OKTA:
@@ -696,7 +768,9 @@ func Jwks2PEM(token string, path string) {
 	for i :=0; i<len(pubkey.Keys); i++ {
 
 		err := VerifySignature(token, pubkey.Keys[i])
-		if err == nil {
+		if err != nil {
+			log.Printf("Signature verification error: %v", fmt.Sprintf("%s", err))
+		} else {
 
 			fmt.Println("Creating pubkey: ", pubkey.Keys[i].Kty)
 
@@ -752,20 +826,69 @@ func Jwks2PEM(token string, path string) {
 			}
 			file.Close()
 
-			// log.Printf("Opening created file:")
-			// ftest, err := os.Open("./keys/oauth.pem")
-			// if err != nil {
-			// 	log.Fatal(err)
-			// }
-
-			// scanner := bufio.NewScanner(ftest)
-			// log.Printf("Verifying created file:")
-			// for scanner.Scan() {             // internally, it advances token based on sperator
-			// 	fmt.Println(scanner.Text())  // token in unicode-char
-			// }
-			// ftest.Close()
 		}
 	}
+}
+
+func AssertionJwks2PEM(token string, path string) {
+	defer timeTrack(time.Now(), "AssertionJwks2PEM")
+
+	pubkey := RetrieveJWKSPublicKey(path)
+
+	fmt.Println("Creating pubkey: ", pubkey.Keys[0].Kty)
+
+	if pubkey.Keys[0].Kty != "RSA" {
+		log.Fatal("invalid key type:", pubkey.Keys[0].Kty)
+	}
+
+	// decode the base64 bytes for n
+	nb, err := base64.RawURLEncoding.DecodeString(pubkey.Keys[0].N)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	e := 0
+	// The default exponent is usually 65537, so just compare the
+	// base64 for [1,0,1] or [0,1,0,1]
+	if pubkey.Keys[0].E == "AQAB" || pubkey.Keys[0].E == "AAEAAQ" {
+		e = 65537
+	} else {
+		// need to decode "e" as a big-endian int
+		log.Fatal("need to decode e:", pubkey.Keys[0].E)
+	}
+
+	pk := &rsa.PublicKey{
+		N: new(big.Int).SetBytes(nb),
+		E: e,
+	}
+
+	der, err := x509.MarshalPKIXPublicKey(pk)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	block := &pem.Block{
+		Type:  "PUBLIC KEY",
+		Bytes: der,
+	}
+
+	var out bytes.Buffer
+	pem.Encode(&out, block)
+	fmt.Println("Generated public key in PEM format: ", out.String())
+	
+	// Create output file
+	file, err := os.Create("./keys/oauth.pem")
+	if err != nil {
+		log.Fatal(err)
+	}
+		
+	log.Printf("Writing PEM file...")
+	_, err = file.Write(out.Bytes())
+	if err != nil {
+		log.Fatal("Error writing PEM file: ", err)
+	}
+	file.Close()
+
 }
 
 // jwkEncode encodes public part of an RSA or ECDSA key into a JWK.
@@ -910,6 +1033,71 @@ func ValidateECDSAeassertion(token string) bool {
 		}
 		z++
 	}
+	return true
+}
+
+func ValidateECDSAIDassertion(token string, key []*ecdsa.PublicKey) bool {
+	defer timeTrack(time.Now(), "Validateassertion")
+
+	parts := strings.Split(token, ".")
+
+	//  Verify recursively all lvls except most inner
+	var i = 0
+	var j = len(parts)-1
+	var k = len(key)-1
+	for (i < len(parts)/2 && (i+1 < j-1)) {
+		// Extract first payload (parts[i]) and last signature (parts[j])
+		clean 			:= strings.Join(strings.Fields(strings.Trim(fmt.Sprintf("%s", parts[i+1:j]), "[]")), ".")
+		hash 			:= hash256.Sum256([]byte(parts[i] + "." + clean))
+		signature, err 	:= base64.RawURLEncoding.DecodeString(parts[j])
+		if err != nil {
+			fmt.Printf("Error decoding signature: %s\n", err)
+			return false
+		}
+
+		fmt.Printf("Claim     %d: %s\n", i, parts[i])
+		fmt.Printf("Signature %d: %s\n", j, parts[j])
+
+		link := Checkaudlink(parts[i], parts[i+1])
+		if link == false {
+			fmt.Printf("Iss/Aud link fails!")
+			return false
+		}
+		fmt.Printf("Iss/Aud link successfully validated!")
+
+		log.Printf("Verifying key number %d of %d", k, len(key)-1)
+		verify 			:= ecdsa.VerifyASN1(key[k], hash[:], signature)
+		if (verify == false){
+			fmt.Printf("\nSignature validation failed!\n\n")
+			return false
+		}
+		fmt.Printf("Signature %d successfully validated with key %d !\n\n", j, k)
+		i++
+		j--
+		k--
+	}
+
+	// Verify Inner lvl
+
+	// Verify if signature j is valid to parts[i] (there is no remaining previous assertion)
+	hash 			:= hash256.Sum256([]byte(parts[i]))
+	signature, err 	:= base64.RawURLEncoding.DecodeString(parts[j])
+	if (err != nil){
+		fmt.Printf("Error decoding signature: %s\n", err)
+		return false
+	}
+
+	fmt.Printf("Claim     %d: %s\n", i, parts[i])
+	fmt.Printf("Signature %d: %s\n", j, parts[j])
+	
+	log.Printf("Verifying key number %d of %d", k, len(key)-1)
+	verify := ecdsa.VerifyASN1(key[k], hash[:], signature)
+	if (verify == false){
+		fmt.Printf("\nSignature validation failed!\n\n")
+		return false
+	}
+	fmt.Printf("Signature %d successfully validated with key %d !\n\n", j, k)
+
 	return true
 }
 
@@ -1516,90 +1704,3 @@ func NewDilithiumencode(claimset map[string]interface{}, oldmain string) (string
 
 	return encoded, nil
 }
-
-// func CompactGGValidation(token string) bool {
-//     defer timeTrack(time.Now(), "Single step Galindo-Garcia Validation")
-
-
-
-
-	
-//     // split received token
-//     parts := strings.Split(token, ".")
-
-//     var i = 0
-//     var j = len(parts)-1
-//     fmt.Printf("Number of keys			: %d\n", len(parts)/2)
-//     var concatenatedMessage string
-//     var concatenatedR string
-//     var concatenatedH string
-
-//     // go through all token parts collecting and constructing necessary data
-//     for (i < len(parts)/2 && (i+1 < j-1)) {
-
-//         // Construct concatenated message
-//         clean 	:= strings.Join(strings.Fields(strings.Trim(fmt.Sprintf("%s", parts[i+1:j]), "[]")), ".")
-//         message := strings.Join([]string{parts[i], clean}, ".")
-//         concatenatedMessage += message
-
-//         // Load kyber.Signature
-//         signature, err := String2schsig(parts[j])
-//         if err!=nil {
-//             // Load kyber.Point
-//             kyPoint, err := String2point(parts[j])
-//             if err != nil {
-//                 fmt.Println("Error converting string to point!")
-//                 return false
-//             } 				
-//             concatenatedR += kyPoint.String()
-//             fmt.Printf("Retrieved signature from token: %s\n",parts[j])
-//         } else {
-//             // extract and store signature.R
-//             concatenatedR += signature.R.String()
-//             fmt.Printf("Retrieved signature from token: %s\n",parts[j])
-//         }
-
-//         // Load issuer PublicKey
-//         pubkey := Issuer2schpubkey(parts[i])
-//         fmt.Printf("Retrieved PublicKey from token: %s\n\n", pubkey.String())
-
-//         // calculate and store concatenated H
-//         concatenatedH += Hash(concatenatedR + concatenatedMessage + pubkey.String()).String()
-//     }
-
-//     // Collect Inner lvl
-//     message := parts[i]
-		
-//     // Load kyber.Signature
-//     signature, err := String2schsig(parts[j])
-//     if err!=nil {
-//         // Load kyber.Point
-//         kyPoint, err := String2point(parts[j])
-//         if err != nil {
-//             fmt.Println("Error converting string to point!")
-//             return false
-//         } 
-//         concatenatedR += kyPoint.String()
-//         fmt.Printf("Retrieved signature from token: %s\n", parts[j])
-//     } else {
-//         // extract and store signature.R
-//         concatenatedR += signature.R.String()
-//         fmt.Printf("Retrieved signature from token: %s\n", parts[j])
-//     }
-
-//     // Load first original PublicKey
-//     pubkey := Issuer2schpubkey(parts[i])
-//     fmt.Printf("Retrieved PublicKey from token: %s\n\n", pubkey.String())
-
-// 	// calculate and store concatenated H
-// 	concatenatedH += Hash(concatenatedR + concatenatedMessage + pubkey.String()).String()
-	
-// 	// check if H is correct
-// 	if !Verify(pubkey, concatenatedH, concatenatedR) {
-// 		fmt.Println("Error: Invalid token")
-// 		return false
-// 	}
-	
-// 	fmt.Println("Token validation successful.")
-// 	return true
-// }
