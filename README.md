@@ -3,7 +3,6 @@ This repository is part of HPE/USP SPIFFE project Assertions and Tokens. Details
 
 - **assertgen**: command-line interface (CLI) to perform many different functions developed to nested scheme tokens.
 - **doc**: contain all documentation related to the solution.
-- **keysrv**: PoC component to mock and IdP and interact with assertgen.
 - **poclib**: contains a prototype of a Go library, containing a set of functions related to the token nested scheme.
 - **samples**: contain all three PoC scenarios and its documentation.
 
