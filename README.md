@@ -7,4 +7,4 @@ This repository is part of HPE/USP SPIFFE project Assertions and Tokens. Details
 - **samples**: contain all three PoC scenarios and its documentation.
 
 # License
-This project is licensed under the terms of the Apache 2.0 license. It was developed to support the HPE/USP Transitive Identity & Embedded Claims project, and it is important to not that it may require some specific configurations to run properly. The command-line tool assertgen can be used as an example of Poclib usage.
+This project is licensed under the terms of the Apache 2.0 license. It was developed to support the HPE/USP Transitive Identity & Embedded Claims project.
