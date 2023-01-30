@@ -6,3 +6,5 @@ This repository is part of HPE/USP SPIFFE project Assertions and Tokens. Details
 - **poclib**: contains a prototype of a Go library, containing a set of functions related to the token nested scheme.
 - **samples**: contain all three PoC scenarios and its documentation.
 
+# License
+This project is licensed under the terms of the Apache 2.0 license. It was developed to support the HPE/USP Transitive Identity & Embedded Claims project, and it is important to not that it may require some specific configurations to run properly. The command-line tool assertgen can be used as an example of Poclib usage.
