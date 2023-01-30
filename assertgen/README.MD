@@ -1,18 +1,22 @@
 # Assertgen
+Assertgen is a CLI that can perform different tasks using the poclib.
+
+## Requirements
+Some assertgen commands requires a running local SPIRE instance to retrieve necessary key pairs and certificates. Others are related with specific proof of concept scenarios. The _.cfg_ file contains basic configuration to a local execution. Details about how to install the requirements and perform necessary configurations can be found in https://github.com/HPE-USP-SPIRE/signed-assertions/blob/main/doc/Poc-Install.md. More details about each function can be found in next Sections.
 
 ## _Command-Line Interface (CLI)_ to token generation
 
-Assertgen is a CLI prototype for PocLib, that can perform different tasks using the proposed token nested model. It was developed during Phase 2 of HPE/USP Transitive Identity & Embedded Claims project to support the specification and test of the proposed solution. Considering this, new features were constantly being added throughout the project.
+It was developed during Phase 2 of HPE/USP Transitive Identity & Embedded Claims project to support the specification and test of the proposed solution. Considering this, new features were constantly being added throughout the project.
 
 It main features can be grouped as follows:
 
 - General functions
--  Asserting Workload Interactions
--  ECDSA token creation and validation
--  Standard Schnorr token creation and validation
--  Concatenated Schnorr token creation and validation
--  Standard tracing model (poc scenario)
--  Selector-based assertion (poc scenario)
+- Asserting Workload Interactions
+- ECDSA token creation and validation
+- Standard Schnorr token creation and validation
+- Concatenated Schnorr token creation and validation
+- Standard tracing model (poc scenario)
+- Selector-based assertion (poc scenario)
 
 ### General functions
 
