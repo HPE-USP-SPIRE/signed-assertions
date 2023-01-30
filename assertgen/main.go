@@ -823,113 +823,6 @@ Main functions:
 
 		os.Exit(1)
 		
-
-	case "single":
-		// 3.1 - remove signature0.s part and use it as private key to sign the new payload and previous token (payload1.payload0.signature0.r), generating tmpsignature. 
-		// 3.2 - hash the concatenation of tmpsignature.r || signature0.r, resulting in hr1
-		// 3.3 - Then, signature1 = (hr1, tmpsignature.s)
-
-
-		// Append an assertion with schnorr signature, using previous signature.S as key
-		// usage: ./main concatenate originaltoken assertionKey assertionValue 
-
-		// timestamp
-		issue_time 		:= time.Now().Round(0).Unix()
-
-		// set g
-		g := curve.Point().Base()
-
-		// Original token
-		oldmain 		:= os.Args[2]
-		parts 			:= strings.Split(oldmain, ".")		
-
-		var assertion string
-
-		// Retrieve signature from originaltoken 
-		prevsignature, err := dasvid.String2schsig(parts[len(parts) -1])
-		if err != nil {
-			fmt.Println("Error converting string to schnorr signature!")
-			os.Exit(1)
-		} 
-		privateKey := prevsignature.S
-		// Discard entire signature
-		parts = parts[:len(parts)-1]
-
-		oldmain = strings.Join(parts, ".")
-		publicKey := curve.Point().Mul(privateKey, g)
-		fmt.Println("Generated publicKey: ", publicKey)
-		
-		// Issuer
-		issuer, err := dasvid.Point2string(publicKey)
-		if err != nil {
-			fmt.Println("Error decoding point string!")
-			os.Exit(1)
-		} 
-		fmt.Println("iss: ", issuer)
-		
-		// assertion key:value
-		assertionkey 	:= os.Args[3]
-		assertionvalue 	:= os.Args[4]
-		assertionclaims := map[string]interface{}{
-			"iss"		:		issuer,
-			"iat"		:	 	issue_time,
-			assertionkey:		assertionvalue,
-		}
-		tmpassertion, err := dasvid.NewSchnorrencode(assertionclaims, oldmain, privateKey)
-		if err != nil {
-			fmt.Println("Error generating signed schnorr assertion!")
-			os.Exit(1)
-		} 
-
-		partsA := strings.Split(tmpassertion, ".")
-		// Retrieve signature from originaltoken 
-		assertionsig, err := dasvid.String2schsig(partsA[len(partsA) -1])
-		if err != nil {
-			fmt.Println("Error converting string to schnorr signature!")
-			os.Exit(1)
-		} 
-		
-		// generate the final signature
-		var finalsig dasvid.Signature
-		tmpAssertR, err := dasvid.Point2string(assertionsig.R) 
-		tmpPrevR, err := dasvid.Point2string( prevsignature.R)
-		// tmpR := hash256.Sum256([]byte(tmpAssertR+tmpPrevR))
-		tmpR:= tmpAssertR+tmpPrevR
-
-		tmp2 := base64.RawURLEncoding.EncodeToString([]byte(tmpR))
-
-		// fmt.Println("tmpAssertR: ", tmpAssertR)
-		// fmt.Println("tmpPrevR: ", tmpPrevR)
-		// fmt.Println("tmpR: ", tmpR)
-		fmt.Println("final r string: ", tmp2)
-
-		r, err := dasvid.String2point(tmp2)
-		finalsig.R = r 
-		finalsig.S = assertionsig.S
-
-		finalsigstring := dasvid.Schsig2string(finalsig)
-		
-		assertion = strings.Join(partsA[:len(partsA)-2], ".")+"."+ finalsigstring
-
-		decodediss, _ := base64.RawURLEncoding.DecodeString(partsA[len(partsA)-2])
-		y0 := dasvid.ExtractValue(string(decodediss), "iss")
-		fmt.Println("y0 = ", y0)
-		// tmpy0 := hash256.Sum256([]byte(issuer+y0))
-		tmpy0 := issuer+y0
-		tmpy03 := base64.RawURLEncoding.EncodeToString([]byte(tmpy0))
-		tmpy04, err := dasvid.String2point(tmpy03)
-
-		fmt.Println("Generated assertion: ", fmt.Sprintf("%s",assertion))
-
-		fmt.Println("Testing... ")
-
-		// CompactGGValidation(concKey kyber.Point, concSigR kyber.Point, msg string, sigS kyber.Scalar)
-		if !dasvid.CompactGGValidation(tmpy04, finalsig.R, strings.Join(partsA[:len(partsA)-2], "."), finalsig.S) { fmt.Println("Error validating")} else {fmt.Println("Validation Successful!! :D")}
-
-		// if !dasvid.Verify(strings.Join(partsA[:len(partsA)-2], "."), finalsig, tmpy04) { fmt.Println("Error validating")} else {fmt.Println("Validation Successful!! :D")}
-
-		os.Exit(1)
-		
 	//  __ Galindo Garcia validation of EdDSA concatenated Schnorr signatures__ //
 	case "ggschnorr":
 		// 	Verify assertion signatures using Galindo Garcia
@@ -997,21 +890,6 @@ Main functions:
 			fmt.Println("Error retrieving selectors!")
 			os.Exit(1)
 		}
-		// fmt.Println("Retrieved selectors: ", selectors)
-
-		// tmp := strings.Split(strings.Trim(fmt.Sprintf("%s", selectors), "[]"), " ")
-		// i := 0
-		// var cleanselectors []string
-		// var parts []string
-		// for (i < len(tmp)) {
-		// 	if (tmp[i] != "") {
-		// 		parts = strings.Split(tmp[i], `"`)
-		// 		if (parts[0] == "value:") {
-		// 			cleanselectors = append(cleanselectors, parts[1])
-		// 		}
-		// 	}
-		// 	i++
-		// }
 
 		fmt.Printf("Selectors array %s\n", selectors)
 
@@ -1022,10 +900,6 @@ Main functions:
 			"iat"		:	 	issue_time,
 			"kid"		:		kid,
 			"sel"		:		selectors,
-			// "sel": map[string]interface{}{ 
-			// 	"type" : x,
-			// 	"value": y,
-			// },
 		}
 		assertion, err := dasvid.NewECDSAencode(assertionclaims, "", clientkey)
 		if err != nil {
