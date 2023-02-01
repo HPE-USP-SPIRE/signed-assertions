@@ -22,5 +22,44 @@ The resulting token is smaller than in ID-mode, as it remove part of the signatu
 The basic model developed in Phase 1 of the project. In this scenario, asserting wl mint a token that allows the delegation of user rights to a workload. The objective of this token (a.k.a. SVID-NG) is to grant that the calling workload have the sufficient rights to access the desired resource. 
 
 
+# Installation
 
-As all these scenarios starts with an OAuth token and generates new tokens with restricted rights, the asserting-wl (IdP) have an endpoint that offer a Zero Knowledge Proof that it have a valid OAuth token behind the call.
+For a complete manual installation, follow Step by Step.md guide.
+
+After downloading the repository, first change permissions on all scripts to run as executables:
+
+```bash
+sudo chmod +x -R *.sh && sudo chmod +x lib/*.sh
+```
+
+1. **DO NOT** run any script with extra privileges with sudo. The proper locations to run as sudo are written on each script.
+
+2. Run **requirements.sh** if you do not have all required packages installed.
+
+3. Before you run **installation.sh**, it is necessary to put your data in the **config** file:
+
+   - If you **DO NOT** want to install SPIRE or Docker (probably because you already have it), change values to **TRUE**.
+   - Put your OKTA credentials (client ID, client secret) 
+   - Change the IP address to the machine that will run the application. Change each line accordingly.
+
+# How to use
+
+To config the environemnt according to config file, initialize SPIRE (agent and server) and all docker containers (workloads):
+
+```
+chmod +x init
+./init
+```
+
+<br>
+To kill SPIRE and the containers
+
+```
+./kill
+```
+
+_Disclaimer 1: init also runs kill, and both kill all the containers running in the machine!_
+
+_Disclaimer 2: you might need to allow the scripts to run, with `chmod +x init kill`._
+<br>
+<br>
