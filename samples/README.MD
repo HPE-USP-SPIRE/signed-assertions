@@ -22,6 +22,12 @@ The resulting token is smaller than in ID-mode, as it remove part of the signatu
 The basic model developed in Phase 1 of the project. In this scenario, asserting wl mint a token that allows the delegation of user rights to a workload. The objective of this token (a.k.a. SVID-NG) is to grant that the calling workload have the sufficient rights to access the desired resource. 
 
 
+# Requirements (tested)
+
+- GNU/Linux (Debian 11)
+- Docker (20.10.11)
+- Go (1.16.9)
+
 # Installation
 
 Each scenario follows the same structure, being the difference the token scheme adopted. 
