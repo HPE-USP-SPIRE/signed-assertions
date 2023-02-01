@@ -63,3 +63,8 @@ _Disclaimer 1: init also runs kill, and both kill all the containers running in 
 _Disclaimer 2: you might need to allow the scripts to run, with `chmod +x init kill`._
 <br>
 <br>
+
+
+# References
+
+https://developer.okta.com/authentication-guide/implementing-authentication/auth-code#1-setting-up-your-application
