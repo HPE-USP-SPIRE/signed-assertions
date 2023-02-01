@@ -83,69 +83,6 @@ Requires a DA-SVID as parameter.
 
 This endpoint return the DA-SVID original claims and a Zero Knowledge Proof (ZKP) granting that a valid OAuth token was used to generate that DA-SVID.
 
-# Installation
-
-- For a complete manual installation, follow Step by Step.md guide.
-
-- For the automated installation, read below.
-
-After download the repository, first change permissions on all scripts to run as executables:
-
-```bash
-sudo chmod +x -R *.sh && sudo chmod +x lib/*.sh
-```
-
-1. **DO NOT** run any script with extra privileges with sudo. The proper locations to run as sudo are written on each script.
-
-2. Run **requirements.sh** if you do not have all required packages installed.
-
-3. Before you run **installation.sh**, it is necessary to put your data in the **config** file:
-
-   - If you **DO NOT** want to install SPIRE or Docker (probably because you already have it), change values to **TRUE**.
-   - Put your OKTA credentials (client ID, client secret) 
-   - Change the IP address to the machine that will run the application. Change each line accordingly.
-
-# How to use
-
-To config the environemnt according to config file, initialize SPIRE (agent and server) and all docker containers (workloads):
-
-```
-chmod +x init
-./init
-```
-
-<br>
-To kill SPIRE and the containers
-
-```
-./kill
-```
-
-_Disclaimer 1: init also runs kill, and both kill all the containers running in the machine!_
-
-_Disclaimer 2: you might need to allow the scripts to run, with `chmod +x init kill`._
-<br>
-<br>
-
-# Git
-
-To update the local files (pull) and create a new branch:
-
-```
-./git-branch <branch_name>
-```
-
-<br>
-
-To push directly to the branch you are currently inPara dar push direto para o branch em que se encontra:
-
-```
-./git-push <message>
-```
-
-_Disclaimer: you might need to allow the scripts to run, with `chmod +x git-push git-branch`._
-<br>
-<br>
 
 # References
 
