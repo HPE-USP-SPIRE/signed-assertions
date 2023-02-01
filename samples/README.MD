@@ -24,7 +24,11 @@ The basic model developed in Phase 1 of the project. In this scenario, asserting
 
 # Installation
 
-For a complete manual installation, follow Step by Step.md guide.
+Each scenario follows the same structure, being the difference the token scheme adopted. 
+
+To run PoC scenarios is necessary to create an OKTA user account and an OIDC application. More details the tutorial can be found in https://github.com/HPE-USP-SPIRE/signed-assertions/blob/main/doc/okta-tutorial.md
+
+For a complete manual installation of dependencies, follow Step by Step.md guide.
 
 After downloading the repository, first change permissions on all scripts to run as executables:
 
