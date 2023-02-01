@@ -1,8 +1,21 @@
 # Assertgen
-Assertgen is a CLI that can perform different tasks using the poclib.
+Assertgen is a CLI that can perform different tasks using the poclib Go package.
 
-## Requirements
-Some assertgen commands requires a running local SPIRE instance to retrieve necessary key pairs and certificates. Others are related with specific proof of concept scenarios. The _.cfg_ file contains basic configuration to a local execution. Details about how to install the requirements and perform necessary configurations can be found in https://github.com/HPE-USP-SPIRE/signed-assertions/blob/main/doc/Poc-Install.md. More details about each function can be found in next Sections.
+## Requirements (tested)
+
+- GNU/Linux (Debian 11)
+- Docker (20.10.11)
+- Go (1.16.9)
+
+Some of assertgen commands requires a running local SPIRE instance to retrieve necessary key pairs and certificates. Others are to interact with IdP (asserting-wl) in proof of concept scenarios. 
+
+The _.cfg_ file inside each scenario directory contains the basic configuration necessary to a local execution. 
+
+The script startapp.sh compile assertgen and create and run a container to mock an IdP. It is useful in demo scenarios where we need an IdP to store and return public keys.
+
+Details about how to install the requirements and perform necessary configurations to proof of concept execution can be found in https://github.com/HPE-USP-SPIRE/signed-assertions/blob/main/doc/Poc-Install.md.  
+
+More details about each assertgen function can be found in next Section.
 
 ## _Command-Line Interface (CLI)_ to token generation
 
