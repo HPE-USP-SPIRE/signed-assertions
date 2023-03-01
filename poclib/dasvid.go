@@ -768,30 +768,35 @@ func Jwks2PEM(token string, path string) {
 	for i :=0; i<len(pubkey.Keys); i++ {
 
 		err := VerifySignature(token, pubkey.Keys[i])
-		if err != nil {
-			log.Printf("Signature verification error: %v", fmt.Sprintf("%s", err))
+		if err == nil {
+			Pubkbey2PEMfile(pubkey.Keys[i])
 		} else {
+			log.Printf("signautre verification error using key %s", pubkey.Keys[i].Kty)
+		}
+	}
+}
 
-			fmt.Println("Creating pubkey: ", pubkey.Keys[i].Kty)
 
-			if pubkey.Keys[i].Kty != "RSA" {
-				log.Fatal("invalid key type:", pubkey.Keys[i].Kty)
+func Pubkbey2PEMfile(pubkey JWK) {
+
+	if pubkey.Kty != "RSA" {
+		log.Printf("invalid key type:", pubkey.Kty)
 			}
 
 			// decode the base64 bytes for n
-			nb, err := base64.RawURLEncoding.DecodeString(pubkey.Keys[i].N)
+	nb, err := base64.RawURLEncoding.DecodeString(pubkey.N)
 			if err != nil {
-				log.Fatal(err)
+		log.Printf(fmt.Sprintf("%s", err))
 			}
-
 			e := 0
+
 			// The default exponent is usually 65537, so just compare the
 			// base64 for [1,0,1] or [0,1,0,1]
-			if pubkey.Keys[i].E == "AQAB" || pubkey.Keys[i].E == "AAEAAQ" {
+	if pubkey.E == "AQAB" || pubkey.E == "AAEAAQ" {
 				e = 65537
 			} else {
 				// need to decode "e" as a big-endian int
-				log.Fatal("need to decode e:", pubkey.Keys[i].E)
+		log.Printf("need to decode e:", pubkey.E)
 			}
 
 			pk := &rsa.PublicKey{
@@ -801,7 +806,7 @@ func Jwks2PEM(token string, path string) {
 
 			der, err := x509.MarshalPKIXPublicKey(pk)
 			if err != nil {
-				log.Fatal(err)
+		log.Printf(fmt.Sprintf("%s", err))
 			}
 
 			block := &pem.Block{
@@ -827,9 +832,6 @@ func Jwks2PEM(token string, path string) {
 			file.Close()
 
 		}
-	}
-}
-
 func AssertionJwks2PEM(token string, path string) {
 	defer timeTrack(time.Now(), "AssertionJwks2PEM")
 
@@ -1703,4 +1705,76 @@ func NewDilithiumencode(claimset map[string]interface{}, oldmain string) (string
 	fmt.Printf("\nAssertion size: %d\n", len(payload) + len(oldmain)+ len(signature))
 
 	return encoded, nil
+}
+
+func Pubkey2evp(pubkey JWK) *C.EVP_PKEY{
+
+	if pubkey.Kty != "RSA" {
+		log.Printf("invalid key type:", pubkey.Kty)
+	}
+
+	// decode the base64 bytes for n
+	nb, err := base64.RawURLEncoding.DecodeString(pubkey.N)
+	if err != nil {
+		log.Printf(fmt.Sprintf("%s", err))
+	}
+	e := 0
+
+	// The default exponent is usually 65537, so just compare the
+	// base64 for [1,0,1] or [0,1,0,1]
+	if pubkey.E == "AQAB" || pubkey.E == "AAEAAQ" {
+		e = 65537
+	} else {
+		// need to decode "e" as a big-endian int
+		log.Printf("need to decode e:", pubkey.E)
+	}
+
+	pk := &rsa.PublicKey{
+		N: new(big.Int).SetBytes(nb),
+		E: e,
+	}
+
+	der, err := x509.MarshalPKIXPublicKey(pk)
+	if err != nil {
+		log.Printf(fmt.Sprintf("%s", err))
+	}
+
+	block := &pem.Block{
+		Type:  "PUBLIC KEY",
+		Bytes: der,
+	}
+
+	var out bytes.Buffer
+	pem.Encode(&out, block)
+	fmt.Println("Generated public key in PEM format: ", out.String())
+	
+	// Create output file
+	file, err := os.Create(os.Getenv("PEM_PATH"))
+	if err != nil {
+		log.Fatal(err)
+	}
+		
+	log.Printf("Writing PEM file...")
+	_, err = file.Write(out.Bytes())
+	if err != nil {
+		log.Fatal("Error writing PEM file: ", err)
+	}
+	file.Close()
+
+    // Open OAuth PEM file containing Public Key
+	var filepem *C.FILE
+    filepem = C.fopen((C.CString)(os.Getenv("PEM_PATH")),(C.CString)("r")) 
+	if filepem == nil {
+        log.Fatal("Error opening PEM file!")
+    }
+
+    // Load key from PEM file to VKEY
+	var vkey *C.EVP_PKEY
+	vkey = nil
+    C.PEM_read_PUBKEY(filepem, &vkey, nil, nil)
+
+	C.fclose(filepem)
+
+	return vkey
+
 }
