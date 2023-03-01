@@ -48,6 +48,7 @@ type FileContents struct {
 	DASVIDToken					string `json:DASVIDToken",omitempty"`
 	ZKP							string `json:ZKP",omitempty"`
 	Returnmsg					string `json:",omitempty"`
+	PubKey						[]byte `json:PubKey",omitempty"`
 }
 
 
@@ -63,6 +64,7 @@ type Balancetemp struct {
 	Balance						int `json`
 	Returnmsg					string `json:",omitempty"`
 }
+
 
 var temp Contents
 
@@ -206,7 +208,13 @@ func Get_balanceHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create OpenSSL vkey using DASVID
-	tmpvkey := dasvid.Token2vkey(r.FormValue("DASVID"), 1)
+	log.Println("introspectrsp.PubKey: %s", string(introspectrsp.PubKey))
+	var pubkey dasvid.JWK
+	err = json.Unmarshal(introspectrsp.PubKey, &pubkey)
+	if err != nil {
+		fmt.Println("Error parsing JSON:", err)
+	}
+	tmpvkey := dasvid.Pubkey2evp(pubkey)
 
 	// Verify /introspect response correctness.
 	hexresult := dasvid.VerifyHexProof(introspectrsp.ZKP, introspectrsp.Msg, tmpvkey)
@@ -328,43 +336,43 @@ func DepositHandler(w http.ResponseWriter, r *http.Request) {
 			json.NewEncoder(w).Encode(introspectrsp)
 		}
 
-		// MODIFICATIONS TO BENCHMARK THE SOLUTION. REMOVE AFTER
-		// benchmark zkp validation process
-	for i:=0; i<1; i++ {
-		log.Printf("Execution number: %v", i)
-		defer timeTrack(time.Now(), fmt.Sprintf("ZKP validation : %v", i))
-
-		// Create OpenSSL vkey using DASVID
-		tmpvkey := dasvid.Token2vkey(r.FormValue("DASVID"), 1)
-
-		// Verify /introspect response correctness.
-		hexresult := dasvid.VerifyHexProof(introspectrsp.ZKP, introspectrsp.Msg, tmpvkey)
-		if hexresult == false {
-			log.Fatal("Error verifying hexproof!!")
-		}
-		log.Println("Success verifying hexproof in middle-tier!!")
+	// Create OpenSSL vkey using DASVID
+	log.Println("introspectrsp.PubKey: %s", string(introspectrsp.PubKey))
+	var pubkey dasvid.JWK
+	err = json.Unmarshal(introspectrsp.PubKey, &pubkey)
+	if err != nil {
+		fmt.Println("Error parsing JSON:", err)
 	}
-		// Gera chamada para target workload 
-		endpoint = "https://"+os.Getenv("MIDDLE_TIER2_IP")+"/deposit?DASVID="+r.FormValue("DASVID")+"&deposit="+r.FormValue("deposit")
+	tmpvkey := dasvid.Pubkey2evp(pubkey)
 
-		response, err = client.Get(endpoint)
-		if err != nil {
-			log.Fatalf("Error connecting to %q: %v", os.Getenv("MIDDLE_TIER2_IP"), err)
-		}
+	// Verify /introspect response correctness.
+	hexresult := dasvid.VerifyHexProof(introspectrsp.ZKP, introspectrsp.Msg, tmpvkey)
+	if hexresult == false {
+		log.Fatal("Error verifying hexproof!!")
+	}
+	log.Println("Success verifying hexproof in middle-tier!!")
 
-		defer response.Body.Close()
-		body, err = ioutil.ReadAll(response.Body)
-		if err != nil {
-			log.Fatalf("Unable to read body: %v", err)
-		}
+	// Access Target WL and make deposit
+	endpoint = "https://"+os.Getenv("MIDDLE_TIER2_IP")+"/deposit?DASVID="+r.FormValue("DASVID")+"&deposit="+r.FormValue("deposit")
 
-		// Receive data and return it to subject.
-		err = json.Unmarshal([]byte(body), &tempbalance)
-		if err != nil {
-			fmt.Println("error:", err)
-		}
+	response, err = client.Get(endpoint)
+	if err != nil {
+		log.Fatalf("Error connecting to %q: %v", os.Getenv("MIDDLE_TIER2_IP"), err)
+	}
 
-		json.NewEncoder(w).Encode(tempbalance)	
+	defer response.Body.Close()
+	body, err = ioutil.ReadAll(response.Body)
+	if err != nil {
+		log.Fatalf("Unable to read body: %v", err)
+	}
+
+	// Receive data and return it to subject.
+	err = json.Unmarshal([]byte(body), &tempbalance)
+	if err != nil {
+		fmt.Println("error:", err)
+	}
+
+	json.NewEncoder(w).Encode(tempbalance)
 }
 
 func GetOutboundIP(port string) string {
@@ -406,7 +414,8 @@ func introspect(datoken string, client http.Client) (introspectrsp FileContents)
 
 		introspectrsp = FileContents{
 			Msg			: rcvresp.Msg,
-			ZKP		 	:	rcvresp.ZKP,
+			ZKP		 	: rcvresp.ZKP,
+			PubKey	 	: rcvresp.PubKey,
 			Returnmsg	:  "",
 		}
 	return introspectrsp

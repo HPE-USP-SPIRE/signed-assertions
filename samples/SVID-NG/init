@@ -23,32 +23,32 @@ sleep 15
 cd $SCRIPT_PATH
 cd ./Assertingwl-mTLS
 docker build -t asserting-wl -f Dockerfile ..
-docker run -p 8443:8443 -v /tmp/spire-agent/public/api.sock:/tmp/spire-agent/public/api.sock -d asserting-wl
+docker run --rm -i -t -p 8443:8443 -v /tmp/spire-agent/public/api.sock:/tmp/spire-agent/public/api.sock -d asserting-wl
 
 cd ../subject_workload
 docker build -t subject-wl -f Dockerfile ..
-docker run -p 8080:8080 -v /tmp/spire-agent/public/api.sock:/tmp/spire-agent/public/api.sock -d subject-wl
+docker run --rm -i -t -p 8080:8080 -v /tmp/spire-agent/public/api.sock:/tmp/spire-agent/public/api.sock -d subject-wl
 
 cd ../target_workload
 docker build  -t target-wl -f Dockerfile ..
-docker run -p 8444:8444 -v /tmp/spire-agent/public/api.sock:/tmp/spire-agent/public/api.sock -d target-wl
+docker run --rm -i -t -p 8444:8444 -v /tmp/spire-agent/public/api.sock:/tmp/spire-agent/public/api.sock -d target-wl
 
 cd ../middle-tier
 docker build  -t middle-tier -f Dockerfile ..
-docker run -p 8445:8445 -v /tmp/spire-agent/public/api.sock:/tmp/spire-agent/public/api.sock -d middle-tier
+docker run --rm -i -t -p 8445:8445 -v /tmp/spire-agent/public/api.sock:/tmp/spire-agent/public/api.sock -d middle-tier
 
 cd ../middle-tier2
 docker build -t middle-tier2 -f Dockerfile ..
-docker run -p 8446:8446 -v /tmp/spire-agent/public/api.sock:/tmp/spire-agent/public/api.sock -d middle-tier2
+docker run --rm -i -t -p 8446:8446 -v /tmp/spire-agent/public/api.sock:/tmp/spire-agent/public/api.sock -d middle-tier2
 
 cd ../middle-tier3
 docker build -t middle-tier3 -f Dockerfile ..
-docker run -p 8447:8447 -v /tmp/spire-agent/public/api.sock:/tmp/spire-agent/public/api.sock -d middle-tier3
+docker run --rm -i -t -p 8447:8447 -v /tmp/spire-agent/public/api.sock:/tmp/spire-agent/public/api.sock -d middle-tier3
 
 cd ../middle-tier4
 docker build -t middle-tier4 -f Dockerfile ..
-docker run -p 8448:8448 -v /tmp/spire-agent/public/api.sock:/tmp/spire-agent/public/api.sock -d middle-tier4
+docker run --rm -i -t -p 8448:8448 -v /tmp/spire-agent/public/api.sock:/tmp/spire-agent/public/api.sock -d middle-tier4
 
 cd ../middle-tier5
 docker build -t middle-tier5 -f Dockerfile ..
-docker run -p 8449:8449 -v /tmp/spire-agent/public/api.sock:/tmp/spire-agent/public/api.sock -d middle-tier5
+docker run --rm -i -t -p 8449:8449 -v /tmp/spire-agent/public/api.sock:/tmp/spire-agent/public/api.sock -d middle-tier5

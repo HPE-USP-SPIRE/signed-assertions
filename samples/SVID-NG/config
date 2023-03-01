@@ -11,17 +11,17 @@ sudo cp ./lib/start_spire_env.sh /opt/spire/
 ##########
 
 ### Grab values from *config* and change all required .cfg files
-OKTA_CODE="96738186"
-CLIENT_ID="0oa6lnkzcvzrcqTv25d7"
-CLIENT_SECRET="D7a5Tof8sfPEWFWMf-xRgoVv8iCDKuzSscZ1pNKI"
-HOST_IP="192.168.1.102"
-ASSERTING_PORT="8443"
-TARGET_PORT="8444"
-MIDDLE_TIER_PORT="8445"
-MIDDLE_TIER2_PORT="8446"
-MIDDLE_TIER3_PORT="8447"
-MIDDLE_TIER4_PORT="8448"
-MIDDLE_TIER5_PORT="8449"
+OKTA_CODE=
+CLIENT_ID=
+CLIENT_SECRET=
+HOST_IP=
+ASSERTING_PORT=
+TARGET_PORT=
+MIDDLE_TIER_PORT=
+MIDDLE_TIER2_PORT=
+MIDDLE_TIER3_PORT=
+MIDDLE_TIER4_PORT=
+MIDDLE_TIER5_PORT=
 
 ## Read config file and copy values to VARs
 cp_data_config(){

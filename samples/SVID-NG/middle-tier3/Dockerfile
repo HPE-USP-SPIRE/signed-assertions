@@ -1,6 +1,6 @@
 # Stage 1 - Builder Img
 # Define the building base image
-FROM golang:alpine AS builder
+FROM golang:alpine3.16 AS builder
 
 # Set environmet variables
 ENV GO111MODULE=on \
@@ -39,7 +39,7 @@ RUN go build -o main .
 
 # Stage 2 - Application Img
 # Define the running base image 
-FROM alpine 
+FROM alpine:3.16 
 
 LABEL "type"="middletier3"
 

@@ -1,5 +1,5 @@
 #!/bin/bash
-
+set -e
 DISTRO=''
 
 function get_distro(){
@@ -37,13 +37,14 @@ else
     echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian \
     $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
   else
-    echo "This distribution is not included in our use cases. Exiting..."
+    echo "This distribution is not included in our use cases. Docker installation unsuccessful..."
     exit 1
   fi
 
   apt update
   apt-get install docker-ce docker-ce-cli containerd.io docker-compose-plugin -y
-  
+
+  echo -e "Docker installed! Please reboot you machine when the installation is done."
 fi
 }
 install_docker
