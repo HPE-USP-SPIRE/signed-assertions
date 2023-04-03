@@ -1,16 +1,24 @@
 module github.com/marco-developer/dasvid
 
-require github.com/marco-developer/dasvid/poclib v1.0.0
+go 1.17
 
+require github.com/marco-developer/dasvid/poclib v1.0.0
 replace github.com/marco-developer/dasvid/poclib v1.0.0 => ./poclib
 
-go 1.17
+require SVID-NG/types v1.0.0
+replace SVID-NG/types => ./types
+
+require SVID-NG/utils v1.0.0
+replace SVID-NG/utils => ./utils
+
+require subjectwl/api v1.0.0
+replace subjectwl/api => ./api
 
 require (
 	github.com/gorilla/sessions v1.2.1
 	github.com/okta/okta-jwt-verifier-golang v1.3.1
 	github.com/okta/samples-golang v0.0.0-20230208203140-1bc98ee955dd
-	github.com/spiffe/go-spiffe/v2 v2.0.1-0.20220414143532-2ed460a8b9d3
+	github.com/spiffe/go-spiffe/v2 v2.1.1
 )
 
 require (

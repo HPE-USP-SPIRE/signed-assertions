@@ -19,8 +19,10 @@ RUN mkdir /build
 WORKDIR /build
 
 # Copy in files to Img
-COPY ./subject_workload .
 COPY ./poclib ./poclib
+COPY ./samples/SVID-NG/subject_workload .
+COPY ./samples/SVID-NG/utils ./utils
+COPY ./samples/SVID-NG/types ./types
 
 # Download dependencies
 RUN apk upgrade --update-cache --available && \

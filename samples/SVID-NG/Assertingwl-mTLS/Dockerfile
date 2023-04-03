@@ -18,12 +18,11 @@ ENV GO111MODULE=on \
 RUN mkdir /build
 WORKDIR /build
 
-
 # Copy in files to Img
-
-COPY ./Assertingwl-mTLS .
 COPY ./poclib ./poclib
-
+COPY ./samples/SVID-NG/Assertingwl-mTLS .
+COPY ./samples/SVID-NG/utils ./utils
+COPY ./samples/SVID-NG/types ./types
 
 # Download dependencies
 RUN apk upgrade --update-cache --available && \
