@@ -15,14 +15,12 @@ ENV GO111MODULE=on \
     CC="gcc"
 
 # Create and move to working directory
-RUN mkdir /build
 WORKDIR /build
 
 # Copy in files to Img
+COPY ./SVID-NG/Assertingwl-mTLS/. .
+COPY ./SVID-NG/api-libs ./api-libs
 COPY ./poclib ./poclib
-COPY ./samples/SVID-NG/Assertingwl-mTLS .
-COPY ./samples/SVID-NG/utils ./utils
-COPY ./samples/SVID-NG/types ./types
 
 # Download dependencies
 RUN apk upgrade --update-cache --available && \
@@ -46,12 +44,11 @@ FROM alpine:3.16
 LABEL "type"="assertingwl"
 
 ### Set working directory  
-RUN mkdir /build
 WORKDIR /build
 
 ### Copy in built application and other files
 COPY --from=builder /build /build
-RUN chmod +x ./poclib/jwk2der.sh
+# RUN chmod +x ./poclib/jwk2der.sh
 RUN apk add --no-cache bash
 
 # Export necessary port
