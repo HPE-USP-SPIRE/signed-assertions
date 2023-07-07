@@ -18,32 +18,15 @@ import (
 	"github.com/hpe-usp-spire/signed-assertions/SVID-NG/m-tier/models"
 )
 
-var temp models.Contents
-
-func timeTrack(start time.Time, name string) {
-	elapsed := time.Since(start)
-	log.Printf("%s execution time is %s", name, elapsed)
-
-	// If the file doesn't exist, create it, or append to the file
-	file, err := os.OpenFile("./bench.data", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		log.Fatal(err)
-	}
-	log.Printf("Writing to file...")
-	json.NewEncoder(file).Encode(fmt.Sprintf("%s execution time is %s", name, elapsed))
-	if err := file.Close(); err != nil {
-		log.Fatal(err)
-	}
-}
-
-func DepositHandler(w http.ResponseWriter, r *http.Request) {
-	defer timeTrack(time.Now(), "DepositHandler")
+func GetBalanceHandler(w http.ResponseWriter, r *http.Request) {
+	defer timeTrack(time.Now(), "Get_balanceHandler")
 
 	var tempbalance models.Balancetemp
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	// Create a `workloadapi.X509Source`, it will connect to Workload API using provided socket path
 	source, err := workloadapi.NewX509Source(
 		ctx,
 		workloadapi.WithClientOptions(workloadapi.WithAddr(os.Getenv("SOCKET_PATH"))),
@@ -54,9 +37,9 @@ func DepositHandler(w http.ResponseWriter, r *http.Request) {
 	defer source.Close()
 
 	// Allowed SPIFFE ID
-	serverID := spiffeid.RequireTrustDomainFromString("example.org")
+	serverID := spiffeid.RequireTrustDomainFromString(os.Getenv("TRUST_DOMAIN"))
 
-	// Create a 'tls.Config' to allow mTLS connections, and verify that presented certificate match allowed SPIFFE ID rule
+	// Create a `tls.Config` to allow mTLS connections, and verify that presented certificate match allowed SPIFFE ID rule
 	tlsConfig := tlsconfig.MTLSClientConfig(source, source, tlsconfig.AuthorizeMemberOf(serverID))
 	client := &http.Client{
 		Transport: &http.Transport{
@@ -64,12 +47,9 @@ func DepositHandler(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 
-	// validate DASVID
-	endpoint := "https://" + os.Getenv(
-		"ASSERTINGWLIP",
-	) + "/validate?DASVID=" + r.FormValue(
-		"DASVID",
-	)
+	// Validate DASVID
+	datoken := r.FormValue("DASVID")
+	endpoint := "https://" + os.Getenv("ASSERTINGWLIP") + "/validate?DASVID=" + datoken
 
 	response, err := client.Get(endpoint)
 	if err != nil {
@@ -84,15 +64,16 @@ func DepositHandler(w http.ResponseWriter, r *http.Request) {
 
 	err = json.Unmarshal([]byte(body), &temp)
 	if err != nil {
-		log.Fatalf("error:", err)
+		log.Fatalf("Error: %v", err)
 	}
 
 	var returnmsg string
 
 	log.Println("Sig validation: ", *temp.DasvidSigValidation)
-	log.Println("Exp validation: ", *temp.DasvidExpValidation)
+	log.Println("exp validation: ", *temp.DasvidExpValidation)
 
 	if *temp.DasvidSigValidation == false {
+
 		returnmsg = "DA-SVID signature validation error"
 
 		tempbalance = models.Balancetemp{
@@ -101,13 +82,15 @@ func DepositHandler(w http.ResponseWriter, r *http.Request) {
 			Returnmsg: returnmsg,
 		}
 
+		// log.Println("Return msg: ", returnmsg)
 		json.NewEncoder(w).Encode(tempbalance)
 		return
 	}
 
 	if *temp.DasvidExpValidation == false {
+
 		returnmsg = "DA-SVID expiration validation error"
-		log.Println("Return message: ", tempbalance.Returnmsg)
+		log.Println("Return Msg: ", tempbalance.Returnmsg)
 
 		tempbalance = models.Balancetemp{
 			User:      "",
@@ -115,26 +98,29 @@ func DepositHandler(w http.ResponseWriter, r *http.Request) {
 			Returnmsg: returnmsg,
 		}
 
+		// log.Println("Return msg: ", returnmsg)
 		json.NewEncoder(w).Encode(tempbalance)
 		return
 	}
 
-	// Contact Asserting Workload /introspect and retrieve ZKP proving OAuth token signature
+	// Fetch ZKP from Asserting-wl
 	var introspectrsp models.FileContents
 	introspectrsp = introspect(r.FormValue("DASVID"), *client)
 	if introspectrsp.Returnmsg != "" {
-		log.Println("ZKP error! %v", introspectrsp.Returnmsg)
+		log.Printf("ZKP error! %v", introspectrsp.Returnmsg)
 		json.NewEncoder(w).Encode(introspectrsp)
 	}
 
-	// Create OpenSSL key using DASVID
-	log.Println("introspectrsp.PubKey: %s", string(introspectrsp.PubKey))
+	// Create OpenSSL vkey using DASVID
+	log.Printf("introspectrsp.PubKey: %s", string(introspectrsp.PubKey))
 	var pubkey dasvid.JWK
-
 	err = json.Unmarshal(introspectrsp.PubKey, &pubkey)
 	if err != nil {
-		fmt.Println("Error parsing JSON: ", err)
+		fmt.Println("Error parsing JSON:", err)
 	}
+
+	//debug
+	fmt.Println("introspectrsp:", introspectrsp)
 
 	tmpvkey, err := dasvid.Pubkey2evp(pubkey)
 	if err != nil {
@@ -146,17 +132,14 @@ func DepositHandler(w http.ResponseWriter, r *http.Request) {
 	if hexresult == false {
 		log.Fatal("Error verifying hexproof!!")
 	}
-
 	log.Println("Success verifying hexproof in middle-tier!!")
 
-	// Access Target WL and request DASVID user Balance
+	// Access Target WL and request DASVID user balance
 	endpoint = "https://" + os.Getenv(
 		"TARGETWLIP",
-	) + "/deposit?DASVID=" + r.FormValue(
+	) + "/get_balance?DASVID=" + r.FormValue(
 		"DASVID",
-    ) + "&deposit=" + r.FormValue(
-        "deposit",
-    )
+	)
 
 	response, err = client.Get(endpoint)
 	if err != nil {
@@ -176,35 +159,4 @@ func DepositHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	json.NewEncoder(w).Encode(tempbalance)
-}
-
-func introspect(datoken string, client http.Client) (introspectrsp models.FileContents) {
-	var rcvresp models.FileContents
-
-	endpoint := "https://" + os.Getenv("ASSERTINGWLIP") + "/introspect?DASVID=" + datoken
-
-	response, err := client.Get(endpoint)
-	if err != nil {
-		log.Fatalf("Error connecting to %q: %v", os.Getenv("ASSERTINGWLIP"), err)
-	}
-
-	defer response.Body.Close()
-	body, err := ioutil.ReadAll(response.Body)
-	if err != nil {
-		log.Fatalf("Unable to read body: %v", err)
-	}
-
-	err = json.Unmarshal([]byte(body), &rcvresp)
-	if err != nil {
-		log.Fatalf("Error: ", err)
-	}
-
-	introspectrsp = models.FileContents{
-		Msg:       rcvresp.Msg,
-		ZKP:       rcvresp.ZKP,
-		PubKey:    rcvresp.PubKey,
-		Returnmsg: "",
-	}
-
-	return introspectrsp
 }

@@ -1,4 +1,4 @@
-# Configuring and installing manually the Proof of Concept
+# Configuring and installing manually the Proof of Concept - outdated
 
 0. Configure OKTA application
 

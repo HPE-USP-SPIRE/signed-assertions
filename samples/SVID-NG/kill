@@ -5,5 +5,5 @@ cd /opt/spire
 sudo kill -9 $(ps -ef | grep "spire-agent" | grep -v grep | awk '{print $2}') ;  sudo kill -9 $(ps -ef | grep "spire-server" | grep -v grep | awk '{print $2}') ; sudo rm -rf .data
 echo "Spire Agent/Server killed"
 
-docker rm $(docker stop $(docker ps -a -q))
+docker-compose down
 echo "Containers killed"

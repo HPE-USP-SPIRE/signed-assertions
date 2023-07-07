@@ -154,9 +154,7 @@ func DepositHandler(w http.ResponseWriter, r *http.Request) {
 		"TARGETWLIP",
 	) + "/deposit?DASVID=" + r.FormValue(
 		"DASVID",
-    ) + "&deposit=" + r.FormValue(
-        "deposit",
-    )
+	)
 
 	response, err = client.Get(endpoint)
 	if err != nil {
