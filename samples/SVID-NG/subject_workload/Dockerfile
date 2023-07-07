@@ -19,8 +19,8 @@ RUN mkdir /build
 WORKDIR /build
 
 # Copy in files to Img
-COPY ./SVID-NG/subject_workload .
-COPY ./SVID-NG/api-libs ./api-libs
+COPY ./samples/SVID-NG/subject_workload .
+COPY ./samples/SVID-NG/api-libs ./api-libs
 COPY ./poclib ./poclib
 
 

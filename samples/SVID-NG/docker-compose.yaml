@@ -1,21 +1,21 @@
 version: "3"
 
 services:
-  # assertingwl:
-  #   build:
-  #     context: ..
-  #     dockerfile: SVID-NG/Assertingwl-mTLS/Dockerfile
-  #   ports:
-  #     - "8443:8443"
-  #   volumes:
-  #     - /tmp/spire-agent/public/api.sock:/tmp/spire-agent/public/api.sock
-  #   networks:
-  #     - my-network
+  assertingwl:
+    build:
+      context: ../..
+      dockerfile: samples/SVID-NG/Assertingwl-mTLS/Dockerfile
+    ports:
+      - "8443:8443"
+    volumes:
+      - /tmp/spire-agent/public/api.sock:/tmp/spire-agent/public/api.sock
+    networks:
+      - my-network
 
   subjectwl:
     build:
-      context: ..
-      dockerfile: SVID-NG/subject_workload/Dockerfile
+      context: ../..
+      dockerfile: samples/SVID-NG/subject_workload/Dockerfile
     ports:
       - "8080:8080"
     volumes:
@@ -23,27 +23,27 @@ services:
     networks:
       - my-network
 
-  # m-tier:
-  #   build:
-  #     context: ..
-  #     dockerfile: SVID-NG/m-tier/Dockerfile
-  #   ports:
-  #     - "8445:8445"
-  #   volumes:
-  #     - /tmp/spire-agent/public/api.sock:/tmp/spire-agent/public/api.sock
-  #   networks:
-  #     - my-network
+  m-tier:
+    build:
+      context: ../..
+      dockerfile: samples/SVID-NG/m-tier/Dockerfile
+    ports:
+      - "8445:8445"
+    volumes:
+      - /tmp/spire-agent/public/api.sock:/tmp/spire-agent/public/api.sock
+    networks:
+      - my-network
 
-  # target-wl:
-  #   build:
-  #     context: ..
-  #     dockerfile: SVID-NG/target-wl/Dockerfile
-  #   ports:
-  #     - "8444:8444"
-  #   volumes:
-  #     - /tmp/spire-agent/public/api.sock:/tmp/spire-agent/public/api.sock
-  #   networks:
-  #     - my-network
+  target-wl:
+    build:
+      context: ../..
+      dockerfile: samples/SVID-NG/target-wl/Dockerfile
+    ports:
+      - "8444:8444"
+    volumes:
+      - /tmp/spire-agent/public/api.sock:/tmp/spire-agent/public/api.sock
+    networks:
+      - my-network
 
 networks:
   my-network:

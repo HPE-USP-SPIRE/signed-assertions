@@ -18,8 +18,8 @@ ENV GO111MODULE=on \
 WORKDIR /build
 
 # Copy in files to Img
-COPY ./SVID-NG/target-wl/. .
-COPY ./SVID-NG/api-libs ./api-libs
+COPY ./samples/SVID-NG/target-wl/. .
+COPY ./samples/SVID-NG/api-libs ./api-libs
 COPY ./poclib ./poclib
 
 # Download dependencies
