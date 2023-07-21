@@ -4,6 +4,10 @@ go 1.20
 
 require github.com/hpe-usp-spire/signed-assertions/SVID-NG/api-libs v0.0.0-00010101000000-000000000000
 
+replace github.com/hpe-usp-spire/signed-assertions/SVID-NG/api-libs => ./api-libs
+
+replace github.com/hpe-usp-spire/signed-assertions/poclib => ./poclib
+
 require (
 	bitbucket.org/creachadair/shell v0.0.7 // indirect
 	cloud.google.com/go/compute v1.18.0 // indirect
@@ -296,7 +300,3 @@ require (
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.3 // indirect
 	sigs.k8s.io/yaml v1.3.0 // indirect
 )
-
-replace github.com/hpe-usp-spire/signed-assertions/SVID-NG/api-libs => ../api-libs
-
-replace github.com/hpe-usp-spire/signed-assertions/poclib => ../../poclib

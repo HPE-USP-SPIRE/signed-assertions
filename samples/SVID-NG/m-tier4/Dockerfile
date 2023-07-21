@@ -15,11 +15,11 @@ ENV GO111MODULE=on \
     CC="gcc"
 
 # Create and move to working directory
-RUN mkdir /build
 WORKDIR /build
 
 # Copy in files to Img
-COPY ./middle-tier4 .
+COPY ./samples/SVID-NG/m-tier4 .
+COPY ./samples/SVID-NG/api-libs ./api-libs
 COPY ./poclib ./poclib
 
 # Download dependencies
@@ -41,7 +41,7 @@ RUN go build -o main .
 # Define the running base image 
 FROM alpine:3.16 
 
-LABEL "type"="middletier4"
+LABEL "type"="middletier5"
 
 ### Set working directory  
 RUN mkdir /build
@@ -53,7 +53,7 @@ RUN chmod +x ./poclib/jwk2der.sh
 RUN apk add --no-cache bash
 
 # Export necessary port
-EXPOSE 8448
+EXPOSE 8449
 
 # Command to run when starting the container
 CMD ["/build/main"]

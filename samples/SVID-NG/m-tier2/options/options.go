@@ -6,7 +6,8 @@ import (
 	"log"
 
 	"github.com/hpe-usp-spire/signed-assertions/SVID-NG/api-libs/options"
-	"github.com/hpe-usp-spire/signed-assertions/SVID-NG/m-tier/data"
+
+	"github.com/hpe-usp-spire/signed-assertions/SVID-NG/m-tier2/data"
 )
 
 // InitOptions initializes the options
@@ -19,5 +20,4 @@ func InitOptions() (*options.Options, error) {
 	}
 
 	return options, nil
-
 }

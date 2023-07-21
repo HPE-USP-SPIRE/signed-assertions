@@ -15,7 +15,7 @@ import (
 	"github.com/spiffe/go-spiffe/v2/spiffetls/tlsconfig"
 	"github.com/spiffe/go-spiffe/v2/workloadapi"
 
-	"github.com/hpe-usp-spire/signed-assertions/SVID-NG/m-tier/models"
+	"github.com/hpe-usp-spire/signed-assertions/SVID-NG/m-tier3/models"
 )
 
 var temp models.Contents
@@ -151,14 +151,16 @@ func DepositHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Access Target WL and request DASVID user Balance
 	endpoint = "https://" + os.Getenv(
-		"TARGETWLIP",
+		"MIDDLE_TIER4_IP",
 	) + "/deposit?DASVID=" + r.FormValue(
 		"DASVID",
+	) + "&deposit=" + r.FormValue(
+		"deposit",
 	)
 
 	response, err = client.Get(endpoint)
 	if err != nil {
-		log.Fatalf("Error connecting to %q: %v", os.Getenv("TARGETWLIP"), err)
+		log.Fatalf("Error connecting to %q: %v", os.Getenv("MIDDLE_TIER4_IP"), err)
 	}
 
 	defer response.Body.Close()

@@ -15,11 +15,11 @@ ENV GO111MODULE=on \
     CC="gcc"
 
 # Create and move to working directory
-RUN mkdir /build
 WORKDIR /build
 
 # Copy in files to Img
-COPY ./middle-tier5 .
+COPY ./samples/SVID-NG/m-tier5 .
+COPY ./samples/SVID-NG/api-libs ./api-libs
 COPY ./poclib ./poclib
 
 # Download dependencies

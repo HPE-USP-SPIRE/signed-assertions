@@ -15,7 +15,7 @@ import (
 	"github.com/spiffe/go-spiffe/v2/spiffetls/tlsconfig"
 	"github.com/spiffe/go-spiffe/v2/workloadapi"
 
-	"github.com/hpe-usp-spire/signed-assertions/SVID-NG/m-tier/models"
+	"github.com/hpe-usp-spire/signed-assertions/SVID-NG/m-tier5/models"
 )
 
 func GetBalanceHandler(w http.ResponseWriter, r *http.Request) {
@@ -119,7 +119,7 @@ func GetBalanceHandler(w http.ResponseWriter, r *http.Request) {
 		fmt.Println("Error parsing JSON:", err)
 	}
 
-	//debug
+	// debug
 	fmt.Println("introspectrsp:", introspectrsp)
 
 	tmpvkey, err := dasvid.Pubkey2evp(pubkey)

@@ -15,7 +15,7 @@ import (
 	"github.com/spiffe/go-spiffe/v2/spiffetls/tlsconfig"
 	"github.com/spiffe/go-spiffe/v2/workloadapi"
 
-	"github.com/hpe-usp-spire/signed-assertions/SVID-NG/m-tier/models"
+	"github.com/hpe-usp-spire/signed-assertions/SVID-NG/m-tier5/models"
 )
 
 var temp models.Contents
@@ -154,6 +154,8 @@ func DepositHandler(w http.ResponseWriter, r *http.Request) {
 		"TARGETWLIP",
 	) + "/deposit?DASVID=" + r.FormValue(
 		"DASVID",
+	) + "&deposit=" + r.FormValue(
+		"deposit",
 	)
 
 	response, err = client.Get(endpoint)

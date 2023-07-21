@@ -15,7 +15,7 @@ import (
 	"github.com/spiffe/go-spiffe/v2/spiffetls/tlsconfig"
 	"github.com/spiffe/go-spiffe/v2/workloadapi"
 
-	"github.com/hpe-usp-spire/signed-assertions/SVID-NG/m-tier/models"
+	"github.com/hpe-usp-spire/signed-assertions/SVID-NG/m-tier2/models"
 )
 
 var temp models.Contents
@@ -149,16 +149,18 @@ func DepositHandler(w http.ResponseWriter, r *http.Request) {
 
 	log.Println("Success verifying hexproof in middle-tier!!")
 
-	// Access Target WL and request DASVID user Balance
+	// Access Target WL and make deposit
 	endpoint = "https://" + os.Getenv(
-		"TARGETWLIP",
+		"MIDDLE_TIER3_IP",
 	) + "/deposit?DASVID=" + r.FormValue(
 		"DASVID",
+	) + "&deposit=" + r.FormValue(
+		"deposit",
 	)
 
 	response, err = client.Get(endpoint)
 	if err != nil {
-		log.Fatalf("Error connecting to %q: %v", os.Getenv("TARGETWLIP"), err)
+		log.Fatalf("Error connecting to %q: %v", os.Getenv("MIDDLE_TIER3_IP"), err)
 	}
 
 	defer response.Body.Close()

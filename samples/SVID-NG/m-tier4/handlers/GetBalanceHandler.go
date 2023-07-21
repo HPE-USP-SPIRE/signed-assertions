@@ -10,12 +10,11 @@ import (
 	"os"
 	"time"
 
+	"github.com/hpe-usp-spire/signed-assertions/SVID-NG/m-tier4/models"
 	dasvid "github.com/hpe-usp-spire/signed-assertions/poclib/svid"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"github.com/spiffe/go-spiffe/v2/spiffetls/tlsconfig"
 	"github.com/spiffe/go-spiffe/v2/workloadapi"
-
-	"github.com/hpe-usp-spire/signed-assertions/SVID-NG/m-tier/models"
 )
 
 func GetBalanceHandler(w http.ResponseWriter, r *http.Request) {
@@ -119,7 +118,7 @@ func GetBalanceHandler(w http.ResponseWriter, r *http.Request) {
 		fmt.Println("Error parsing JSON:", err)
 	}
 
-	//debug
+	// debug
 	fmt.Println("introspectrsp:", introspectrsp)
 
 	tmpvkey, err := dasvid.Pubkey2evp(pubkey)
@@ -136,14 +135,14 @@ func GetBalanceHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Access Target WL and request DASVID user balance
 	endpoint = "https://" + os.Getenv(
-		"TARGETWLIP",
+		"MIDDLE_TIER5_IP",
 	) + "/get_balance?DASVID=" + r.FormValue(
 		"DASVID",
 	)
 
 	response, err = client.Get(endpoint)
 	if err != nil {
-		log.Fatalf("Error connecting to %q: %v", os.Getenv("TARGETWLIP"), err)
+		log.Fatalf("Error connecting to %q: %v", os.Getenv("MIDDLE_TIER5_IP"), err)
 	}
 
 	defer response.Body.Close()
