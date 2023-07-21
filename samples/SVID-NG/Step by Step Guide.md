@@ -1,4 +1,4 @@
-# Configuring and installing manually the Proof of Concept - outdated
+# Configuring and installing manually the Proof of Concept
 
 0. Configure OKTA application
 
@@ -34,32 +34,9 @@ cd /opt/spire
 sudo bash start_spire_env.sh
 ```
 
-6. Build Docker Containers
+6. Run docker-compose
 ```
-cd ./Assertingwl-mTLS
-docker build . -t asserting-wl
-
-cd ..
-cd ./subject_workload
-docker build . -t subject-wl
-
-cd ..
-cd ./target_workload
-docker build . -t target-wl
-
-cd ..
-cd ./middle-tier
-docker build . -t middle-tier
+docker-compose up --build 
 ```
 
-7. Run Docker images
-```
-docker run -p 8443:8443 -v /tmp/spire-agent/public/api.sock:/tmp/spire-agent/public/api.sock -d asserting-wl
-
-docker run -p 8080:8080 -v /tmp/spire-agent/public/api.sock:/tmp/spire-agent/public/api.sock -d subject-wl
-
-docker run -p 8445:8445 -v /tmp/spire-agent/public/api.sock:/tmp/spire-agent/public/api.sock -d middle-tier
-
-docker run -p 8444:8444 -v /tmp/spire-agent/public/api.sock:/tmp/spire-agent/public/api.sock -d target-wl
-```
-8. Test application
+7. Test application
