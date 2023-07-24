@@ -1,6 +1,6 @@
 # Stage 1 - Builder Img
 # Define the building base image
-FROM golang:alpine AS builder
+FROM golang:alpine3.16 AS builder
 
 # Set environmet variables
 ENV GO111MODULE=on \
@@ -15,11 +15,11 @@ ENV GO111MODULE=on \
     CC="gcc"
 
 # Create and move to working directory
-RUN mkdir /build
 WORKDIR /build
 
 # Copy in files to Img
-COPY ./middle-tier3 .
+COPY ./ID-Mode/m-tier3 .
+COPY ./ID-Mode/api-libs ./api-libs
 COPY ./poclib ./poclib
 
 # Download dependencies
@@ -39,9 +39,9 @@ RUN go build -o main .
 
 # Stage 2 - Application Img
 # Define the running base image 
-FROM alpine 
+FROM alpine:3.16 
 
-LABEL "type"="middletier3"
+LABEL "type"="middletier5"
 
 ### Set working directory  
 RUN mkdir /build
@@ -53,7 +53,7 @@ RUN chmod +x ./poclib/jwk2der.sh
 RUN apk add --no-cache bash
 
 # Export necessary port
-EXPOSE 8447
+EXPOSE 8449
 
 # Command to run when starting the container
 CMD ["/build/main"]
