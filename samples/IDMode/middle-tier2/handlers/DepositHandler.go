@@ -15,7 +15,7 @@ import (
 	"github.com/spiffe/go-spiffe/v2/spiffetls/tlsconfig"
 	"github.com/spiffe/go-spiffe/v2/workloadapi"
 
-	"github.com/hpe-usp-spire/signed-assertions/SVID-NG/m-tier/models"
+	"github.com/hpe-usp-spire/signed-assertions/IDMode/m-tier/models"
 )
 
 var temp models.Contents

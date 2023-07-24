@@ -6,7 +6,7 @@ import (
 
 	"github.com/gorilla/mux"
 
-	"github.com/hpe-usp-spire/signed-assertions/SVID-NG/m-tier/handlers"
+	"github.com/hpe-usp-spire/signed-assertions/IDMode/m-tier/handlers"
 )
 
 func MiddleTierRouter(ctx context.Context) (*mux.Router, error) {

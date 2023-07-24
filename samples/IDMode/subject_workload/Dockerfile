@@ -19,8 +19,8 @@ RUN mkdir /build
 WORKDIR /build
 
 # Copy in files to Img
-COPY ./ID-Mode/subject_workload/. .
-COPY ./ID-Mode/api-libs ./api-libs
+COPY ./IDMode/subject_workload/. .
+COPY ./IDMode/api-libs ./api-libs
 COPY ./poclib ./poclib
 
 

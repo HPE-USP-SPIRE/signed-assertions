@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/hpe-usp-spire/signed-assertions/ID-Mode/api-libs/options"
-	"github.com/hpe-usp-spire/signed-assertions/ID-Mode/subject_workload/data"
+	"github.com/hpe-usp-spire/signed-assertions/IDMode/api-libs/options"
+	"github.com/hpe-usp-spire/signed-assertions/IDMode/subject_workload/data"
 )
 
 // InitOptions initializes the options

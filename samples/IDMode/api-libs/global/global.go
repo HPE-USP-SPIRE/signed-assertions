@@ -4,9 +4,9 @@ import (
 	"context"
 	"log"
 
-	"github.com/hpe-usp-spire/signed-assertions/ID-Mode/api-libs/constants"
-	"github.com/hpe-usp-spire/signed-assertions/ID-Mode/api-libs/env"
-	"github.com/hpe-usp-spire/signed-assertions/ID-Mode/api-libs/options"
+	"github.com/hpe-usp-spire/signed-assertions/IDMode/api-libs/constants"
+	"github.com/hpe-usp-spire/signed-assertions/IDMode/api-libs/env"
+	"github.com/hpe-usp-spire/signed-assertions/IDMode/api-libs/options"
 )
 
 var (

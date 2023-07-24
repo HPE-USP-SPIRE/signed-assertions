@@ -12,13 +12,13 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/hpe-usp-spire/signed-assertions/ID-Mode/api-libs/utils"
+	"github.com/hpe-usp-spire/signed-assertions/IDMode/api-libs/utils"
 	dasvid "github.com/hpe-usp-spire/signed-assertions/poclib/svid"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"github.com/spiffe/go-spiffe/v2/spiffetls/tlsconfig"
 	"github.com/spiffe/go-spiffe/v2/workloadapi"
 
-	"github.com/hpe-usp-spire/signed-assertions/ID-Mode/target-wl/models"
+	"github.com/hpe-usp-spire/signed-assertions/IDMode/target-wl/models"
 )
 
 func DepositHandler(w http.ResponseWriter, r *http.Request) {

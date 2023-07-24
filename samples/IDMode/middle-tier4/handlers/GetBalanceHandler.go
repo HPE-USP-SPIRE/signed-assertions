@@ -10,13 +10,13 @@ import (
 	"os"
 	"time"
 	
-	"github.com/hpe-usp-spire/signed-assertions/ID-Mode/m-tier4/models"
+	"github.com/hpe-usp-spire/signed-assertions/IDMode/m-tier4/models"
 	dasvid "github.com/hpe-usp-spire/signed-assertions/poclib/svid"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"github.com/spiffe/go-spiffe/v2/spiffetls/tlsconfig"
 	"github.com/spiffe/go-spiffe/v2/workloadapi"
 
-	"github.com/hpe-usp-spire/signed-assertions/ID-Mode/m-tier/models"
+	"github.com/hpe-usp-spire/signed-assertions/IDMode/m-tier/models"
 )
 
 func GetBalanceHandler(w http.ResponseWriter, r *http.Request) {

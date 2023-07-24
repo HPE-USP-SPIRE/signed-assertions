@@ -3,9 +3,9 @@ package local
 import (
 	"log"
 
-	"github.com/hpe-usp-spire/signed-assertions/ID-Mode/Assertingwl-mTLS/options"
-	api "github.com/hpe-usp-spire/signed-assertions/ID-Mode/api-libs/global"
-	alOps "github.com/hpe-usp-spire/signed-assertions/ID-Mode/api-libs/options"
+	"github.com/hpe-usp-spire/signed-assertions/IDMode/Assertingwl-mTLS/options"
+	api "github.com/hpe-usp-spire/signed-assertions/IDMode/api-libs/global"
+	alOps "github.com/hpe-usp-spire/signed-assertions/IDMode/api-libs/options"
 )
 
 var Options *alOps.Options

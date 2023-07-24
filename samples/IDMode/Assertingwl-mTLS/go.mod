@@ -1,17 +1,17 @@
-module github.com/hpe-usp-spire/signed-assertions/SVID-NG/Assertingwl-mTLS
+module github.com/hpe-usp-spire/signed-assertions/IDMode/Assertingwl-mTLS
 
 go 1.20
 
 require (
 	github.com/gorilla/mux v1.8.0
-	github.com/hpe-usp-spire/signed-assertions/SVID-NG/api-libs v0.0.0-00010101000000-000000000000
+	github.com/hpe-usp-spire/signed-assertions/IDMode/api-libs v0.0.0-00010101000000-000000000000
 	github.com/hpe-usp-spire/signed-assertions/poclib v0.0.0-00010101000000-000000000000
 	github.com/spiffe/go-spiffe/v2 v2.1.4
 )
 
 replace github.com/hpe-usp-spire/signed-assertions/poclib => ./poclib
 
-replace github.com/hpe-usp-spire/signed-assertions/SVID-NG/api-libs => ./api-libs
+replace github.com/hpe-usp-spire/signed-assertions/IDMode/api-libs => ./api-libs
 
 require (
 	bitbucket.org/creachadair/shell v0.0.7 // indirect

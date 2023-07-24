@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 
-	"github.com/hpe-usp-spire/signed-assertions/ID-Mode/target-wl/controller"
+	"github.com/hpe-usp-spire/signed-assertions/IDMode/target-wl/controller"
 )
 
 func main() {

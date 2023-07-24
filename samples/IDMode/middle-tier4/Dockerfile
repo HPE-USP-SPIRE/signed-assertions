@@ -18,8 +18,8 @@ ENV GO111MODULE=on \
 WORKDIR /build
 
 # Copy in files to Img
-COPY ./ID-Mode/m-tier4 .
-COPY ./ID-Mode/api-libs ./api-libs
+COPY ./IDMode/m-tier4 .
+COPY ./IDMode/api-libs ./api-libs
 COPY ./poclib ./poclib
 
 # Download dependencies

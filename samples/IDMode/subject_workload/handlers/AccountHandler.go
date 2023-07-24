@@ -15,9 +15,9 @@ import (
 	"github.com/spiffe/go-spiffe/v2/workloadapi"
 
 	// dasvid lib
-	"github.com/hpe-usp-spire/signed-assertions/ID-Mode/subject_workload/models"
+	"github.com/hpe-usp-spire/signed-assertions/IDMode/subject_workload/models"
 	dasvid "github.com/hpe-usp-spire/signed-assertions/poclib/svid"
-	"github.com/hpe-usp-spire/signed-assertions/ID-Mode/subject_workload/local"
+	"github.com/hpe-usp-spire/signed-assertions/IDMode/subject_workload/local"
 )
 
 func AccountHandler(w http.ResponseWriter, r *http.Request) {

@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/hpe-usp-spire/signed-assertions/ID-Mode/Assertingwl-mTLS/models"
+	"github.com/hpe-usp-spire/signed-assertions/IDMode/Assertingwl-mTLS/models"
 	dasvid "github.com/hpe-usp-spire/signed-assertions/poclib/svid"
 )
 

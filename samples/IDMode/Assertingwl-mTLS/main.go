@@ -27,8 +27,8 @@ import (
 	"context"
 	"log"
 
-	"github.com/hpe-usp-spire/signed-assertions/SVID-NG/Assertingwl-mTLS/controller"
-	"github.com/hpe-usp-spire/signed-assertions/SVID-NG/Assertingwl-mTLS/local"
+	"github.com/hpe-usp-spire/signed-assertions/IDMode/Assertingwl-mTLS/controller"
+	"github.com/hpe-usp-spire/signed-assertions/IDMode/Assertingwl-mTLS/local"
 )
 
 func main() {

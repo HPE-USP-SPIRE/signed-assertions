@@ -11,8 +11,8 @@ import (
 	"github.com/spiffe/go-spiffe/v2/spiffetls/tlsconfig"
 	"github.com/spiffe/go-spiffe/v2/workloadapi"
 
-	"github.com/hpe-usp-spire/signed-assertions/ID-Mode/target-wl/local"
-	"github.com/hpe-usp-spire/signed-assertions/ID-Mode/target-wl/router"
+	"github.com/hpe-usp-spire/signed-assertions/IDMode/target-wl/local"
+	"github.com/hpe-usp-spire/signed-assertions/IDMode/target-wl/router"
 )
 
 type maxBytesHandler struct {

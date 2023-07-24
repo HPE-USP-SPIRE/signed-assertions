@@ -3,10 +3,10 @@ package local
 import (
 	"log"
 
-	api "github.com/hpe-usp-spire/signed-assertions/SVID-NG/api-libs/global"
-	alOps "github.com/hpe-usp-spire/signed-assertions/SVID-NG/api-libs/options"
+	api "github.com/hpe-usp-spire/signed-assertions/IDMode/api-libs/global"
+	alOps "github.com/hpe-usp-spire/signed-assertions/IDMode/api-libs/options"
 
-	"github.com/hpe-usp-spire/signed-assertions/SVID-NG/m-tier/options"
+	"github.com/hpe-usp-spire/signed-assertions/IDMode/m-tier/options"
 )
 
 var Options *alOps.Options

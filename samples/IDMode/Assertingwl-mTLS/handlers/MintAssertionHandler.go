@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hpe-usp-spire/signed-assertions/ID-Mode/Assertingwl-mTLS/models"
-	"github.com/hpe-usp-spire/signed-assertions/ID-Mode/api-libs/global"
+	"github.com/hpe-usp-spire/signed-assertions/IDMode/Assertingwl-mTLS/models"
+	"github.com/hpe-usp-spire/signed-assertions/IDMode/api-libs/global"
 	dasvid "github.com/hpe-usp-spire/signed-assertions/poclib/svid"
 	"github.com/spiffe/go-spiffe/v2/svid/x509svid"
 )

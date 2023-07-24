@@ -1,17 +1,17 @@
-module github.com/hpe-usp-spire/signed-assertions/SVID-NG/subject_workload
+module github.com/hpe-usp-spire/signed-assertions/IDMode/subject_workload
 
 go 1.20
 
 require (
 	github.com/gorilla/sessions v1.2.1
-	github.com/hpe-usp-spire/signed-assertions/SVID-NG/api-libs v0.0.0-00010101000000-000000000000
+	github.com/hpe-usp-spire/signed-assertions/IDMode/api-libs v0.0.0-00010101000000-000000000000
 	github.com/hpe-usp-spire/signed-assertions/poclib v0.0.0-00010101000000-000000000000
 	github.com/okta/okta-jwt-verifier-golang v1.3.1
 	github.com/okta/samples-golang v0.0.0-20230321201010-908f8c144207
 	github.com/spiffe/go-spiffe/v2 v2.1.4
 )
 
-replace github.com/hpe-usp-spire/signed-assertions/SVID-NG/api-libs => ./api-libs
+replace github.com/hpe-usp-spire/signed-assertions/IDMode/api-libs => ./api-libs
 
 replace github.com/hpe-usp-spire/signed-assertions/poclib => ./poclib
 

@@ -3,7 +3,7 @@ package config
 import (
 	"log"
 
-	"github.com/hpe-usp-spire/signed-assertions/SVID-NG/api-libs/env"
+	"github.com/hpe-usp-spire/signed-assertions/IDMode/api-libs/env"
 )
 
 func init() {

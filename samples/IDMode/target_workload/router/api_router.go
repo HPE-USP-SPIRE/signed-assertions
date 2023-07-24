@@ -6,7 +6,7 @@ import (
 
 	"github.com/gorilla/mux"
 
-	"github.com/hpe-usp-spire/signed-assertions/ID-Mode/target-wl/handlers"
+	"github.com/hpe-usp-spire/signed-assertions/IDMode/target-wl/handlers"
 )
 
 func TargetWLRouter(ctx context.Context) (*mux.Router, error) {

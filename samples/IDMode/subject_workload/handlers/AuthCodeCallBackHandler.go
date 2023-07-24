@@ -11,7 +11,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/hpe-usp-spire/signed-assertions/ID-Mode/subject_workload/models"
+	"github.com/hpe-usp-spire/signed-assertions/IDMode/subject_workload/models"
 	// Okta
 	verifier "github.com/okta/okta-jwt-verifier-golang"
 )

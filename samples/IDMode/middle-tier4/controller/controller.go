@@ -9,8 +9,8 @@ import (
 	"github.com/spiffe/go-spiffe/v2/spiffetls/tlsconfig"
 	"github.com/spiffe/go-spiffe/v2/workloadapi"
 
-	"github.com/hpe-usp-spire/signed-assertions/ID-Mode/m-tier4/local"
-	"github.com/hpe-usp-spire/signed-assertions/ID-Mode/m-tier4/router"
+	"github.com/hpe-usp-spire/signed-assertions/IDMode/m-tier4/local"
+	"github.com/hpe-usp-spire/signed-assertions/IDMode/m-tier4/router"
 )
 
 type maxBytesHandler struct {

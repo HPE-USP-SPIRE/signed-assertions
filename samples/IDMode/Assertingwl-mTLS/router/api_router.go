@@ -5,7 +5,7 @@ import (
 	"context"
 
 	"github.com/gorilla/mux"
-	"github.com/hpe-usp-spire/signed-assertions/ID-Mode/Assertingwl-mTLS/handlers"
+	"github.com/hpe-usp-spire/signed-assertions/IDMode/Assertingwl-mTLS/handlers"
 )
 
 func AssertingWLRouter(ctx context.Context) (*mux.Router, error) {

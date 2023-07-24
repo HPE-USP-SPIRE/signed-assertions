@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 
-	"github.com/hpe-usp-spire/signed-assertions/SVID-NG/m-tier2/controller"
+	"github.com/hpe-usp-spire/signed-assertions/IDMode/m-tier2/controller"
 )
 
 func main() {

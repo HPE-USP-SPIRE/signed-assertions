@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/hpe-usp-spire/signed-assertions/ID-Mode/subject_workload/handlers"
-	"github.com/hpe-usp-spire/signed-assertions/ID-Mode/subject_workload/local"
+	"github.com/hpe-usp-spire/signed-assertions/IDMode/subject_workload/handlers"
+	"github.com/hpe-usp-spire/signed-assertions/IDMode/subject_workload/local"
 )
 
 func SubjectWLController() {

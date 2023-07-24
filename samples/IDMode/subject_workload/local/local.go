@@ -4,9 +4,9 @@ import (
 	"log"
 	"html/template"
 
-	api "github.com/hpe-usp-spire/signed-assertions/ID-Mode/api-libs/global"
-	alOps "github.com/hpe-usp-spire/signed-assertions/ID-Mode/api-libs/options"
-	"github.com/hpe-usp-spire/signed-assertions/ID-Mode/subject_workload/options"
+	api "github.com/hpe-usp-spire/signed-assertions/IDMode/api-libs/global"
+	alOps "github.com/hpe-usp-spire/signed-assertions/IDMode/api-libs/options"
+	"github.com/hpe-usp-spire/signed-assertions/IDMode/subject_workload/options"
 )
 
 var Options *alOps.Options

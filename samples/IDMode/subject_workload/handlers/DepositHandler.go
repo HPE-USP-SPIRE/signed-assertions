@@ -10,8 +10,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/hpe-usp-spire/signed-assertions/ID-Mode/subject_workload/local"
-	"github.com/hpe-usp-spire/signed-assertions/ID-Mode/subject_workload/models"
+	"github.com/hpe-usp-spire/signed-assertions/IDMode/subject_workload/local"
+	"github.com/hpe-usp-spire/signed-assertions/IDMode/subject_workload/models"
 	dasvid "github.com/hpe-usp-spire/signed-assertions/poclib/svid"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"github.com/spiffe/go-spiffe/v2/spiffetls/tlsconfig"

@@ -11,8 +11,8 @@ import (
 	"os"
 
 	"github.com/gorilla/sessions"
-	"github.com/hpe-usp-spire/signed-assertions/ID-Mode/subject_workload/models"
-    "github.com/hpe-usp-spire/signed-assertions/ID-Mode/subject_workload/local"
+	"github.com/hpe-usp-spire/signed-assertions/IDMode/subject_workload/models"
+    "github.com/hpe-usp-spire/signed-assertions/IDMode/subject_workload/local"
 )
 
 var (

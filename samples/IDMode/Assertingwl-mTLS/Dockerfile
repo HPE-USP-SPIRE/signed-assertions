@@ -18,8 +18,8 @@ ENV GO111MODULE=on \
 WORKDIR /build
 
 # Copy in files to Img
-COPY ./ID-Mode/Assertingwl-mTLS/. .
-COPY ./ID-Mode/api-libs ./api-libs
+COPY ./IDMode/Assertingwl-mTLS/. .
+COPY ./IDMode/api-libs ./api-libs
 COPY ./poclib ./poclib
 
 # Download dependencies
