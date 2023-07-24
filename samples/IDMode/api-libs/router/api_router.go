@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
-	"github.com/hpe-usp-spire/signed-assertions/ID-Mode/api-libs/handlers"
+	"github.com/hpe-usp-spire/signed-assertions/IDMode/api-libs/handlers"
 )
 
 func LSVIDApiRouter() (*mux.Router, error) {

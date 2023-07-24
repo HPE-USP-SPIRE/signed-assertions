@@ -11,7 +11,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/hpe-usp-spire/signed-assertions/ID-Mode/api-libs/fs"
+	"github.com/hpe-usp-spire/signed-assertions/IDMode/api-libs/fs"
 )
 
 const tag string = "env"

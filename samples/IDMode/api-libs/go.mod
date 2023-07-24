@@ -1,4 +1,4 @@
-module github.com/hpe-usp-spire/signed-assertions/SVID-NG/api-libs
+module github.com/hpe-usp-spire/signed-assertions/IDMode/api-libs
 
 go 1.20
 

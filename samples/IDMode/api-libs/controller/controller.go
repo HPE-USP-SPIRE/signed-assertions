@@ -5,8 +5,8 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/hpe-usp-spire/signed-assertions/ID-Mode/api-libs/global"
-	"github.com/hpe-usp-spire/signed-assertions/ID-Mode/api-libs/router"
+	"github.com/hpe-usp-spire/signed-assertions/IDMode/api-libs/global"
+	"github.com/hpe-usp-spire/signed-assertions/IDMode/api-libs/router"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"github.com/spiffe/go-spiffe/v2/spiffetls/tlsconfig"
 	"github.com/spiffe/go-spiffe/v2/workloadapi"

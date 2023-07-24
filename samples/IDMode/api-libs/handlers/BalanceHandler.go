@@ -9,9 +9,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/hpe-usp-spire/signed-assertions/ID-Mode/api-libs/global"
-	"github.com/hpe-usp-spire/signed-assertions/ID-Mode/api-libs/models"
-	"github.com/hpe-usp-spire/signed-assertions/ID-Mode/api-libs/utils"
+	"github.com/hpe-usp-spire/signed-assertions/IDMode/api-libs/global"
+	"github.com/hpe-usp-spire/signed-assertions/IDMode/api-libs/models"
+	"github.com/hpe-usp-spire/signed-assertions/IDMode/api-libs/utils"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"github.com/spiffe/go-spiffe/v2/spiffetls/tlsconfig"
 	"github.com/spiffe/go-spiffe/v2/workloadapi"
