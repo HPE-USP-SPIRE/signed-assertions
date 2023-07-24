@@ -4,7 +4,7 @@ services:
   assertingwl:
     build:
       context: ..
-      dockerfile: ID-Mode/Assertingwl-mTLS/Dockerfile
+      dockerfile: IDMode/Assertingwl-mTLS/Dockerfile
     ports:
       - "8443:8443"
     volumes:
@@ -15,7 +15,7 @@ services:
   subjectwl:
     build:
       context: ..
-      dockerfile: ID-Mode/subject_workload/Dockerfile
+      dockerfile: IDMode/subject_workload/Dockerfile
     ports:
       - "8080:8080"
     volumes:
@@ -26,7 +26,7 @@ services:
   m-tier:
     build:
       context: ..
-      dockerfile: ID-Mode/m-tier/Dockerfile
+      dockerfile: IDMode/m-tier/Dockerfile
     ports:
       - "8445:8445"
     volumes:
@@ -37,7 +37,7 @@ services:
   m-tier2:
     build:
       context: ..
-      dockerfile: ID-Mode/m-tier2/Dockerfile
+      dockerfile: IDMode/m-tier2/Dockerfile
     ports:
       - "8446:8446"
     volumes:
@@ -48,7 +48,7 @@ services:
   m-tier3:
     build:
       context: ..
-      dockerfile: ID-Mode/m-tier3/Dockerfile
+      dockerfile: IDMode/m-tier3/Dockerfile
     ports:
       - "8447:8447"
     volumes:
@@ -59,7 +59,7 @@ services:
   m-tier4:
     build:
       context: ..
-      dockerfile: ID-Mode/m-tier4/Dockerfile
+      dockerfile: IDMode/m-tier4/Dockerfile
     ports:
       - "8448:8448"
     volumes:
@@ -70,7 +70,7 @@ services:
   m-tier5:
     build:
       context: ..
-      dockerfile: ID-Mode/m-tier5/Dockerfile
+      dockerfile: IDMode/m-tier5/Dockerfile
     ports:
       - "8449:8449"
     volumes:
@@ -81,7 +81,7 @@ services:
   target-wl:
     build:
       context: ..
-      dockerfile: ID-Mode/target-wl/Dockerfile
+      dockerfile: IDMode/target-wl/Dockerfile
     ports:
       - "8444:8444"
     volumes:
