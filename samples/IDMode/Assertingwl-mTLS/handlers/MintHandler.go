@@ -11,14 +11,16 @@ import (
 	"time"
 
 	"github.com/hpe-usp-spire/signed-assertions/IDMode/Assertingwl-mTLS/models"
-	"github.com/hpe-usp-spire/signed-assertions/IDMode/api-libs/global"
 	dasvid "github.com/hpe-usp-spire/signed-assertions/poclib/svid"
 	"github.com/spiffe/go-spiffe/v2/svid/x509svid"
 )
 
 func MintHandler(w http.ResponseWriter, r *http.Request) {
+
+	var FileTemp models.FileContents
+	var Data models.PocData
 	// MODIFICATIONS TO BENCHMARK THE SOLUTION. REMOVE AFTER
-	for i:=0; i<1; i++ {
+	for i := 0; i < 1; i++ {
 		log.Printf("Execution number: %v", i)
 		defer timeTrack(time.Now(), fmt.Sprintf("Mint endpoint execution number: %v", i))
 
@@ -43,15 +45,15 @@ func MintHandler(w http.ResponseWriter, r *http.Request) {
 			log.Printf("Oauth token expired!")
 
 			Data = models.PocData{
-				OauthExpValidation:		expresult,
-				OauthExpRemainingTime:  remainingtime,
+				OauthExpValidation:    expresult,
+				OauthExpRemainingTime: remainingtime,
 			}
 			json.NewEncoder(w).Encode(Data)
 
 		} else {
 
 			// Retrieve Public Key from JWKS endpoint
-			// 
+			//
 			issuer := fmt.Sprintf("%v", tokenclaims["iss"])
 			log.Println("OAuth Issuer: ", issuer)
 			uri, result := dasvid.ValidateISS(issuer)
@@ -76,51 +78,50 @@ func MintHandler(w http.ResponseWriter, r *http.Request) {
 			pubkey := dasvid.RetrieveJWKSPublicKey("./data/oauthjwkskey.cache")
 
 			// Verify token signature using extracted Public key
-			for i :=0; i<len(pubkey.Keys); i++ {
+			for i := 0; i < len(pubkey.Keys); i++ {
 
 				err := dasvid.VerifySignature(oauthtoken, pubkey.Keys[i])
 				if err == nil {
 					log.Printf("Success verifying DA-SVID signature!")
 					break
-				} 
+				}
 
 				if i == len(pubkey.Keys)-1 {
 					log.Printf("Error verifying OAuth signature: %v", err)
 					*sigresult = false
-		
+
 					Data = models.PocData{
-						OauthExpValidation:		expresult,
-						OauthExpRemainingTime:  remainingtime,
-						OauthSigValidation:		sigresult,
+						OauthExpValidation:    expresult,
+						OauthExpRemainingTime: remainingtime,
+						OauthSigValidation:    sigresult,
 					}
-				
+
 					json.NewEncoder(w).Encode(Data)
 					return
 				}
 			}
-				
+
 			*sigresult = true
-			
 
 			// Fetch Asserting workload SVID to use as DASVID issuer
 			assertingwl := dasvid.FetchX509SVID()
 
 			// ZKP
 			// format: received proof = json containing proof P and C arrays
-			// 
-			// validation: 
-			// - generate vkey with token2vkey or other and extract bigN and bigE 
-			// - verifyhexproof(json proof, msg, vkey) 
+			//
+			// validation:
+			// - generate vkey with token2vkey or other and extract bigN and bigE
+			// - verifyhexproof(json proof, msg, vkey)
 
 			// Load private key from pem file used to sign DASVID
 			awprivatekey := dasvid.RetrievePrivateKey("./keys/key.pem")
-			
+
 			// Load public key to extract kid
 			pubkey = dasvid.RetrieveJWKSPublicKey("./keys/jwks.json")
 			fmt.Println("key ", pubkey.Keys[0])
 			kid := pubkey.Keys[0].Kid
 			var token string
-			
+
 			if os.Getenv("MINT_ZKP") == "true" {
 				log.Printf("Generating ZKP...")
 
@@ -147,12 +148,12 @@ func MintHandler(w http.ResponseWriter, r *http.Request) {
 				}
 
 				// Data to be write in cache file
-				Filetemp = models.FileContents{
-					OauthToken:					oauthtoken,
-					DASVIDToken:	 			token,
-					ZKP:						zkp,						
+				FileTemp = models.FileContents{
+					OauthToken:  oauthtoken,
+					DASVIDToken: token,
+					ZKP:         zkp,
 				}
-				
+
 			} else {
 				// Generate DASVID claims
 				iss := assertingwl.ID.String()
@@ -163,20 +164,19 @@ func MintHandler(w http.ResponseWriter, r *http.Request) {
 				// Generate DASVID
 				token = dasvid.Mintdasvid(kid, iss, sub, dpa, dpr, nil, "", awprivatekey)
 
-
 				// Data to be write in cache file
-				Filetemp = models.FileContents{
-					OauthToken:					oauthtoken,
-					DASVIDToken:	 			token,
+				FileTemp = models.FileContents{
+					OauthToken:  oauthtoken,
+					DASVIDToken: token,
 				}
 			}
 
-			// Data to be returned in API 
+			// Data to be returned in API
 			Data = models.PocData{
-				OauthSigValidation: 		sigresult,
-				OauthExpValidation:			expresult,
-				OauthExpRemainingTime:  	remainingtime,
-				DASVIDToken:	 			token,
+				OauthSigValidation:    sigresult,
+				OauthExpValidation:    expresult,
+				OauthExpRemainingTime: remainingtime,
+				DASVIDToken:           token,
 			}
 
 			// If the file doesn't exist, create it, or append to the file
@@ -185,7 +185,7 @@ func MintHandler(w http.ResponseWriter, r *http.Request) {
 				log.Fatal(err)
 			}
 			log.Printf("Writing to file...")
-			json.NewEncoder(file).Encode(Filetemp)
+			json.NewEncoder(file).Encode(FileTemp)
 			if err := file.Close(); err != nil {
 				log.Fatal(err)
 			}

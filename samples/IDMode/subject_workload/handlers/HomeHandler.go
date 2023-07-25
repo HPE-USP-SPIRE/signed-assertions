@@ -21,6 +21,15 @@ var (
 	nonce        = "NonceNotSetYet"
 )
 
+// var (
+// 	tpl          *template.Template
+// 	sessionStore = sessions.NewCookieStore([]byte("okta-hosted-login-session-store"))
+// 	state        = generateState()
+// 	nonce        = "NonceNotSetYet"
+// 	// Set curve
+// 	curve = edwards25519.NewBlakeSHA256Ed25519()
+// )
+
 var temp models.Contents
 var oktaclaims map[string]interface{}
 var dasvidclaims map[string]interface{}

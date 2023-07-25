@@ -1,87 +1,87 @@
 version: "3"
 
 services:
-  assertingwl:
-    build:
-      context: ..
-      dockerfile: IDMode/Assertingwl-mTLS/Dockerfile
-    ports:
-      - "8443:8443"
-    volumes:
-      - /tmp/spire-agent/public/api.sock:/tmp/spire-agent/public/api.sock
-    networks:
-      - my-network
+  # assertingwl:
+  #   build:
+  #     context: ../..
+  #     dockerfile: samples/IDMode/Assertingwl-mTLS/Dockerfile
+  #   ports:
+  #     - "8443:8443"
+  #   volumes:
+  #     - /tmp/spire-agent/public/api.sock:/tmp/spire-agent/public/api.sock
+  #   networks:
+  #     - my-network
 
-  subjectwl:
-    build:
-      context: ..
-      dockerfile: IDMode/subject_workload/Dockerfile
-    ports:
-      - "8080:8080"
-    volumes:
-      - /tmp/spire-agent/public/api.sock:/tmp/spire-agent/public/api.sock
-    networks:
-      - my-network
+  # subjectwl:
+  #   build:
+  #     context: ../..
+  #     dockerfile: samples/IDMode/subject_workload/Dockerfile
+  #   ports:
+  #     - "8080:8080"
+  #   volumes:
+  #     - /tmp/spire-agent/public/api.sock:/tmp/spire-agent/public/api.sock
+  #   networks:
+  #     - my-network
 
-  m-tier:
-    build:
-      context: ..
-      dockerfile: IDMode/m-tier/Dockerfile
-    ports:
-      - "8445:8445"
-    volumes:
-      - /tmp/spire-agent/public/api.sock:/tmp/spire-agent/public/api.sock
-    networks:
-      - my-network
+  # m-tier:
+  #   build:
+  #     context: ../../
+  #     dockerfile: samples/IDMode/m-tier/Dockerfile
+  #   ports:
+  #     - "8445:8445"
+  #   volumes:
+  #     - /tmp/spire-agent/public/api.sock:/tmp/spire-agent/public/api.sock
+  #   networks:
+  #     - my-network
   
-  m-tier2:
-    build:
-      context: ..
-      dockerfile: IDMode/m-tier2/Dockerfile
-    ports:
-      - "8446:8446"
-    volumes:
-      - /tmp/spire-agent/public/api.sock:/tmp/spire-agent/public/api.sock
-    networks:
-      - my-network
+  # m-tier2:
+  #   build:
+  #     context: ../..
+  #     dockerfile: samples/IDMode/m-tier2/Dockerfile
+  #   ports:
+  #     - "8446:8446"
+  #   volumes:
+  #     - /tmp/spire-agent/public/api.sock:/tmp/spire-agent/public/api.sock
+  #   networks:
+  #     - my-network
   
-  m-tier3:
-    build:
-      context: ..
-      dockerfile: IDMode/m-tier3/Dockerfile
-    ports:
-      - "8447:8447"
-    volumes:
-      - /tmp/spire-agent/public/api.sock:/tmp/spire-agent/public/api.sock
-    networks:
-      - my-network
+  # m-tier3:
+  #   build:
+  #     context: ../..
+  #     dockerfile: samples/IDMode/m-tier3/Dockerfile
+  #   ports:
+  #     - "8447:8447"
+  #   volumes:
+  #     - /tmp/spire-agent/public/api.sock:/tmp/spire-agent/public/api.sock
+  #   networks:
+  #     - my-network
 
-  m-tier4:
-    build:
-      context: ..
-      dockerfile: IDMode/m-tier4/Dockerfile
-    ports:
-      - "8448:8448"
-    volumes:
-      - /tmp/spire-agent/public/api.sock:/tmp/spire-agent/public/api.sock
-    networks:
-      - my-network
+  # m-tier4:
+  #   build:
+  #     context: ../..
+  #     dockerfile: samples/IDMode/m-tier4/Dockerfile
+  #   ports:
+  #     - "8448:8448"
+  #   volumes:
+  #     - /tmp/spire-agent/public/api.sock:/tmp/spire-agent/public/api.sock
+  #   networks:
+  #     - my-network
         
-  m-tier5:
-    build:
-      context: ..
-      dockerfile: IDMode/m-tier5/Dockerfile
-    ports:
-      - "8449:8449"
-    volumes:
-      - /tmp/spire-agent/public/api.sock:/tmp/spire-agent/public/api.sock
-    networks:
-      - my-network
+  # m-tier5:
+  #   build:
+  #     context: ../..
+  #     dockerfile: samples/IDMode/m-tier5/Dockerfile
+  #   ports:
+  #     - "8449:8449"
+  #   volumes:
+  #     - /tmp/spire-agent/public/api.sock:/tmp/spire-agent/public/api.sock
+  #   networks:
+  #     - my-network
 
   target-wl:
     build:
-      context: ..
-      dockerfile: IDMode/target-wl/Dockerfile
+      context: ../..
+      dockerfile: samples/IDMode/target-wl/Dockerfile
     ports:
       - "8444:8444"
     volumes:

@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/hpe-usp-spire/signed-assertions/IDMode/Assertingwl-mTLS/models"
-	"github.com/hpe-usp-spire/signed-assertions/IDMode/api-libs/global"
+	// "github.com/hpe-usp-spire/signed-assertions/IDMode/api-libs/global"
 	dasvid "github.com/hpe-usp-spire/signed-assertions/poclib/svid"
 	"github.com/spiffe/go-spiffe/v2/svid/x509svid"
 )
@@ -34,10 +34,12 @@ func MintAssertionHandler(w http.ResponseWriter, r *http.Request) {
 	*expresult, remainingtime = dasvid.ValidateTokenExp(tokenclaims)
 
 	var fileTemp models.FileContents
+	var Data models.PocData
+
 	if *expresult == false {
 		log.Printf("Oauth token expired!")
 	
-		data := models.PocData{
+		Data := models.PocData{
 			OauthExpValidation:    expresult,
 			OauthExpRemainingTime: remainingtime,
 		}
@@ -45,9 +47,9 @@ func MintAssertionHandler(w http.ResponseWriter, r *http.Request) {
 	} else {
 			// Retrieve Public Key from JWKS endpoint
 	//
-	issuer := fmt.Sprintf("%v", tokenclaims["iss"])
-	log.Println("OAuth Issuer: ", issuer)
-	uri, result := dasvid.ValidateISS(issuer)
+	oauthissuer := fmt.Sprintf("%v", tokenclaims["iss"])
+	log.Println("OAuth Issuer: ", oauthissuer)
+	uri, result := dasvid.ValidateISS(oauthissuer)
 	if result != true {
 		log.Fatal("OAuth token issuer not identified!")
 	}
@@ -125,37 +127,33 @@ func MintAssertionHandler(w http.ResponseWriter, r *http.Request) {
 
 		log.Printf("Generated assertion: ", fmt.Sprintf("%s",assertion))
 
-
-
-		// Data to be writen in cache file
-
 		// save just signature.R due to concatenation process
 				// Retrieve signature from originaltoken 
-				parts 			:= strings.Split(assertion, ".")	
-				prevsignature, err := dasvid.String2schsig(parts[1])
-				if err != nil {
-					fmt.Println("Error converting string to schnorr signature!")
-					os.Exit(1)
-				} 
-				// Discard sig.S
-				parts[1], err = dasvid.Point2string(prevsignature.R)
-				if err != nil {
-					fmt.Println("Error decoding point string!")
-					os.Exit(1)
-				} 
-				assertionlkp := strings.Join(parts, ".")
+		parts 			:= strings.Split(assertion, ".")	
+		prevsignature, err := dasvid.String2schsig(parts[1])
+		if err != nil {
+			fmt.Println("Error converting string to schnorr signature!")
+			os.Exit(1)
+		} 
+		// Discard sig.S
+		parts[1], err = dasvid.Point2string(prevsignature.R)
+		if err != nil {
+			fmt.Println("Error decoding point string!")
+			os.Exit(1)
+		} 
+		assertionlkp := strings.Join(parts, ".")
 
-				fileTemp = models.FileContents{
-					OauthToken:  oauthtoken,
-					DASVIDToken: token,
-				}
+		fileTemp = models.FileContents{
+			OauthToken:  oauthtoken,
+			DASVIDToken: assertionlkp,
+		}
 
 		// Data to be returned in API
-		data := models.PocData{
+		Data = models.PocData{
 			OauthSigValidation:    sigresult,
 			OauthExpValidation:    expresult,
 			OauthExpRemainingTime: remainingtime,
-			DASVIDToken:           token,
+			DASVIDToken:           assertion,
 		}
 		
 		// If the file doesn't exist, create it, or append to the file
@@ -164,7 +162,7 @@ func MintAssertionHandler(w http.ResponseWriter, r *http.Request) {
 			log.Fatal(err)
 		}
 		log.Printf("Writing to file...")
-		json.NewEncoder(file).Encode(Filetemp)
+		json.NewEncoder(file).Encode(fileTemp)
 		if err := file.Close(); err != nil {
 			log.Fatal(err)
 		}

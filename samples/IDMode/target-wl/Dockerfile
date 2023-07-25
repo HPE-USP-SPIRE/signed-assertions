@@ -15,14 +15,12 @@ ENV GO111MODULE=on \
     CC="gcc"
 
 # Create and move to working directory
-RUN mkdir /build
 WORKDIR /build
 
 # Copy in files to Img
-COPY ./samples/IDMode/subject_workload/. .
+COPY ./samples/IDMode/target-wl/. .
 COPY ./samples/IDMode/api-libs ./api-libs
 COPY ./poclib ./poclib
-
 
 # Download dependencies
 RUN apk upgrade --update-cache --available && \
@@ -43,7 +41,7 @@ RUN go build -o main .
 # Define the running base image 
 FROM alpine:3.16 
 
-LABEL "type"="subjectwl"
+LABEL "type"="targetwl"
 
 ### Set working directory  
 RUN mkdir /build
@@ -51,13 +49,12 @@ WORKDIR /build
 
 ### Copy in built application and other files
 COPY --from=builder /build /build
-# RUN chmod +x ./poclib/jwk2der.sh
+RUN chmod +x ./poclib/jwk2der.sh
 RUN apk add --no-cache bash
 
 # Export necessary port
-EXPOSE 8080
+EXPOSE 8444
 
 # Command to run when starting the container
 CMD ["/build/main"]
 # - or instead for debuging ... ENTRYPOINT ["tail", "-f", "/dev/null"]
-

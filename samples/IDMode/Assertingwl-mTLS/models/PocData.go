@@ -12,4 +12,5 @@ type PocData struct {
 	DasvidExpValidation    *bool                  `json:",omitempty"`
 	DasvidExpRemainingTime string                 `json:",omitempty"`
 	DasvidSigValidation    *bool                  `json:",omitempty"`
+	IDArtifacts			   string				  `json:",omitempty"`
 }

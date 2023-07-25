@@ -16,7 +16,7 @@ import (
 
 	// dasvid lib
 	"github.com/hpe-usp-spire/signed-assertions/IDMode/subject_workload/models"
-	dasvid "github.com/hpe-usp-spire/signed-assertions/poclib/svid"
+	// dasvid "github.com/hpe-usp-spire/signed-assertions/poclib/svid"
 	"github.com/hpe-usp-spire/signed-assertions/IDMode/subject_workload/local"
 )
 

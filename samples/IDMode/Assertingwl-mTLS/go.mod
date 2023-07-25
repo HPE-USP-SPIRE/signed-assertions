@@ -6,6 +6,7 @@ require (
 	github.com/gorilla/mux v1.8.0
 	github.com/hpe-usp-spire/signed-assertions/IDMode/api-libs v0.0.0-00010101000000-000000000000
 	github.com/hpe-usp-spire/signed-assertions/poclib v0.0.0-00010101000000-000000000000
+
 	github.com/spiffe/go-spiffe/v2 v2.1.4
 )
 

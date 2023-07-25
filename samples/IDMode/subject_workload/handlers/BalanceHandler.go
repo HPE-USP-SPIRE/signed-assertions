@@ -1,28 +1,63 @@
 package handlers
 
 import (
-	"context"
+	"bytes"
+	// "crypto/rand"
+	// "encoding/base64"
+	// "encoding/hex"
 	"encoding/json"
 	"fmt"
+	// "html/template"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
+	// "net"
+	"context"
 	"time"
+	// "bufio"
+	"strings"
+	"crypto/x509"
+	"encoding/pem"
+	"crypto/ecdsa"
+	"crypto/tls"
 
-	"github.com/hpe-usp-spire/signed-assertions/IDMode/subject_workload/local"
-	"github.com/hpe-usp-spire/signed-assertions/IDMode/subject_workload/models"
-	dasvid "github.com/hpe-usp-spire/signed-assertions/poclib/svid"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"github.com/spiffe/go-spiffe/v2/spiffetls/tlsconfig"
 	"github.com/spiffe/go-spiffe/v2/workloadapi"
+	"github.com/spiffe/go-spiffe/v2/svid/x509svid"
+
+	dasvid "github.com/hpe-usp-spire/signed-assertions/poclib/svid"
+
+	"github.com/hpe-usp-spire/signed-assertions/IDMode/subject_workload/local"
+	"github.com/hpe-usp-spire/signed-assertions/IDMode/subject_workload/models"
+
+	// To sig. validation 
+	_ "crypto/sha256"
+
+	// "github.com/gorilla/sessions"
+	// Okta
+	// verifier "github.com/okta/okta-jwt-verifier-golang"
+	// oktaUtils "github.com/okta/samples-golang/okta-hosted-login/utils"
+
+	// anonymous trace
+	// "go.dedis.ch/kyber/v3/group/edwards25519"
+	// "github.com/spiffe/go-spiffe/v2/svid/x509svid"
+
 )
+
+// var oktaclaims map[string]interface{}
+// var dasvidclaims map[string]interface{}
 
 func BalanceHandler(w http.ResponseWriter, r *http.Request) {
 
 	defer timeTrack(time.Now(), "Get Balance")
 
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	var funds models.Balancetemp
+	var temp models.Contents
 
 	// validate received token and Certs
 	receivedAssertion := getdasvid(os.Getenv("oauthtoken"))
@@ -153,7 +188,7 @@ func BalanceHandler(w http.ResponseWriter, r *http.Request) {
 	if funds.Returnmsg != "" {
 
 		fmt.Println("Return msg error:", funds.Returnmsg)
-		Data = models.PocData{
+		Data := models.PocData{
 			AppURI:          os.Getenv("HOSTIP"),
 			Profile:         getProfileData(r),
 			IsAuthenticated: isAuthenticated(r),
@@ -165,7 +200,7 @@ func BalanceHandler(w http.ResponseWriter, r *http.Request) {
 
 	} else {
 
-		Data = models.PocData{
+		Data := models.PocData{
 			AppURI:          os.Getenv("HOSTIP"),
 			Profile:         getProfileData(r),
 			IsAuthenticated: isAuthenticated(r),
@@ -177,3 +212,99 @@ func BalanceHandler(w http.ResponseWriter, r *http.Request) {
 		local.Tpl.ExecuteTemplate(w, "get_balance.gohtml", Data)
 	}
 }
+
+
+// func getdasvid(oauthtoken string) (string) {
+
+// 	defer timeTrack(time.Now(), "Get DASVID")
+	
+// 	// Asserting workload will validate oauth token, so we dont need to do it here.
+// 	// stablish mtls with asserting workload and call mint endpoint, passing oauth token 
+// 	ctx, cancel := context.WithCancel(context.Background())
+// 	defer cancel()
+
+// 	// Create a `workloadapi.X509Source`, it will connect to Workload API using provided socket path
+// 	source, err := workloadapi.NewX509Source(ctx, workloadapi.WithClientOptions(workloadapi.WithAddr(os.Getenv("SOCKET_PATH"))))
+// 	if err != nil {
+// 		log.Fatalf("Unable to create X509Source %v", err)
+// 	}
+// 	defer source.Close()
+
+// 	// Allowed SPIFFE ID
+// 	serverID := spiffeid.RequireTrustDomainFromString(os.Getenv("TRUST_DOMAIN"))
+
+// 	// Create a `tls.Config` to allow mTLS connections, and verify that presented certificate match allowed SPIFFE ID rule
+// 	tlsConfig := tlsconfig.MTLSClientConfig(source, source, tlsconfig.AuthorizeMemberOf(serverID))
+// 	client := &http.Client{
+// 		Transport: &http.Transport{
+// 			TLSClientConfig: tlsConfig,
+// 		},
+// 	}
+
+// 	var endpoint string
+// 	token := os.Getenv("oauthtoken")
+// 	fmt.Println("OAuth Token: ", token)
+// 	endpoint = "https://"+os.Getenv("ASSERTINGWLIP")+"/ecdsaassertion?AccessToken="+token
+
+// 	r, err := client.Get(endpoint)
+// 	if err != nil {
+// 		log.Fatalf("Error connecting to %q: %v", os.Getenv("ASSERTINGWLIP"), err)
+// 	}
+
+// 	defer r.Body.Close()
+// 	body, err := ioutil.ReadAll(r.Body)
+// 	if err != nil {
+// 		log.Fatalf("Unable to read body: %v", err)
+// 	}
+
+// 	return fmt.Sprintf("%s", body)
+// }
+
+// func isAuthenticated(r *http.Request) bool {
+// 	session, err := sessionStore.Get(r, "okta-hosted-login-session-store")
+// 	if err != nil || session.Values["id_token"] == nil || session.Values["id_token"] == "" {
+// 		return false
+// 	}
+// return true
+// }
+
+// func haveDASVID() bool {
+// 	if os.Getenv("DASVIDToken") == "" {
+// 		return false
+// 	}
+// return true
+// }
+
+// func getProfileData(r *http.Request) map[string]string {
+
+
+// 	m := make(map[string]string)
+
+// 	session, err := sessionStore.Get(r, "okta-hosted-login-session-store")
+
+// 	if err != nil || session.Values["access_token"] == nil || session.Values["access_token"] == "" {
+// 		return m
+// 	}
+
+// 	reqUrl := os.Getenv("ISSUER") + "/v1/userinfo"
+
+// 	req, _ := http.NewRequest("GET", reqUrl, bytes.NewReader([]byte("")))
+// 	h := req.Header
+// 	h.Add("Authorization", "Bearer "+session.Values["access_token"].(string))
+// 	h.Add("Accept", "application/json")
+
+// 	client := &http.Client{}
+// 	resp, _ := client.Do(req)
+// 	body, _ := ioutil.ReadAll(resp.Body)
+// 	defer resp.Body.Close()
+// 	json.Unmarshal(body, &m)
+
+// 	return m
+// }
+
+// func generateState() string {
+// 	// Generate a random byte array for state paramter
+// 	b := make([]byte, 16)
+// 	rand.Read(b)
+// 	return hex.EncodeToString(b)
+// }
