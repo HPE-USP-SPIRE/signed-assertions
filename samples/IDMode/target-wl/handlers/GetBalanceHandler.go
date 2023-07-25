@@ -105,6 +105,7 @@ func GetBalanceHandler(w http.ResponseWriter, r *http.Request) {
 	parts := strings.Split(rcvSVID.DASVIDToken, ".")
 	claims, _ := base64.RawURLEncoding.DecodeString(parts[len(parts)/2 - 1])
 	log.Printf(string(claims))
+	
 	var dasvidclaims models.DAClaims
 	
 	json.Unmarshal(claims, &dasvidclaims)
@@ -135,7 +136,7 @@ func GetBalanceHandler(w http.ResponseWriter, r *http.Request) {
 	log.Println("Success verifying hexproof!!")
 
     // This PoC will consider that only DA-SVID with "subject_wl" in sub claim will be able request data
-	if dasvidclaims["Aud"].(string) != "spiffe://example.org/subject_wl"{
+	if dasvidclaims.Aud != "spiffe://example.org/subject_wl"{
 
         returnmsg := "The application "+dasvidclaims.Iss+" is not allowed to access user data!"
 		log.Printf(returnmsg)
