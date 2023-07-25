@@ -15,9 +15,8 @@ import (
 	"github.com/spiffe/go-spiffe/v2/workloadapi"
 
 	// dasvid lib
-	"github.com/hpe-usp-spire/signed-assertions/IDMode/subject_workload/models"
-	// dasvid "github.com/hpe-usp-spire/signed-assertions/poclib/svid"
 	"github.com/hpe-usp-spire/signed-assertions/IDMode/subject_workload/local"
+	"github.com/hpe-usp-spire/signed-assertions/IDMode/subject_workload/models"
 )
 
 func AccountHandler(w http.ResponseWriter, r *http.Request) {
@@ -32,7 +31,6 @@ func AccountHandler(w http.ResponseWriter, r *http.Request) {
 		log.Fatalf("error:", err)
 	}
 	log.Print("Received Assertion: ", receivedAssertion)
-
 	if (*temp.OauthSigValidation == false) || (*temp.OauthExpValidation == false) {
 
 		returnmsg := "Oauth token validation error"
@@ -57,10 +55,10 @@ func AccountHandler(w http.ResponseWriter, r *http.Request) {
 			Profile:         getProfileData(r),
 			IsAuthenticated: isAuthenticated(r),
 			DASVIDToken:     temp.DASVIDToken,
-		 //	DASVIDClaims:    dasvidclaims,
-			HaveDASVID:      haveDASVID(),
-			SigValidation:   fmt.Sprintf("%v", temp.OauthSigValidation),
-			ExpValidation:   fmt.Sprintf("%v", temp.OauthExpValidation),
+			//	DASVIDClaims:    dasvidclaims,
+			HaveDASVID:    haveDASVID(),
+			SigValidation: fmt.Sprintf("%v", temp.OauthSigValidation),
+			ExpValidation: fmt.Sprintf("%v", temp.OauthExpValidation),
 		}
 
 		local.Tpl.ExecuteTemplate(w, "account.gohtml", Data)
@@ -97,8 +95,8 @@ func getdasvid(oauthtoken string) string {
 	var endpoint string
 	token := os.Getenv("oauthtoken")
 	log.Println("OAuth Token: ", token)
-	endpoint = "https://" + local.Options.AssertingWLIP + "/mint?AccessToken=" + token
-	log.Println("local.Options.AssertingWLIP: ", local.Options.AssertingWLIP)
+	endpoint = "https://" + os.Getenv("ASSERTINGWLIP") + "/ecdsaassertion?AccessToken=" + token
+	log.Println(endpoint)
 
 	r, err := client.Get(endpoint)
 	if err != nil {
