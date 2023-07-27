@@ -48,7 +48,7 @@ WORKDIR /build
 
 ### Copy in built application and other files
 COPY --from=builder /build /build
-# RUN chmod +x ./poclib/jwk2der.sh
+RUN chmod +x ./poclib/jwk2der.sh
 RUN apk add --no-cache bash
 
 # Export necessary port

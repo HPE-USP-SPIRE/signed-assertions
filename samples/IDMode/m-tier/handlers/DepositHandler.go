@@ -1,7 +1,7 @@
 package handlers
 
 import (
-	"bytes"
+ //	"bytes"
 	"context"
 	"crypto/ecdsa"
 	"crypto/tls"
@@ -91,7 +91,7 @@ func DepositHandler(w http.ResponseWriter, r *http.Request) {
 	defer source.Close()
 
 	// Allowed SPIFFE ID
-	serverID := spiffeid.RequireTrustDomainFromString(os.Getenv("TRUST_DOMAIN"))
+	serverID := spiffeid.RequireTrustDomainFromString("example.org")
 
 	// Create a `tls.Config` to allow mTLS connections, and verify that presented certificate match allowed SPIFFE ID rule
 	tlsConfig := tlsconfig.MTLSClientConfig(source, source, tlsconfig.AuthorizeMemberOf(serverID))
@@ -150,11 +150,11 @@ func DepositHandler(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Generated ID artifact		: %s", fmt.Sprintf("%s",idartifact))
 	log.Printf("Updated SVID bundle			: %s", fmt.Sprintf("%s",updSVID))
 
-	values := map[string]string{"DASVIDToken": assertion, "IDArtifacts": updSVID}
-	json_data, err := json.Marshal(values)
-    if err != nil {
-        log.Fatal(err)
-    }
+	// values := map[string]string{"DASVIDToken": assertion, "IDArtifacts": updSVID}
+	// json_data, err := json.Marshal(values)
+    // if err != nil {
+    //     log.Fatal(err)
+    // }
 	// log.Println("Generated body data: %s", json_data)
 
 	// Gera chamada para MIDDLE_TIER2_IP workload 

@@ -1,7 +1,7 @@
 package handlers
 
 import (
-	"bytes"
+	// "bytes"
 	"context"
 	"crypto/ecdsa"
 	"crypto/tls"
@@ -44,9 +44,7 @@ func timeTrack(start time.Time, name string) {
 }
 
 func DepositHandler(w http.ResponseWriter, r *http.Request) {
-	defer timeTrack(time.Now(), "DepositHandler")
-
-	var tempbalance models.Balancetemp
+	defer timeTrack(time.Now(), "DepositHandler"
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -92,7 +90,7 @@ func DepositHandler(w http.ResponseWriter, r *http.Request) {
 	defer source.Close()
 
 	// Allowed SPIFFE ID
-	serverID := spiffeid.RequireTrustDomainFromString(os.Getenv("TRUST_DOMAIN"))
+	serverID := spiffeid.RequireTrustDomainFromString("example.org")
 
 	// Create a `tls.Config` to allow mTLS connections, and verify that presented certificate match allowed SPIFFE ID rule
 	tlsConfig := tlsconfig.MTLSClientConfig(source, source, tlsconfig.AuthorizeMemberOf(serverID))
