@@ -5,7 +5,6 @@ import (
 	"bufio"
 	"context"
 	"crypto/ecdsa"
-	"io/ioutil"
 
 	// "crypto/rand"
 	// "crypto/tls"
@@ -107,14 +106,8 @@ func DepositHandler(w http.ResponseWriter, r *http.Request) {
 	parts := strings.Split(rcvSVID.DASVIDToken, ".")
 	claims, _ := base64.RawURLEncoding.DecodeString(parts[len(parts)/2-1])
 	log.Printf(string(claims))
-	// var dasvidclaims models.DAClaims
-	dasvidclaims := models.DAClaims{
-		Iss: "",
-		Aud: "",
-		Iat: "",
-		Dpa: "",
-		Dpr: "",
-	}
+
+	var dasvidclaims models.DAClaims
 
 	json.Unmarshal(claims, &dasvidclaims)
 	if err != nil {
@@ -144,7 +137,7 @@ func DepositHandler(w http.ResponseWriter, r *http.Request) {
 	log.Println("Success verifying hexproof!!")
 
 	// This PoC will consider that only DA-SVID with "subject_wl" in sub claim will be able request data
-	if dasvidclaims["Aud"].(string) != "spiffe://example.org/subject_wl" {
+	if dasvidclaims.Aud != "spiffe://example.org/subject_wl" {
 
 		returnmsg := "The application " + dasvidclaims.Iss + " is not allowed to access user data!"
 		log.Printf(returnmsg)
@@ -176,15 +169,17 @@ func DepositHandler(w http.ResponseWriter, r *http.Request) {
 			log.Fatalf("error: %v", err)
 		}
 
-		if tempbalance.User == dasvidclaims["Dpr"] {
+		if tempbalance.User == dasvidclaims.Dpr {
 
 			log.Println("User " + tempbalance.User + " found! Updating balance...")
 
 			log.Println("Balance is ", tempbalance.Balance)
-			tmpdeposit, _ := strconv.Atoi(r.FormValue("deposit"))
+			tmpdeposit, err := strconv.Atoi(r.FormValue("deposit"))
+			if err != nil {
+				log.Fatalf("error: %v", err)
+			}
 			tempbalance.Balance += tmpdeposit
 			log.Println("New Balance is ", tempbalance.Balance)
-
 			tmp, err := json.Marshal(tempbalance)
 			if err != nil {
 				fmt.Println("error:", err)
@@ -215,7 +210,7 @@ func DepositHandler(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Adding user to file...")
 
 	tempbalance = models.Balancetemp{
-		User:    fmt.Sprintf("%v", dasvidclaims["Dpr"]),
+		User:    fmt.Sprintf("%v", dasvidclaims.Dpr),
 		Balance: 0,
 	}
 	json.NewEncoder(f).Encode(tempbalance)

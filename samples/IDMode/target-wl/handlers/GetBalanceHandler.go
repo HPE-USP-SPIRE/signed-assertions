@@ -4,7 +4,6 @@ import (
 	// "bytes"
 	// "crypto/rand"
 	"encoding/base64"
-	"io/ioutil"
 	// "encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -169,7 +168,7 @@ func GetBalanceHandler(w http.ResponseWriter, r *http.Request) {
 			log.Fatalf("error:", err)
 		}
 		
-		if tempbalance.User == dasvidclaims["Dpr"] {
+		if tempbalance.User == dasvidclaims.Dpr {
 			log.Printf("User %s found!", tempbalance.User)
 			json.NewEncoder(w).Encode(tempbalance)
 			return
@@ -183,46 +182,18 @@ func GetBalanceHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	log.Printf("Adding user to file...")
+	log.Printf("Adding user to file...\n")
 
 	tempbalance = models.Balancetemp{
-		User:		fmt.Sprintf("%v", dasvidclaims["Dpr"]),
+		User:		fmt.Sprintf("%v", dasvidclaims.Dpr),
 		Balance:	0,
+		Returnmsg:	"",
 	}
+	log.Printf("tempbalance = %v\n", tempbalance)
 	json.NewEncoder(f).Encode(tempbalance)
 	if err := f.Close(); err != nil {
 		log.Fatal(err)
 	}
 
 	json.NewEncoder(w).Encode("User not found")
-}
-
-func introspect(datoken string, client http.Client) (introspectrsp models.FileContents) {
-    var rcvresp models.FileContents
-
-    endpoint := "https://" + os.Getenv("ASSERTINGWLIP") + "/introspect?DASVID=" + datoken
-
-    response, err := client.Get(endpoint)
-    if err != nil {
-        log.Fatalf("Error connecting to %q: %v", os.Getenv("ASSERTINGWLIP"), err)
-    }
-
-    defer response.Body.Close()
-    body, err := ioutil.ReadAll(response.Body)
-    if err != nil {
-        log.Fatalf("Unable to read body: %v", err)
-    }
-
-    err = json.Unmarshal([]byte(body), &rcvresp)
-    if err != nil {
-        log.Fatalf("Error: %v", err)
-    }
-
-    introspectrsp = models.FileContents{
-        Msg:       rcvresp.Msg,
-        ZKP:       rcvresp.ZKP,
-        Returnmsg: "",
-    }
-
-    return introspectrsp
 }

@@ -1,7 +1,7 @@
 package handlers
 
 import (
- //	"bytes"
+ 	"bytes"
 	"context"
 	"crypto/ecdsa"
 	"crypto/tls"
@@ -123,7 +123,7 @@ func DepositHandler(w http.ResponseWriter, r *http.Request) {
     conf := &tls.Config{
         InsecureSkipVerify: true,
     }
-    conn, err := tls.Dial("tcp", os.Getenv("MIDDLE_TIER2_IP"), conf)
+    conn, err := tls.Dial("tcp", os.Getenv("TARGETWLIP"), conf)
     if err != nil {
         log.Println("Error in Dial", err)
         return
@@ -150,19 +150,19 @@ func DepositHandler(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Generated ID artifact		: %s", fmt.Sprintf("%s",idartifact))
 	log.Printf("Updated SVID bundle			: %s", fmt.Sprintf("%s",updSVID))
 
-	// values := map[string]string{"DASVIDToken": assertion, "IDArtifacts": updSVID}
-	// json_data, err := json.Marshal(values)
-    // if err != nil {
-    //     log.Fatal(err)
-    // }
+	values := map[string]string{"DASVIDToken": assertion, "IDArtifacts": updSVID}
+	json_data, err := json.Marshal(values)
+    if err != nil {
+        log.Fatal(err)
+    }
 	// log.Println("Generated body data: %s", json_data)
 
 	// Gera chamada para MIDDLE_TIER2_IP workload 
-	endpoint := "https://"+os.Getenv("MIDDLE_TIER2_IP")+"/deposit?DASVID="+r.FormValue("DASVID")+"&deposit="+r.FormValue("deposit")
+	endpoint := "https://"+os.Getenv("TARGETWLIP")+"/deposit?DASVID="+r.FormValue("DASVID")+"&deposit="+r.FormValue("deposit")
 
 	response, err := client.Post(endpoint, "application/json", bytes.NewBuffer(json_data))
 	if err != nil {
-		log.Fatalf("Error connecting to %q: %v", os.Getenv("MIDDLE_TIER2_IP"), err)
+		log.Fatalf("Error connecting to %q: %v", os.Getenv("TARGETWLIP"), err)
 	}
 
 	defer response.Body.Close()
