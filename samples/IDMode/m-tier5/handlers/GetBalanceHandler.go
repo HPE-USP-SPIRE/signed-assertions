@@ -22,7 +22,7 @@ import (
 	"github.com/spiffe/go-spiffe/v2/workloadapi"
 	"github.com/spiffe/go-spiffe/v2/svid/x509svid"
 
-	"github.com/hpe-usp-spire/signed-assertions/IDMode/m-tier5/models"
+	"github.com/hpe-usp-spire/signed-assertions/IDMode/m-tier/models"
 )
 
 func GetBalanceHandler(w http.ResponseWriter, r *http.Request) {
@@ -135,23 +135,24 @@ func GetBalanceHandler(w http.ResponseWriter, r *http.Request) {
     }
 	// log.Println("Generated body data: %s", json_data)
 
-	// Access Target WL and request DASVID user balance
 	endpoint := "https://"+os.Getenv("TARGETWLIP")+"/get_balance?DASVID="+assertion
 	response, err := client.Post(endpoint, "application/json", bytes.NewBuffer(json_data))
 	if err != nil {
 		log.Fatalf("Error connecting to %q: %v", os.Getenv("TARGETWLIP"), err)
 	}
+
 	defer response.Body.Close()
-	body, err = ioutil.ReadAll(response.Body)
+	body, err := ioutil.ReadAll(response.Body)
 	if err != nil {
 		log.Fatalf("Unable to read body: %v", err)
 	}
 
 	// Receive data and return it to subject.
+	var tempbalance models.Balancetemp
 	err = json.Unmarshal([]byte(body), &tempbalance)
 	if err != nil {
-		fmt.Println("error:", err)
+		log.Fatalf("error:", err)
 	}
+	json.NewEncoder(w).Encode(tempbalance)	
 
-	json.NewEncoder(w).Encode(tempbalance)
 }

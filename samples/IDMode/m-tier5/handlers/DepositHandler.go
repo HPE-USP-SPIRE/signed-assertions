@@ -1,7 +1,7 @@
 package handlers
 
 import (
-	// "bytes"
+	"bytes"
 	"context"
 	"crypto/ecdsa"
 	"crypto/tls"
@@ -44,6 +44,7 @@ func timeTrack(start time.Time, name string) {
 }
 
 func DepositHandler(w http.ResponseWriter, r *http.Request) {
+	
 	defer timeTrack(time.Now(), "DepositHandler")
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -154,8 +155,9 @@ func DepositHandler(w http.ResponseWriter, r *http.Request) {
     if err != nil {
         log.Fatal(err)
     }
+	// log.Println("Generated body data: %s", json_data)
 
-	// Access Target WL and request DASVID user Balance
+	// Gera chamada para TARGET workload 
 	endpoint := "https://"+os.Getenv("TARGETWLIP")+"/deposit?DASVID="+r.FormValue("DASVID")+"&deposit="+r.FormValue("deposit")
 
 	response, err := client.Post(endpoint, "application/json", bytes.NewBuffer(json_data))
@@ -175,7 +177,7 @@ func DepositHandler(w http.ResponseWriter, r *http.Request) {
 		fmt.Println("error:", err)
 	}
 
-	json.NewEncoder(w).Encode(tempbalance)
+	json.NewEncoder(w).Encode(tempbalance)	
 }
 
 func introspect(datoken string, client http.Client) (introspectrsp models.FileContents) {
