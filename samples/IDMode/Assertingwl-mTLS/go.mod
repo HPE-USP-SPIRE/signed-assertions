@@ -10,9 +10,9 @@ require (
 	github.com/spiffe/go-spiffe/v2 v2.1.4
 )
 
-replace github.com/hpe-usp-spire/signed-assertions/IDMode/api-libs => ../api-libs
+replace github.com/hpe-usp-spire/signed-assertions/IDMode/api-libs => ./api-libs
 
-replace github.com/hpe-usp-spire/signed-assertions/poclib => ../../../poclib
+replace github.com/hpe-usp-spire/signed-assertions/poclib => ./poclib
 
 require (
 	bitbucket.org/creachadair/shell v0.0.7 // indirect

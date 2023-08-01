@@ -4,9 +4,9 @@ go 1.20
 
 require github.com/hpe-usp-spire/signed-assertions/IDMode/api-libs v0.0.0-00010101000000-000000000000
 
-replace github.com/hpe-usp-spire/signed-assertions/IDMode/api-libs => ../api-libs
+replace github.com/hpe-usp-spire/signed-assertions/IDMode/api-libs => ./api-libs
 
-replace github.com/hpe-usp-spire/signed-assertions/poclib => ../../../poclib
+replace github.com/hpe-usp-spire/signed-assertions/poclib => ./poclib
 
 require (
 	bitbucket.org/creachadair/shell v0.0.7 // indirect
