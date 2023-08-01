@@ -41,7 +41,7 @@ RUN go build -o main .
 # Define the running base image 
 FROM alpine:3.16 
 
-LABEL "type"="middletier5"
+LABEL "type"="middletier2"
 
 ### Set working directory  
 RUN mkdir /build
@@ -53,7 +53,7 @@ RUN chmod +x ./poclib/jwk2der.sh
 RUN apk add --no-cache bash
 
 # Export necessary port
-EXPOSE 8449
+EXPOSE 8446
 
 # Command to run when starting the container
 CMD ["/build/main"]

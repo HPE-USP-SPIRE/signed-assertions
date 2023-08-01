@@ -101,7 +101,7 @@ func GetBalanceHandler(w http.ResponseWriter, r *http.Request) {
     conf := &tls.Config{
         InsecureSkipVerify: true,
     }
-    conn, err := tls.Dial("tcp", os.Getenv("TARGETWLIP"), conf)
+    conn, err := tls.Dial("tcp", os.Getenv("MIDDLE_TIER2_IP"), conf)
     if err != nil {
         log.Println("Error in Dial", err)
         return
@@ -135,10 +135,10 @@ func GetBalanceHandler(w http.ResponseWriter, r *http.Request) {
     }
 	// log.Println("Generated body data: %s", json_data)
 
-	endpoint := "https://"+os.Getenv("TARGETWLIP")+"/get_balance?DASVID="+assertion
+	endpoint := "https://"+os.Getenv("MIDDLE_TIER2_IP")+"/get_balance?DASVID="+assertion
 	response, err := client.Post(endpoint, "application/json", bytes.NewBuffer(json_data))
 	if err != nil {
-		log.Fatalf("Error connecting to %q: %v", os.Getenv("TARGETWLIP"), err)
+		log.Fatalf("Error connecting to %q: %v", os.Getenv("MIDDLE_TIER2_IP"), err)
 	}
 
 	defer response.Body.Close()

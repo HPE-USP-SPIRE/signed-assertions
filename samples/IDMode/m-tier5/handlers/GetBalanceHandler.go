@@ -69,7 +69,7 @@ func GetBalanceHandler(w http.ResponseWriter, r *http.Request) {
 	defer source.Close()
 
 	// Allowed SPIFFE ID
-	serverID := spiffeid.RequireTrustDomainFromString("example.org")
+	serverID := spiffeid.RequireTrustDomainFromString(os.Getenv("TRUST_DOMAIN"))
 
 	// Create a `tls.Config` to allow mTLS connections, and verify that presented certificate match allowed SPIFFE ID rule
 	tlsConfig := tlsconfig.MTLSClientConfig(source, source, tlsconfig.AuthorizeMemberOf(serverID))
@@ -101,7 +101,7 @@ func GetBalanceHandler(w http.ResponseWriter, r *http.Request) {
     conf := &tls.Config{
         InsecureSkipVerify: true,
     }
-    conn, err := tls.Dial("tcp", os.Getenv("MIDDLE_TIER5_IP"), conf)
+    conn, err := tls.Dial("tcp", os.Getenv("TARGETWLIP"), conf)
     if err != nil {
         log.Println("Error in Dial", err)
         return
@@ -136,17 +136,11 @@ func GetBalanceHandler(w http.ResponseWriter, r *http.Request) {
 	// log.Println("Generated body data: %s", json_data)
 
 	// Access Target WL and request DASVID user balance
-	endpoint = "https://" + os.Getenv(
-		"TARGETWLIP",
-	) + "/get_balance?DASVID=" + r.FormValue(
-		"DASVID",
-	)
-
-	response, err = client.Get(endpoint)
+	endpoint := "https://"+os.Getenv("TARGETWLIP")+"/get_balance?DASVID="+assertion
+	response, err := client.Post(endpoint, "application/json", bytes.NewBuffer(json_data))
 	if err != nil {
 		log.Fatalf("Error connecting to %q: %v", os.Getenv("TARGETWLIP"), err)
 	}
-
 	defer response.Body.Close()
 	body, err = ioutil.ReadAll(response.Body)
 	if err != nil {

@@ -69,7 +69,7 @@ func GetBalanceHandler(w http.ResponseWriter, r *http.Request) {
 	defer source.Close()
 
 	// Allowed SPIFFE ID
-	serverID := spiffeid.RequireTrustDomainFromString("example.org")
+	serverID := spiffeid.RequireTrustDomainFromString(os.Getenv("TRUST_DOMAIN"))
 
 	// Create a `tls.Config` to allow mTLS connections, and verify that presented certificate match allowed SPIFFE ID rule
 	tlsConfig := tlsconfig.MTLSClientConfig(source, source, tlsconfig.AuthorizeMemberOf(serverID))

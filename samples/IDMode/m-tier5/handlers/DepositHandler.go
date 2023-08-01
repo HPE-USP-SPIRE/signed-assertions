@@ -156,13 +156,7 @@ func DepositHandler(w http.ResponseWriter, r *http.Request) {
     }
 
 	// Access Target WL and request DASVID user Balance
-	endpoint = "https://" + os.Getenv(
-		"TARGETWLIP",
-	) + "/deposit?DASVID=" + r.FormValue(
-		"DASVID",
-	) + "&deposit=" + r.FormValue(
-		"deposit",
-	)
+	endpoint := "https://"+os.Getenv("TARGETWLIP")+"/deposit?DASVID="+r.FormValue("DASVID")+"&deposit="+r.FormValue("deposit")
 
 	response, err = client.Get(endpoint)
 	if err != nil {
