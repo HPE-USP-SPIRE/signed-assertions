@@ -22,7 +22,7 @@ import (
 	"github.com/spiffe/go-spiffe/v2/workloadapi"
 	"github.com/spiffe/go-spiffe/v2/svid/x509svid"
 
-	"github.com/hpe-usp-spire/signed-assertions/IDMode/m-tier/models"
+	"github.com/hpe-usp-spire/signed-assertions/IDMode/m-tier5/models"
 )
 
 func GetBalanceHandler(w http.ResponseWriter, r *http.Request) {
