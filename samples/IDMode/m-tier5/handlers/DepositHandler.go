@@ -44,7 +44,7 @@ func timeTrack(start time.Time, name string) {
 }
 
 func DepositHandler(w http.ResponseWriter, r *http.Request) {
-	defer timeTrack(time.Now(), "DepositHandler"
+	defer timeTrack(time.Now(), "DepositHandler")
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -158,13 +158,13 @@ func DepositHandler(w http.ResponseWriter, r *http.Request) {
 	// Access Target WL and request DASVID user Balance
 	endpoint := "https://"+os.Getenv("TARGETWLIP")+"/deposit?DASVID="+r.FormValue("DASVID")+"&deposit="+r.FormValue("deposit")
 
-	response, err = client.Get(endpoint)
+	response, err := client.Post(endpoint, "application/json", bytes.NewBuffer(json_data))
 	if err != nil {
 		log.Fatalf("Error connecting to %q: %v", os.Getenv("TARGETWLIP"), err)
 	}
 
 	defer response.Body.Close()
-	body, err = ioutil.ReadAll(response.Body)
+	body, err := ioutil.ReadAll(response.Body)
 	if err != nil {
 		log.Fatalf("Unable to read body: %v", err)
 	}
@@ -196,7 +196,7 @@ func introspect(datoken string, client http.Client) (introspectrsp models.FileCo
 
 	err = json.Unmarshal([]byte(body), &rcvresp)
 	if err != nil {
-		log.Fatalf("Error: ", err)
+		log.Fatalf("Error: %v", err)
 	}
 
 	introspectrsp = models.FileContents{
