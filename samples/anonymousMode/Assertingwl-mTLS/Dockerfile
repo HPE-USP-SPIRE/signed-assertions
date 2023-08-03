@@ -1,6 +1,6 @@
 # Stage 1 - Builder Img
 # Define the building base image
-FROM golang:alpine AS builder
+FROM alpine:3.16 AS builder
 
 # Set environmet variables
 ENV GO111MODULE=on \
@@ -18,12 +18,9 @@ ENV GO111MODULE=on \
 RUN mkdir /build
 WORKDIR /build
 
-
 # Copy in files to Img
-
 COPY ./Assertingwl-mTLS .
 COPY ./poclib ./poclib
-
 
 # Download dependencies
 RUN apk upgrade --update-cache --available && \
@@ -42,9 +39,7 @@ RUN go build -o main .
 
 # Stage 2 - Application Img
 # Define the running base image 
-FROM alpine 
-
-LABEL "type"="assertingwl"
+FROM alpine:3.16
 
 ### Set working directory  
 RUN mkdir /build
@@ -54,6 +49,8 @@ WORKDIR /build
 COPY --from=builder /build /build
 RUN chmod +x ./poclib/jwk2der.sh
 RUN apk add --no-cache bash
+
+LABEL "type"="assertingwl"
 
 # Export necessary port
 EXPOSE 8443

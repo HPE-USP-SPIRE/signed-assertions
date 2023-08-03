@@ -41,8 +41,6 @@ RUN go build -o main .
 # Define the running base image 
 FROM alpine:3.16 
 
-LABEL "type"="assertingwl"
-
 ### Set working directory  
 WORKDIR /build
 
@@ -51,10 +49,11 @@ COPY --from=builder /build /build
 RUN chmod +x ./poclib/jwk2der.sh
 RUN apk add --no-cache bash
 
+LABEL "type"="assertingwl"
+
 # Export necessary port
 EXPOSE 8443
 
 # Command to run when starting the container
 CMD ["/build/main"]
 # - or instead for debuging ... ENTRYPOINT ["tail", "-f", "/dev/null"]
-

@@ -12,4 +12,4 @@ docker rm $(docker stop $(docker ps -a -q))
 ##  Remove all <none> Docker Images
 docker rmi $(docker images -f "dangling=true" -q)
 ##  Remove all Docker Images with idmode
-# docker rmi $(docker images | grep idmode | cut -b 35-46)
+docker rmi $(docker images | grep idmode | cut -b 35-46)
