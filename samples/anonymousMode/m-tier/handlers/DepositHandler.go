@@ -105,15 +105,17 @@ func DepositHandler(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Generated assertion: ", fmt.Sprintf("%s",assertion))
 
 	// Gera chamada para TARGETWLIP workload 
-	endpoint := "https://"+os.Getenv("TARGETWLIP")+"/deposit?DASVID="+r.FormValue("DASVID")+"&deposit="+r.FormValue("deposit")
-
+	endpoint := "https://"+os.Getenv("TARGETWLIP")+"/deposit?DASVID="+assertion+"&deposit="+r.FormValue("deposit")
+	log.Printf(endpoint)
 	response, err := client.Get(endpoint)
 	if err != nil {
 		log.Fatalf("Error connecting to %q: %v", os.Getenv("TARGETWLIP"), err)
 	}
 
 	defer response.Body.Close()
+	// log.Printf("%s response here####",response)
 	body, err := ioutil.ReadAll(response.Body)
+
 	if err != nil {
 		log.Fatalf("Unable to read body: %v", err)
 	}

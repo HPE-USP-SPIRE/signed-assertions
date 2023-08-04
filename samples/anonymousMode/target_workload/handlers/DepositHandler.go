@@ -149,6 +149,7 @@ func DepositHandler(w http.ResponseWriter, r *http.Request) {
 
 			log.Println("Balance is ", tempbalance.Balance)
 			tmpdeposit, err := strconv.Atoi(r.FormValue("deposit"))
+			log.Printf(fmt.Sprintf("%s",tmpdeposit))
 			if err != nil {
 				log.Fatalf("error: %v", err)
 			}
