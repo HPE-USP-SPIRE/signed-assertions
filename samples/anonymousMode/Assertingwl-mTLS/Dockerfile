@@ -1,6 +1,6 @@
 # Stage 1 - Builder Img
 # Define the building base image
-FROM alpine:3.16 AS builder
+FROM golang:alpine3.16 AS builder
 
 # Set environmet variables
 ENV GO111MODULE=on \
@@ -15,11 +15,11 @@ ENV GO111MODULE=on \
     CC="gcc"
 
 # Create and move to working directory
-RUN mkdir /build
 WORKDIR /build
 
 # Copy in files to Img
-COPY ./Assertingwl-mTLS .
+COPY ./samples/anonymousMode/Assertingwl-mTLS/. .
+COPY ./samples/anonymousMode/api-libs ./api-libs
 COPY ./poclib ./poclib
 
 # Download dependencies
@@ -39,10 +39,9 @@ RUN go build -o main .
 
 # Stage 2 - Application Img
 # Define the running base image 
-FROM alpine:3.16
+FROM alpine:3.16 
 
 ### Set working directory  
-RUN mkdir /build
 WORKDIR /build
 
 ### Copy in built application and other files
@@ -58,4 +57,3 @@ EXPOSE 8443
 # Command to run when starting the container
 CMD ["/build/main"]
 # - or instead for debuging ... ENTRYPOINT ["tail", "-f", "/dev/null"]
-

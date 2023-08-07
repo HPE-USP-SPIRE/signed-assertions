@@ -17,8 +17,7 @@ func AssertingWLRouter(ctx context.Context) (*mux.Router, error) {
 	s.HandleFunc("/validate", handlers.ValidateDasvidHandler).Methods("GET")
 	s.HandleFunc("/introspect", handlers.IntrospectHandler).Methods("GET")
 	s.HandleFunc("/mintassertion", handlers.MintAssertionHandler).Methods("GET")
-	// s.HandleFunc("/ecdsaassertion", handlers.ECDSAAssertionHandler).Methods("GET")
-
+	
 	s.NotFoundHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 	})

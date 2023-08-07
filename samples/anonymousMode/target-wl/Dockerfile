@@ -1,6 +1,6 @@
 # Stage 1 - Builder Img
 # Define the building base image
-FROM golang:alpine AS builder
+FROM golang:alpine3.16 AS builder
 
 # Set environmet variables
 ENV GO111MODULE=on \
@@ -15,11 +15,11 @@ ENV GO111MODULE=on \
     CC="gcc"
 
 # Create and move to working directory
-RUN mkdir /build
 WORKDIR /build
 
 # Copy in files to Img
-COPY ./target_workload .
+COPY ./samples/anonymousMode/target-wl/. .
+COPY ./samples/anonymousMode/api-libs ./api-libs
 COPY ./poclib ./poclib
 
 # Download dependencies
@@ -39,7 +39,7 @@ RUN go build -o main .
 
 # Stage 2 - Application Img
 # Define the running base image 
-FROM alpine 
+FROM alpine:3.16 
 
 LABEL "type"="targetwl"
 

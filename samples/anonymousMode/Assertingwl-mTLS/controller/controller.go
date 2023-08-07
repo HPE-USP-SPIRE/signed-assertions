@@ -5,12 +5,11 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/hpe-usp-spire/signed-assertions/anonymousMode/Assertingwl-mTLS/local"
 	"github.com/hpe-usp-spire/signed-assertions/anonymousMode/Assertingwl-mTLS/router"
-	
-	"github.com/spiffe/go-spiffe/v2/workloadapi"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"github.com/spiffe/go-spiffe/v2/spiffetls/tlsconfig"
+	"github.com/spiffe/go-spiffe/v2/workloadapi"
+	"github.com/hpe-usp-spire/signed-assertions/anonymousMode/Assertingwl-mTLS/local"
 )
 
 type maxBytesHandler struct {

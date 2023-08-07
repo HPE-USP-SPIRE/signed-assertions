@@ -104,12 +104,12 @@ func DepositHandler(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("Generated assertion: ", fmt.Sprintf("%s",assertion))
 
-	// Gera chamada para TARGETWLIP workload 
-	endpoint := "https://"+os.Getenv("TARGETWLIP")+"/deposit?DASVID="+assertion+"&deposit="+r.FormValue("deposit")
+	// Gera chamada para MIDDLE_TIER2_IP workload 
+	endpoint := "https://"+os.Getenv("MIDDLE_TIER2_IP")+"/deposit?DASVID="+assertion+"&deposit="+r.FormValue("deposit")
 	log.Printf(endpoint)
 	response, err := client.Get(endpoint)
 	if err != nil {
-		log.Fatalf("Error connecting to %q: %v", os.Getenv("TARGETWLIP"), err)
+		log.Fatalf("Error connecting to %q: %v", os.Getenv("MIDDLE_TIER2_IP"), err)
 	}
 
 	defer response.Body.Close()

@@ -16,9 +16,9 @@ package main
 #include <openssl/err.h>
 #include <openssl/pem.h>
 #include <openssl/x509.h>
-#include "../../../poclib/svid/rsa_sig_proof.h"
-#include "../../../poclib/svid/rsa_bn_sig.h"
-#include "../../../poclib/svid/rsa_sig_proof_util.h"
+#include "./poclib/svid/rsa_sig_proof.h"
+#include "./poclib/svid/rsa_bn_sig.h"
+#include "./poclib/svid/rsa_sig_proof_util.h"
 
 */
 import "C"

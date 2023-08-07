@@ -92,10 +92,10 @@ func GetBalanceHandler(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("Generated assertion: ", fmt.Sprintf("%s",assertion))
 
-	endpoint := "https://"+os.Getenv("TARGETWLIP")+"/get_balance?DASVID="+assertion
+	endpoint := "https://"+os.Getenv("MIDDLE_TIER2_IP")+"/get_balance?DASVID="+assertion
 	response, err := client.Get(endpoint)
 	if err != nil {
-		log.Fatalf("Error connecting to %q: %v", os.Getenv("TARGETWLIP"), err)
+		log.Fatalf("Error connecting to %q: %v", os.Getenv("MIDDLE_TIER2_IP"), err)
 	}
 
 	defer response.Body.Close()

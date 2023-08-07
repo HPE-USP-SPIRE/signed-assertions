@@ -1,10 +1,10 @@
 #!/bin/bash
 
 #kill spire agent, spire server and containers
-# sudo kill -9 $(ps -ef | grep "spire-agent" | grep -v grep | awk '{print $2}')
-# sudo kill -9 $(ps -ef | grep "spire-server" | grep -v grep | awk '{print $2}')
-# sudo rm -rf /opt/spire.data
-# echo "Spire Agent/Server killed"
+ sudo kill -9 $(ps -ef | grep "spire-agent" | grep -v grep | awk '{print $2}')
+ sudo kill -9 $(ps -ef | grep "spire-server" | grep -v grep | awk '{print $2}')
+ sudo rm -rf /opt/spire.data
+ echo "Spire Agent/Server killed"
 
 
 ##  Kill ALL containers
