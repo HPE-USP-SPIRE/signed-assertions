@@ -44,51 +44,6 @@ In Anonymous-mode, the objective is not to identify each workload in the token f
 6. Similarly, all next workloads perform the same routine, adding the necessary claims, removing and using part of previous signature as private key.
 7. In the end, the token will be composed of 'n' parts, where only the last is a complete signature, and all previous are partial signatures. Target-wl then use the concatenated signature validation scheme to validate the token.
 
-## Prerequisites
-
-- OKTA account (Application with client ID, client Secret and authorized callback URI)
-- Docker
-- SPIRE-Server and Agent (host) up and running
-- SPIRE entries
-
-## Installation
-
-For a complete manual installation, follow [Step by Step.md](https://github.com/HPE-USP-SPIRE/DASVID_PoC_V0/blob/docker_vr/Step%20by%20Step%20Guide.md) guide.
-
-After download the repository, first change permissions on all scripts to run as executables:
-
-```bash
-sudo chmod +x -R *.sh && sudo chmod +x lib/*.sh
-```
-
-1. **DO NOT** run any script with extra privileges with sudo. The proper locations to run as sudo are written on each script.
-
-2. Run **requirements.sh** if you do not have all required packages installed.
-
-3. Before you run **installation.sh**, it is necessary to put your data in the **config** file:
-
-   - If you **DO NOT** want to install SPIRE or Docker (probably because you already have it), change values to **TRUE**.
-   - Insert your OKTA credentials (client ID, client secret) 
-   - Change the HOST IP to the machine IP that will run the application. Change each line accordingly.
-
-## How to use
-
-To config the environemnt according to config file, initialize SPIRE (agent and server) and all docker containers (workloads):
-
-```
-chmod +x init
-./init
-```
-
-
-To kill SPIRE and the containers
-
-```
-./kill
-```
-
-_Disclaimer 1: init also runs kill, and both kill all the containers running in the machine!_
-
 ## Asserting workload
 
 Asserting Workload is the main component that is responsible for Oauth token validation and DA-SVID minting. To perform its tasks, Asserting WL exposes an API with the necessary endpoints described bellow. All API responses are in JSON format.

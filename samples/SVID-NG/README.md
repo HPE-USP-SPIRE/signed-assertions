@@ -48,54 +48,18 @@ This endpoint return the DA-SVID original claims and a Zero Knowledge Proof (ZKP
 
 <br><br>
 
-## Dependencies
+# Using the POC
 
-- SPIRE (1.4.7)
-- Docker Engine - Community Version: 20.10.11
-- Debian APT packages: build-essential, curl, git, make
+## Setup your Environment
 
-All of the dependencies can be installed using the `installation.sh` script. Those that are already installed in your machine won't be reinstalled. Run:
+If you haven't already, follow the steps on the [samples README](../README.MD) 
 
-```
-./installation.sh
-```
-
-**Important notes regarding the `installation.sh` script**:
-
-- Reboot your machine if you didn't have Docker installed
-- Docker installation is only supported on Debian and Ubuntu. Please install it manually if you use another Operating System
-- SPIRE installation is only supported on Linux
-- APT packages installation are only supported on debian-based distributions
-- Latest SPIRE and Docker will be downloaded. If you run into problems later on, consider purging the downloaded dependencies and downloading the aforementioned versions instead
-
-<br><br>
-
-## Configuration
-
-First of all fetch yout private IP. On Linux, check for the 192.168... pattern running:
-
-```
-ip a
-```
-
-Take note of that IP. You will use it to configure the application. Notice that it might change when you use another network or reboot your computer, so if you don't set it as static you might need to reconfigure the application in the future.
-
-Okta is an identity provider, which is used in this PoC to create and send an oAuth token to the frontend (Subject Workload). You will need to register to their platform, creating a **developer account** at https://developer.okta.com/signup/.
-
-When logged in:
-
-1. Go to Applications -> Application in the menu
-2. Click on "Create App Integration"
-3. Choose "OIDC" as the sign-in method and "Web Application" as the application type
-4. Under "Client acting on behalf of a user", check "Authorization Code" and "Implicit (hybrid)". Let the wildcards checkbox disabled.
-5. Under "Sign-in redirect URIs", remove whatever is in there and add: http://IP:8080/callback, where IP must be tour private IP
-6. Under "Controlled Access", check "Allow everyone in your organization to access"
-
-Now open the general configuration file `.cfg`, and set accordingly:
+After doing that, manually alter the `.cfg` file inside each workload folder accordingly:
 
 - CLIENT_ID and CLIENT_SECRET: found in your okta application
 - OKTA_DEVELOPER_CODE: a 7 number ID found in the URL of you okta dashboard (between dev- and -admin)
 - HOST_IP: the IP set under "Sign-in redirect URIs" in your okta application
+- WORKLOADIP: for each one of the workloads, configure it's IP with your host IP followed by a port (IP:PORT)
 
 Here is a sample configuration:
 
@@ -104,31 +68,20 @@ CLIENT_ID=0oo643ull1KZl5yVe5d7
 CLIENT_SECRET=yl5_6mIaTu5e1p5E70NazdFKNZ6bOhhWAzerdCOVc
 OKTA_DEVELOPER_CODE=1234567
 HOSTIP=192.168.0.100
+ASSERTINGWLIP=192.168.0.100:8443
+MIDDLETIERIP=192.168.0.100:8445
+MIDDLE_TIER2_IP=192.168.0.100:8446
+MIDDLE_TIER3_IP=192.168.0.100:8447
+MIDDLE_TIER4_IP=192.168.0.100:8448
+MIDDLE_TIER5_IP=192.168.0.100:8449
+TARGETWLIP=192.168.0.100:8444
 ```
 
-Finally, **if you didn't install SPIRE via the `installation.sh` script**, you need to allow docker and k8s to fetch SVIDs. Add the following code to `/opt/spire/conf/agent/agent.conf`, inside the "plugin" brackets, after the last WorkloadAttestor:
+## Run the Application
 
-```
-WorkloadAttestor "k8s" {
-   plugin_data {
-      kubelet_read_only_port = "10255"
-   }
-}
+To run the application, simply use the command `docker-compose up --build`
 
-WorkloadAttestor "docker" { plugin_data { } }
-```
-
-<br><br>
-
-## Usage
-
-After following the above steps, you just have to run:
-
-```
-./init
-```
-
-When you see that the terminal is available again (user@machine: ...), you can open `localhost:8080` on your browser and use the application.
+After running it, open your browser on localhost:8080 and see if the application is working correctly
 
 **Important**:
 
@@ -136,20 +89,3 @@ When you see that the terminal is available again (user@machine: ...), you can o
 - Check the output for potential network errors during the download and preparation of the docker images
 - Always check if your IP is correctly set in OKTA and in `.cfg`
 
-<br>
-
-### Git
-
-To update the local files (pull) and create a new branch:
-
-```
-./git-branch <branch_name>
-```
-
-To push directly to the branch you are currently in:
-
-```
-./git-push <message>
-```
-
-_Disclaimer: The push script already sets the configuration to the default one (blank), and then restores it after the push is done_
