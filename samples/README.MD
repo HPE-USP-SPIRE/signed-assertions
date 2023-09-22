@@ -23,6 +23,7 @@ The resulting token is smaller than in ID-mode, as it remove part of the signatu
 ## SVID-NG
 The basic model developed in Phase 1 of the project. In this scenario, asserting wl mint a token that allows the delegation of user rights to a workload. The objective of this token (a.k.a. SVID-NG) is to grant that the calling workload have the sufficient rights to access the desired resource. 
 
+</br></br>
 
 # Requirements (tested)
 
@@ -30,7 +31,11 @@ The basic model developed in Phase 1 of the project. In this scenario, asserting
 - Docker (20.10.11)
 - Go (1.16.9)
 
+</br>
+
 # Setup Guide
+
+</br>
 
 ## Installing Requirements Automatically
 
@@ -88,6 +93,7 @@ WorkloadAttestor "k8s" {
 WorkloadAttestor "docker" { plugin_data { } }
 ```
 
+</br></br>
 
 ## Configure your OKTA application
 

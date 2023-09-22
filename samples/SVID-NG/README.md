@@ -50,9 +50,11 @@ This endpoint return the DA-SVID original claims and a Zero Knowledge Proof (ZKP
 
 # Using the POC
 
+</br>
+
 ## Setup your Environment
 
-If you haven't already, follow the steps on the [samples README](../README.MD) 
+If you haven't already, follow the Setup Guide, on [/samples/README](../README.MD) 
 
 After doing that, manually alter the `.cfg` file inside each workload folder accordingly:
 
@@ -82,6 +84,8 @@ TARGETWLIP=192.168.0.100:8444
 To run the application, simply use the command `docker-compose up --build`
 
 After running it, open your browser on localhost:8080 and see if the application is working correctly
+
+</br>
 
 **Important**:
 
