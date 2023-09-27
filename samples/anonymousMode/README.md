@@ -16,3 +16,49 @@ Alternatively, when appending a token, instead of generating a new key pair duri
 ![Concatenated scheme](https://github.com/HPE-USP-SPIRE/signed-assertions/blob/main/doc/conc_sig.jpg)
 
 It is important to note that in a concatenated scheme there is no need (and it is not possible) to add the public key in "audience" claim, as the correspondent private key depends on the signature generation. Although, it is not a problem: the cryptographic scheme grants that only the correct key, derived from previous signature, can result in a valid concatenated signature.
+
+# Using the POC
+
+</br>
+
+## Setup your Environment
+
+If you haven't already, follow the Setup Guide, on [/samples/README](../README.MD) 
+
+After doing that, manually alter the `.cfg` file inside each workload folder accordingly:
+
+- CLIENT_ID and CLIENT_SECRET: found in your okta application
+- OKTA_DEVELOPER_CODE: a 7 number ID found in the URL of you okta dashboard (between dev- and -admin)
+- HOST_IP: the IP set under "Sign-in redirect URIs" in your okta application
+- WORKLOADIP: for each one of the workloads, configure it's IP with your host IP followed by a port (IP:PORT)
+
+Here is a sample configuration:
+
+```
+CLIENT_ID=0oo643ull1KZl5yVe5d7
+CLIENT_SECRET=yl5_6mIaTu5e1p5E70NazdFKNZ6bOhhWAzerdCOVc
+OKTA_DEVELOPER_CODE=1234567
+HOSTIP=192.168.0.100
+ASSERTINGWLIP=192.168.0.100:8443
+MIDDLETIERIP=192.168.0.100:8445
+MIDDLE_TIER2_IP=192.168.0.100:8446
+MIDDLE_TIER3_IP=192.168.0.100:8447
+MIDDLE_TIER4_IP=192.168.0.100:8448
+MIDDLE_TIER5_IP=192.168.0.100:8449
+TARGETWLIP=192.168.0.100:8444
+```
+
+## Run the Application
+
+To run the application, simply use the command `docker-compose up --build`
+
+After running it, open your browser on localhost:8080 and see if the application is working correctly
+
+</br>
+
+**Important**:
+
+- SPIRE will keep running in background. Use `./kill` to stop the application. Notice that it will kill all the docker conatiners running in your machine
+- Check the output for potential network errors during the download and preparation of the docker images
+- Always check if your IP is correctly set in OKTA and in `.cfg`
+
