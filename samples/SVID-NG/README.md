@@ -81,6 +81,10 @@ TARGETWLIP=192.168.0.100:8444
 
 ## Run the Application
 
+Before running the application, you must start SPIRE, with: 
+`cd /opt/spire`
+`sudo ./start_spire_env.sh`
+
 To run the application, simply use the command `docker-compose up --build`
 
 After running it, open your browser on localhost:8080 and see if the application is working correctly
