@@ -1,6 +1,17 @@
 version: "3"
 
 services:
+  common:
+    build:
+      context: ../..
+      dockerfile: samples/SVID-NG/common/Dockerfile
+    # ports:
+    #   - "8446:8446"
+    volumes:
+      - /tmp/spire-agent/public/api.sock:/tmp/spire-agent/public/api.sock
+    networks:
+      - my-network
+
   assertingwl:
     build:
       context: ../..
