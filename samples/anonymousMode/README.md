@@ -1,5 +1,14 @@
 # Anonymous-mode
-In this mode, either by application option or due to the unavailability of an IdP, workload Wn can not validate the identity of workload Wn+1. Hence, the solution is limited to “bearers” rather than univocally identifying workloads. The construction of this scheme can follow a Biscuits-like approach or use a concatenation scheme.
+
+In Anonymous-mode, the objective is not to identify each workload in the token flow, but only to grant that all signatures are valid and that those signatures was created using the correct private key. In this scenario,a customized concatenation signature scheme is applied, where the private key to be used is part of previous signature. This create a signature chain and allow to validade using a scheme based in [Galindo and Garcia](https://doi.org/10.1007/978-3-642-02384-2_9) model
+
+1. The user log in application using an OKTA OAuth token
+2. The front-end (subject-wl) send the OAuth token to asserting-wl /mintassertion endpoint, that should return a new Schnorr nested token identifying the user and the workload that is allowed to access in behalf of the user.
+3. The asserting-wl generate a new Schnorr key parir and mint the new nested token using the private key.
+4. Asserting-wl return the token to front-end.
+5. Front-end add the necessary claims, remove part of previous signature and use it as private key, to generate the new signature. Then, front-end send the token to middle-tier.
+6. Similarly, all next workloads perform the same routine, adding the necessary claims, removing and using part of previous signature as private key.
+7. In the end, the token will be composed of 'n' parts, where only the last is a complete signature, and all previous are partial signatures. Target-wl then use the concatenated signature validation scheme to validate the token.
 
 As there are two different schemes to be applied, we had chosen for the anonymous mode PoC the concatenated scheme, due to having more challenges and benefits in terms of performance and token size. Although, assertgen CLI can be used to create a token using all the different schemes developed.
 
@@ -16,6 +25,7 @@ Alternatively, when appending a token, instead of generating a new key pair duri
 ![Concatenated scheme](https://github.com/HPE-USP-SPIRE/signed-assertions/blob/main/doc/conc_sig.jpg)
 
 It is important to note that in a concatenated scheme there is no need (and it is not possible) to add the public key in "audience" claim, as the correspondent private key depends on the signature generation. Although, it is not a problem: the cryptographic scheme grants that only the correct key, derived from previous signature, can result in a valid concatenated signature.
+
 
 # Using the POC
 
