@@ -1,5 +1,8 @@
-//+build linux,cgo 
+//go:build linux && cgo
+// +build linux,cgo
+
 package main
+
 /*
 #cgo CFLAGS: -g -Wall -m64 -I${SRCDIR}
 #cgo pkg-config: --static libssl libcrypto
@@ -37,6 +40,7 @@ func main() {
 	// local.InitGlobals()
 
 	log.Printf("final init options: %+v", local.Options)
+	log.Printf("PRINTAO NOVO TA")
 	// controller.WLController(ctx, global.Options)
 	controller.WLController(ctx)
 }

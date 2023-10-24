@@ -14,14 +14,6 @@ FROM svid-ng_common AS builder
 #     CGO_LDFLAGS="-g -O2" \
 #     CC="gcc"
 
-# Create and move to working directory
-WORKDIR /build
-
-# Copy in files to Img
-COPY ./samples/SVID-NG/Assertingwl-mTLS .
-COPY ./samples/SVID-NG/api-libs ./api-libs
-COPY ./poclib ./poclib
-
 # Download dependencies
 # RUN apk upgrade --update-cache --available && \
 #     apk add openssl
@@ -33,9 +25,22 @@ COPY ./poclib ./poclib
 # RUN apk add build-base
 # RUN apk add pkgconfig
 
-RUN go mod download 
-RUN go build -o main main.go
+# Create and move to working directory
+WORKDIR /build
 
+# Copy files to Img
+COPY ./samples/SVID-NG/Assertingwl-mTLS .
+COPY ./samples/SVID-NG/api-libs /aux/api-libs
+COPY ./poclib /aux/poclib
+
+# Check if something changed in the files that affect the compilation of the Go program. If so, build a new program, and use the hash of those files as its name. 
+RUN files_hash=$(find "." -type f -exec sha256sum {} \; | sed '/Dockerfile/d' | sed '/bin/d' | sed '/README/d' | LC_ALL=C sort -d | sha256sum | head -c 64); \
+if test ! -f bin/$files_hash; \
+  then rm /build/bin/*; \ 
+  mv /aux/api-libs .; \
+  mv /aux/poclib .; \
+  go build -o /build/bin/main main.go; \
+fi
 
 # Stage 2 - Application Img
 # Define the running base image 
@@ -56,5 +61,5 @@ RUN apk add --no-cache bash
 EXPOSE 8443
 
 # Command to run when starting the container
-CMD ["/build/main"]
+CMD ["/build/bin/main"]
 # - or instead for debuging ... ENTRYPOINT ["tail", "-f", "/dev/null"]

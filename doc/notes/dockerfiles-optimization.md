@@ -12,7 +12,9 @@
 
 ## SVID-NG
 
-MT and target have the base go.mod (used in common)
+Asserting, target and MT are the same. MT's go.mod used in common.
+
+---
 
 ## Tests (SVID-NG)
 
@@ -23,7 +25,7 @@ MT and target have the base go.mod (used in common)
 "github.com/spiffe/go-spiffe/v2/workloadapi"
 "github.com/gorilla/mux"
 
-"github.com/spiffe/go-spiffe/v2/svid/x509svid"
+"github.com/spiffe/go-spiffe/v2/svid/x509svid" (the other WLs also use github.com/spiffe/go-spiffe/v2/)
 
 ### Subject
 
