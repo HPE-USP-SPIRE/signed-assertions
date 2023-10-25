@@ -2,7 +2,7 @@
 This repository is part of HPE/USP Transitive Identity & Embedded Claims project. Details about each component can be found in /doc or in its own directory. The repository is organized as follows:
 
 - **assertgen**: command-line interface (CLI) to perform different functions, like interacting with PoC IdP and executing all poclib functions.
-- **doc**: contain the documentation related to the solution.
+- **doc**: contains images used in README files and presentations about this POC
 - **poclib**: prototype of a Go package, containing the token nested scheme functions.
 - **samples**: contain all three PoC scenarios and its documentation.
 
