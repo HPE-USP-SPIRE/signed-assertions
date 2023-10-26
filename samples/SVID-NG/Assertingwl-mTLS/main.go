@@ -40,7 +40,6 @@ func main() {
 	// local.InitGlobals()
 
 	log.Printf("final init options: %+v", local.Options)
-	log.Printf("PRINTAO NOVO TA")
 	// controller.WLController(ctx, global.Options)
 	controller.WLController(ctx)
 }

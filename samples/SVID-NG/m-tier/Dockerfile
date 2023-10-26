@@ -2,40 +2,25 @@
 # Define the building base image
 FROM svid-ng_common AS builder
 
-# Set environmet variables
-# ENV GO111MODULE=on \
-#     CGO_ENABLED=1 \
-#     GOOS=linux \
-#     GOARCH=amd64 \
-#     GCCGO=gccgo \
-#     CGO_CFLAGS="-g -O2" \
-#     CGO_CXXFLAGS="-g -O2" \
-#     CGO_FFLAGS="-g -O2" \
-#     CGO_LDFLAGS="-g -O2" \
-#     CC="gcc"
-
 # Create and move to working directory
 WORKDIR /build
 
-# Copy in files to Img
+# Copy files to Img
 COPY ./samples/SVID-NG/m-tier .
-COPY ./samples/SVID-NG/api-libs ./api-libs
-COPY ./poclib ./poclib
+COPY ./samples/SVID-NG/api-libs /aux/api-libs
+COPY ./poclib /aux/poclib
 
-# Download dependencies
-# RUN apk upgrade --update-cache --available && \
-#     apk add openssl
-# RUN apk add git zip curl wget ca-certificates
-# RUN apk add xxd
-# RUN apk add sed
-# RUN apk add jq
-# RUN apk add openssl-dev
-# RUN apk add build-base
-# RUN apk add pkgconfig
-
-RUN go mod download
-RUN go build -o main main.go
-
+# Check if something changed in the files that affect the compilation of the Go program. If so, build a new program, and use the hash of those files as its name. In any case, create a bash script to execute the binary (fix name for CMD in the end of the dockerfile).
+RUN files_hash=$(find "." -type f -exec sha256sum {} \; | sed '/Dockerfile/d' | sed '/bin/d' | sed '/README/d' | LC_ALL=C sort -d | sha256sum | head -c 64); \
+if test ! -f bin/$files_hash; \
+  then rm -f /build/bin/*; \ 
+  mv /aux/api-libs .; \
+  mv /aux/poclib .; \
+  go mod download; \
+  go build -o /build/bin/$files_hash main.go; \
+fi; \
+echo "./bin/$files_hash" > main.sh; \
+chmod +x main.sh
 
 # Stage 2 - Application Img
 # Define the running base image 
@@ -56,5 +41,4 @@ RUN apk add --no-cache bash
 EXPOSE 8445
 
 # Command to run when starting the container
-CMD ["/build/main"]
-# - or instead for debuging ... ENTRYPOINT ["tail", "-f", "/dev/null"]
+CMD ["bash","/build/main.sh"]
