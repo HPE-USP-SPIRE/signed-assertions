@@ -2,70 +2,87 @@
 
 set -e
 
-### Start SPIRE environment
-sudo cp ./lib/start_spire_env.sh /opt/spire/
-# echo -e "\n\nCopy the commands below and run them in another terminal"
-# echo "cd /opt/spire/"
-# echo "sudo bash start_spire_env.sh"
-# read -rsn1 -p"Now press any key to continue... "
-##########
+##  This script automatically pre-configure the application changing the IP address and OKTA credentials where is necessary.
+##  The configuration file can be found in ./utils/.cfg.
 
-### Grab values from *config* and change all required .cfg files
-OKTA_CODE=
+## Might require use of dos2unix on ./utils/.cfg to reconfigure
+## the Carriage Return character to UNIX to avoid misconfiguration.
+
+# sudo apt install dos2unix -y
+# dos2unix config
+
+##################
+# OKTA
 CLIENT_ID=
 CLIENT_SECRET=
+ISSUER=
+# Application
+SOCKET_PATH=
+TRUST_DOMAIN=
+PEM_PATH=
+PROOF_LEN=
+MINT_ZKP=
+ADD_ZKP=
+# IP/Port
 HOST_IP=
 ASSERTING_PORT=
 TARGET_PORT=
-MIDDLE_TIER_PORT=
+MIDDLE_TIER1_PORT=
 MIDDLE_TIER2_PORT=
 MIDDLE_TIER3_PORT=
 MIDDLE_TIER4_PORT=
 MIDDLE_TIER5_PORT=
+##################
 
-## Read config file and copy values to VARs
+## Read config file and copy data to variables
 cp_data_config(){
 while IFS= read -r LINE
 do
-  if grep -q "OKTA_DEVELOPER_CODE" <<< "$LINE"; then
-    OKTA_CODE=${LINE#*=}
-  elif grep -q "CLIENT_ID" <<< "$LINE"; then
+  if grep -q "CLIENT_ID" <<< "$LINE"; then
     CLIENT_ID=${LINE#*=}
   elif grep -q "CLIENT_SECRET" <<< "$LINE"; then
     CLIENT_SECRET=${LINE#*=}
-  elif grep -q "HOSTIP" <<< "$LINE"; then
+  elif grep -q "ISSUER" <<< "$LINE"; then
+    ISSUER=${LINE#*=}
+
+  elif grep -q "SOCKET_PATH" <<< "$LINE"; then
+    SOCKET_PATH=${LINE#*=}
+  elif grep -q "TRUST_DOMAIN" <<< "$LINE"; then
+    TRUST_DOMAIN=${LINE#*=}
+  elif grep -q "PEM_PATH" <<< "$LINE"; then
+    PEM_PATH=${LINE#*=}    
+  elif grep -q "PROOF_LEN" <<< "$LINE"; then
+    PROOF_LEN=${LINE#*=}
+  elif grep -q "MINT_ZKP=" <<< "$LINE"; then
+    MINT_ZKP=${LINE#*=}
+  elif grep -q "ADD_ZKP" <<< "$LINE"; then
+    ADD_ZKP=${LINE#*=}            
+  
+  elif grep -q "HOST_IP" <<< "$LINE"; then
     HOST_IP=${LINE#*=}
-  elif grep -q "Asserting-wl port" <<< "$LINE"; then
+  elif grep -q "ASSERTING_PORT" <<< "$LINE"; then
     ASSERTING_PORT=${LINE#*=}
-  elif grep -q "Target-wl port" <<< "$LINE"; then
+  elif grep -q "TARGET_PORT" <<< "$LINE"; then
     TARGET_PORT=${LINE#*=}
-  elif grep -q "Middle-tier-wl port" <<< "$LINE"; then
-    MIDDLE_TIER_PORT=${LINE#*=}
-  elif grep -q "Middle-tier2-wl port" <<< "$LINE"; then
+  elif grep -q "MIDDLE-TIER1_PORT" <<< "$LINE"; then
+    MIDDLE_TIER1_PORT=${LINE#*=}
+  elif grep -q "MIDDLE-TIER2_PORT" <<< "$LINE"; then
     MIDDLE_TIER2_PORT=${LINE#*=}
-  elif grep -q "Middle-tier3-wl port" <<< "$LINE"; then
+  elif grep -q "MIDDLE-TIER3_PORT" <<< "$LINE"; then
     MIDDLE_TIER3_PORT=${LINE#*=}
-  elif grep -q "Middle-tier4-wl port" <<< "$LINE"; then
+  elif grep -q "MIDDLE-TIER4_PORT" <<< "$LINE"; then
     MIDDLE_TIER4_PORT=${LINE#*=}
-  elif grep -q "Middle-tier5-wl port" <<< "$LINE"; then
+  elif grep -q "MIDDLE-TIER5_PORT" <<< "$LINE"; then
     MIDDLE_TIER5_PORT=${LINE#*=}
   else
     continue
   fi
-done < "./.cfg"
+done < "./utils/.cfg"
 }
 cp_data_config
 
 ## \/ Change .cfg file of Subject Workload
 CFG_PATH="./subject_workload/.cfg"
-
-LINE_MATCH=$(awk '/ISSUER=/{ print NR;}' $CFG_PATH)
-if test $LINE_MATCH -gt 0; then
-  TMP_VAR="ISSUER=https://dev-${OKTA_CODE}.okta.com/oauth2/default"
-  sudo sed -i "$LINE_MATCH c \\$TMP_VAR" $CFG_PATH
-else
-  trap "\"ISSUER=\" string not found in .cfg file." EXIT
-fi
 
 LINE_MATCH=$(awk '/CLIENT_ID=/{ print NR;}' $CFG_PATH)
 if test $LINE_MATCH -gt 0; then
@@ -83,10 +100,58 @@ else
   trap "\"CLIENT_SECRET=\" string not found in .cfg file." EXIT
 fi
 
+LINE_MATCH=$(awk '/ISSUER=/{ print NR;}' $CFG_PATH)
+if test $LINE_MATCH -gt 0; then
+  TMP_VAR="ISSUER=${ISSUER}"
+  sudo sed -i "$LINE_MATCH c \\$TMP_VAR" $CFG_PATH
+else
+  trap "\"ISSUER=\" string not found in .cfg file." EXIT
+fi
+
+LINE_MATCH=$(awk '/SOCKET_PATH=/{ print NR;}' $CFG_PATH)
+if test $LINE_MATCH -gt 0; then
+  TMP_VAR="SOCKET_PATH=${SOCKET_PATH}"
+  sudo sed -i "$LINE_MATCH c \\$TMP_VAR" $CFG_PATH
+else
+  trap "\"SOCKET_PATH=\" string not found in .cfg file." EXIT
+fi
+
+LINE_MATCH=$(awk '/MINT_ZKP=/{ print NR;}' $CFG_PATH)
+if test $LINE_MATCH -gt 0; then
+  TMP_VAR="MINT_ZKP=${MINT_ZKP}"
+  sudo sed -i "$LINE_MATCH c \\$TMP_VAR" $CFG_PATH
+else
+  trap "\"MINT_ZKP=\" string not found in .cfg file." EXIT
+fi
+
+LINE_MATCH=$(awk '/PROOF_LEN=/{ print NR;}' $CFG_PATH)
+if test $LINE_MATCH -gt 0; then
+  TMP_VAR="PROOF_LEN=${PROOF_LEN}"
+  sudo sed -i "$LINE_MATCH c \\$TMP_VAR" $CFG_PATH
+else
+  trap "\"PROOF_LEN=\" string not found in .cfg file." EXIT
+fi
+
+LINE_MATCH=$(awk '/PEM_PATH=/{ print NR;}' $CFG_PATH)
+if test $LINE_MATCH -gt 0; then
+  TMP_VAR="PEM_PATH=${PEM_PATH}"
+  sudo sed -i "$LINE_MATCH c \\$TMP_VAR" $CFG_PATH
+else
+  trap "\"PEM_PATH=\" string not found in .cfg file." EXIT
+fi
+
+LINE_MATCH=$(awk '/TRUST_DOMAIN=/{ print NR;}' $CFG_PATH)
+if test $LINE_MATCH -gt 0; then
+  TMP_VAR="TRUST_DOMAIN=${TRUST_DOMAIN}"
+  sudo sed -i "$LINE_MATCH c \\$TMP_VAR" $CFG_PATH
+else
+  trap "\"TRUST_DOMAIN=\" string not found in .cfg file." EXIT
+fi
+
 LINE_MATCH=$(awk '/HOSTIP=/{ print NR;}' $CFG_PATH)
 if test $LINE_MATCH -gt 0; then
-  TMP_VAR="HOSTIP=${HOST_IP}:8080"
-  sudo sed -i "$LINE_MATCH c \\$TMP_VAR" $CFG_PATH
+  SUBJECTIP="HOSTIP=${HOST_IP}:8080"
+  sudo sed -i "$LINE_MATCH c \\$SUBJECTIP" $CFG_PATH
 else
   trap "\"HOSTIP=\" string not found in .cfg file." EXIT
 fi
@@ -109,18 +174,75 @@ fi
 
 LINE_MATCH=$(awk '/MIDDLETIERIP=/{ print NR;}' $CFG_PATH)
 if test $LINE_MATCH -gt 0; then
-  MIDDLETIERIP="MIDDLETIERIP=${HOST_IP}:${MIDDLE_TIER_PORT}"
+  MIDDLETIERIP="MIDDLETIERIP=${HOST_IP}:${MIDDLE_TIER1_PORT}"
   sudo sed -i "$LINE_MATCH c \\$MIDDLETIERIP" $CFG_PATH
 else
   trap "\"MIDDLETIERIP=\" string not found in .cfg file." EXIT
 fi
-## /\Change .cfg file of Subject Workload
+
+# /\Change .cfg file of Subject Workload
 
 ########################################
 
-##\/ Change .cfg file of Middler-Tier Workload
-CFG_PATH="./middle-tier/.cfg"
+## \/Change .cfg file of Asserting Workload
+CFG_PATH="./Assertingwl-mTLS/.cfg"
 
+LINE_MATCH=$(awk '/ADD_ZKP=/{ print NR;}' $CFG_PATH)
+if test $LINE_MATCH -gt 0; then
+  TMP_VAR="ADD_ZKP=${ADD_ZKP}"
+  sudo sed -i "$LINE_MATCH c \\$TMP_VAR" $CFG_PATH
+else
+  trap "\"ADD_ZKP=\" string not found in .cfg file." EXIT
+fi
+
+LINE_MATCH=$(awk '/MINT_ZKP=/{ print NR;}' $CFG_PATH)
+if test $LINE_MATCH -gt 0; then
+  TMP_VAR="MINT_ZKP=${MINT_ZKP}"
+  sudo sed -i "$LINE_MATCH c \\$TMP_VAR" $CFG_PATH
+else
+  trap "\"MINT_ZKP=\" string not found in .cfg file." EXIT
+fi
+
+LINE_MATCH=$(awk '/PEM_PATH=/{ print NR;}' $CFG_PATH)
+if test $LINE_MATCH -gt 0; then
+  TMP_VAR="PEM_PATH=${PEM_PATH}"
+  sudo sed -i "$LINE_MATCH c \\$TMP_VAR" $CFG_PATH
+else
+  trap "\"PEM_PATH=\" string not found in .cfg file." EXIT
+fi
+
+LINE_MATCH=$(awk '/PROOF_LEN=/{ print NR;}' $CFG_PATH)
+if test $LINE_MATCH -gt 0; then
+  TMP_VAR="PROOF_LEN=${PROOF_LEN}"
+  sudo sed -i "$LINE_MATCH c \\$TMP_VAR" $CFG_PATH
+else
+  trap "\"PROOF_LEN=\" string not found in .cfg file." EXIT
+fi
+
+LINE_MATCH=$(awk '/SOCKET_PATH=/{ print NR;}' $CFG_PATH)
+if test $LINE_MATCH -gt 0; then
+  TMP_VAR="SOCKET_PATH=${SOCKET_PATH}"
+  sudo sed -i "$LINE_MATCH c \\$TMP_VAR" $CFG_PATH
+else
+  trap "\"SOCKET_PATH=\" string not found in .cfg file." EXIT
+fi
+
+LINE_MATCH=$(awk '/TRUST_DOMAIN=/{ print NR;}' $CFG_PATH)
+if test $LINE_MATCH -gt 0; then
+  TMP_VAR="TRUST_DOMAIN=${TRUST_DOMAIN}"
+  sudo sed -i "$LINE_MATCH c \\$TMP_VAR" $CFG_PATH
+else
+  trap "\"TRUST_DOMAIN=\" string not found in .cfg file." EXIT
+fi
+
+# /\Change .cfg file of Asserting Workload
+
+#######################################
+
+#\/ Change .cfg file of Middle-Tier Workload (currently 5 tiers)
+
+### Middle-tier 1
+CFG_PATH="./middle-tier/.cfg"
 LINE_MATCH=$(awk '/ASSERTINGWLIP=/{ print NR;}' $CFG_PATH)
 if test $LINE_MATCH -gt 0; then
   ASSERTINGWLIP="ASSERTINGWLIP=${HOST_IP}:${ASSERTING_PORT}"
@@ -136,7 +258,8 @@ if test $LINE_MATCH -gt 0; then
 else
   trap "\"MIDDLE_TIER2_IP=\" string not found in .cfg file." EXIT
 fi
-#Middle-tier 2
+
+### Middle-tier 2
 CFG_PATH="./middle-tier2/.cfg"
 
 LINE_MATCH=$(awk '/ASSERTINGWLIP=/{ print NR;}' $CFG_PATH)
@@ -155,7 +278,7 @@ else
   trap "\"MIDDLE_TIER3_IP=\" string not found in .cfg file." EXIT
 fi
 
-#Middle-tier 3
+### Middle-tier 3
 CFG_PATH="./middle-tier3/.cfg"
 
 LINE_MATCH=$(awk '/ASSERTINGWLIP=/{ print NR;}' $CFG_PATH)
@@ -174,7 +297,7 @@ else
   trap "\"MIDDLE_TIER4_IP=\" string not found in .cfg file." EXIT
 fi
 
-#Middle-tier 4
+### Middle-tier 4
 CFG_PATH="./middle-tier4/.cfg"
 
 LINE_MATCH=$(awk '/ASSERTINGWLIP=/{ print NR;}' $CFG_PATH)
@@ -193,7 +316,7 @@ else
   trap "\"MIDDLE_TIER5_IP=\" string not found in .cfg file." EXIT
 fi
 
-#Middle-tier 5
+### Middle-tier 5
 CFG_PATH="./middle-tier5/.cfg"
 
 LINE_MATCH=$(awk '/ASSERTINGWLIP=/{ print NR;}' $CFG_PATH)
@@ -211,12 +334,52 @@ if test $LINE_MATCH -gt 0; then
 else
   trap "\"TARGETWLIP=\" string not found in .cfg file." EXIT
 fi
-## /\Change .cfg file of Middle-Tier Workload
+# /\Change .cfg file of Middle-Tier Workload
 
 ########################################
 
 ## \/Change .cfg file of Target Workload
 CFG_PATH="./target_workload/.cfg"
+
+LINE_MATCH=$(awk '/SOCKET_PATH=/{ print NR;}' $CFG_PATH)
+if test $LINE_MATCH -gt 0; then
+  TMP_VAR="SOCKET_PATH=${SOCKET_PATH}"
+  sudo sed -i "$LINE_MATCH c \\$TMP_VAR" $CFG_PATH
+else
+  trap "\"SOCKET_PATH=\" string not found in .cfg file." EXIT
+fi
+
+LINE_MATCH=$(awk '/PROOF_LEN=/{ print NR;}' $CFG_PATH)
+if test $LINE_MATCH -gt 0; then
+  TMP_VAR="PROOF_LEN=${PROOF_LEN}"
+  sudo sed -i "$LINE_MATCH c \\$TMP_VAR" $CFG_PATH
+else
+  trap "\"PROOF_LEN=\" string not found in .cfg file." EXIT
+fi
+
+LINE_MATCH=$(awk '/PEM_PATH=/{ print NR;}' $CFG_PATH)
+if test $LINE_MATCH -gt 0; then
+  TMP_VAR="PEM_PATH=${PEM_PATH}"
+  sudo sed -i "$LINE_MATCH c \\$TMP_VAR" $CFG_PATH
+else
+  trap "\"PEM_PATH=\" string not found in .cfg file." EXIT
+fi
+
+LINE_MATCH=$(awk '/MINT_ZKP=/{ print NR;}' $CFG_PATH)
+if test $LINE_MATCH -gt 0; then
+  TMP_VAR="MINT_ZKP=${MINT_ZKP}"
+  sudo sed -i "$LINE_MATCH c \\$TMP_VAR" $CFG_PATH
+else
+  trap "\"MINT_ZKP=\" string not found in .cfg file." EXIT
+fi
+
+LINE_MATCH=$(awk '/TRUST_DOMAIN=/{ print NR;}' $CFG_PATH)
+if test $LINE_MATCH -gt 0; then
+  TMP_VAR="TRUST_DOMAIN=${TRUST_DOMAIN}"
+  sudo sed -i "$LINE_MATCH c \\$TMP_VAR" $CFG_PATH
+else
+  trap "\"TRUST_DOMAIN=\" string not found in .cfg file." EXIT
+fi
 
 LINE_MATCH=$(awk '/ASSERTINGWLIP=/{ print NR;}' $CFG_PATH)
 if test $LINE_MATCH -gt 0; then
@@ -225,6 +388,7 @@ if test $LINE_MATCH -gt 0; then
 else
   trap "\"ASSERTINGWLIP=\" string not found in .cfg file." EXIT
 fi
-########################################
-echo "Environment configured according to .cfg file"
 
+## /\Change .cfg file of Target Workload
+
+echo "Environment configured according to ./utils/.cfg"
