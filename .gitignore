@@ -1,2 +1,6 @@
 assertgen/assertgen
 *.swp
+samples/*/Assertingwl-mTLS/bin/*
+samples/*/m-tier/bin/*
+samples/*/target-wl/bin/*
+samples/*/subject_workload/bin/*
