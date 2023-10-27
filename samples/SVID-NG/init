@@ -7,18 +7,24 @@ SCRIPT_PATH=$(pwd)
 GREEN='\033[0;32m'
 CLEAR='\033[0m'
 
-printf "${GREEN}Killing spire agent, spire server and containers...${CLEAR}\n"
+echo -e "${GREEN}Killing spire agent, spire server and containers...${CLEAR}\n"
 ./kill
 
-printf "${GREEN}Starting SPIRE...${CLEAR}\n"
+echo -e "${GREEN}Starting SPIRE...${CLEAR}\n"
 cd /opt/spire
 sudo ./start_spire_env.sh > /dev/null
 
-printf "${GREEN}Starting containers...${CLEAR}\n"
+echo -e "${GREEN}Applying ./.cfg ...${CLEAR}\n"
 cd $SCRIPT_PATH
+cp .cfg Assertingwl-mTLS
+cp .cfg m-tier
+cp .cfg subject_workload
+cp .cfg target-wl
+
+echo -e "${GREEN}Starting containers...${CLEAR}\n"
 docker-compose up --build --detach
 
-printf "${GREEN}Copying WLs' binaries from containers to host..${CLEAR}\n"
+echo -e "${GREEN}Copying WLs' binaries from containers to host..${CLEAR}\n"
 rm -f ./Assertingwl-mTLS/bin/*
 docker cp svid-ng_assertingwl_1:/build/bin/. ./Assertingwl-mTLS/bin/
 rm -f ./m-tier/bin/*
@@ -28,4 +34,4 @@ docker cp svid-ng_subjectwl_1:/build/bin/. ./subject_workload/bin/
 rm -f ./target-wl/bin/*
 docker cp svid-ng_target-wl_1:/build/bin/. ./target-wl/bin/
 
-printf "${GREEN}Done! Containers up and running.${CLEAR}\n"
+echo -e "${GREEN}Done! Containers up and running.${CLEAR}\n"
