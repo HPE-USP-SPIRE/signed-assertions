@@ -19,9 +19,10 @@ import (
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"github.com/spiffe/go-spiffe/v2/spiffetls/tlsconfig"
 	"github.com/spiffe/go-spiffe/v2/workloadapi"
+	"github.com/spiffe/go-spiffe/v2/svid/jwtsvid"
 
 	// dasvid lib
-	dasvid "github.com/marco-developer/dasvid/poclib"
+	dasvid "github.com/hpe-usp-spire/signed-assertions/poclib/svid"
 
 	// EdDSA
 	"go.dedis.ch/kyber/v3/group/edwards25519"
@@ -29,6 +30,13 @@ import (
 	"go.dedis.ch/kyber/v3"
 	// hash256 "crypto/sha256"
 	// "encoding/hex"
+
+	"crypto/x509"
+	// "errors"
+	"crypto"
+	"crypto/rand"
+	hash256 "crypto/sha256"
+
 
 )
 
@@ -53,6 +61,27 @@ type Signature struct {
     S kyber.Scalar
 }
 
+type IDClaim struct {
+	CN	string		`json:"cn,omitempty"`
+	PK	[]byte		`json:"pk,omitempty"`
+	LS	*LSVID		`json:"ls,omitempty"`
+}
+
+type Payload struct {
+	Ver int8		`json:"ver,omitempty"`
+	Alg string		`json:"alg,omitempty"`
+	Iat	int64		`json:"iat,omitempty"`
+	Iss	*IDClaim	`json:"iss,omitempty"`
+	Sub	*IDClaim	`json:"sub,omitempty"`
+	Aud	*IDClaim	`json:"aud,omitempty"`
+}
+
+type LSVID struct {	
+	Previous	*LSVID		`json:"previous,omitempty"`
+	Payload		*Payload	`json:"payload"`
+	Signature	[]byte		`json:"signature"`
+}
+
 func main() {
 	ParseEnvironment()
 
@@ -63,7 +92,7 @@ func main() {
 	
 	// Retrieve local IP
 	// In this PoC example, client and server are running in the same host, so serverIP = clientIP 
-	StrIPlocal := fmt.Sprintf("%v", GetOutboundIP())
+	StrIPlocal := fmt.Sprintf("%v\n", GetOutboundIP())
 	serverURL := StrIPlocal + ":8443"
 
 	operation := os.Args[1]
@@ -71,7 +100,7 @@ func main() {
 	// Create a `workloadapi.X509Source`, it will connect to Workload API using provided socket path
 	source, err := workloadapi.NewX509Source(ctx, workloadapi.WithClientOptions(workloadapi.WithAddr(socketPath)))
 	if err != nil {
-		log.Fatalf("Unable to create X509Source %v", err)
+		log.Fatalf("Unable to create X509Source %v\n", err)
 	}
 	defer source.Close()
 
@@ -926,6 +955,119 @@ Main functions:
 
 
 		os.Exit(1)
+
+
+	// __ Test LSVID endpoints __
+	case "fetchlsvid":
+		// Must return the workload LSVID signed by the SPIRE-Server and extended by SPIRE-Agent
+		// Server and/or Agent must add selector claims
+
+		// Fetch claims data
+		clientSVID 		:= dasvid.FetchX509SVID()
+		clientID 		:= clientSVID.ID.String()
+
+		source, err := workloadapi.NewJWTSource(ctx, workloadapi.WithClientOptions(workloadapi.WithAddr(socketPath)))
+		if err != nil {
+			log.Fatalf("Unable to create JWTSource %v\n", err)
+		}
+		defer source.Close()
+		
+		lsvid, err := source.FetchJWTSVID(ctx, jwtsvid.Params{
+			// SpiffeId: clientID,
+			Audience: clientID,
+		})
+		if err != nil {
+			log.Fatalf("Unable to Fetch LSVID %v\n", err)
+		}
+
+		log.Printf("Received LSVID: %s\n", lsvid.LSVID.Svid)
+
+
+	case "extendlsvid":
+		
+		// extend an existing LSVID with audience
+		// ./assertgen extendlsvid <prev-LSVID> <audience>
+		//
+
+		// Fetch client data
+		clientSVID 		:= dasvid.FetchX509SVID()
+		clientID 		:= clientSVID.ID.String()
+		clientkey 		:= clientSVID.PrivateKey
+
+		previous := os.Args[2]
+		audience := os.Args[3]
+
+		// decode previous lsvid
+		decPrevLSVID, err := DecodeLSVID(previous)
+		if err != nil {
+			log.Fatalf("Error decoding previous LSVID: %v\n", err)
+		}
+
+		source, err := workloadapi.NewJWTSource(ctx, workloadapi.WithClientOptions(workloadapi.WithAddr(socketPath)))
+		if err != nil {
+			log.Fatalf("Unable to create JWTSource %v\n", err)
+		}
+		defer source.Close()
+		
+		lsvid, err := source.FetchJWTSVID(ctx, jwtsvid.Params{
+			// SpiffeId: clientID,
+			Audience: clientID,
+		})
+		if err != nil {
+			log.Fatalf("Unable to Fetch LSVID %v\n", err)
+		}
+
+		decLSVID, err := DecodeLSVID(lsvid.LSVID.Svid)
+		if err != nil {
+			log.Fatalf("Unable to decode LSVID %v\n", err)
+		}
+
+		extendedPayload := &Payload{
+			Ver:	1,
+			Alg:	"ES256",
+			Iat:	time.Now().Round(0).Unix(),
+			Iss:	&IDClaim{
+				CN:	clientID,
+				LS:	decLSVID,
+			},
+			Aud:	&IDClaim{
+				CN:	audience,
+			},
+		}
+
+		extLSVID, err := ExtendLSVID(decPrevLSVID, extendedPayload, clientkey)
+		if err != nil {
+			log.Fatalf("Error extending LSVID: %v\n", err)
+		} 
+
+		fmt.Printf("Extended LSVID: %s\n", extLSVID)
+
+	case "validatelsvid" :
+		//  ./assertgen validatelsvid <lsvid>
+
+		decLSVID, err := DecodeLSVID(os.Args[2])
+		if err != nil {
+			fmt.Printf("Error decoding LSVID: %v\n", err)
+			os.Exit(1)
+		}
+
+		fmt.Printf("Decoded LSVID to be validated: %v\n", decLSVID)
+
+		validateLSVID, err := ValidateLSVID(decLSVID)
+		if err != nil {
+			fmt.Printf("Error validating LSVID: %v\n", err)
+			os.Exit(1)
+		}
+		if validateLSVID == false {
+			fmt.Printf("Validation failed! :(\n")
+			os.Exit(1)
+		}
+
+		fmt.Printf("Validation successful! :D\n")
+
+
+
+		// continue...
 	}
 
 	if endpoint != "" {
@@ -1005,4 +1147,143 @@ func assertSelectors(pid int) string{
 	log.Printf("Selectors retrieved: ", selectors)
 
 	return selectors
+}
+
+func EncodeLSVID(lsvid *LSVID) (string, error) {
+	// Marshal the LSVID struct into JSON
+	lsvidJSON, err := json.Marshal(lsvid)
+	if err != nil {
+		return "", fmt.Errorf("error marshaling LSVID to JSON: %v", err)
+	}
+
+	// Encode the JSON byte slice to Base64.RawURLEncoded string
+	encLSVID := base64.RawURLEncoding.EncodeToString(lsvidJSON)
+
+	return encLSVID, nil
+}
+
+func DecodeLSVID(encLSVID string) (*LSVID, error) {
+
+	fmt.Printf("LSVID to be decoded: %s\n", encLSVID)
+    // Decode the base64.RawURLEncoded LSVID
+    decoded, err := base64.RawURLEncoding.DecodeString(encLSVID)
+    if err != nil {
+        return nil, fmt.Errorf("error decoding LSVID: %v\n", err)
+    }
+
+	fmt.Printf("Decoded LSVID to be unmarshaled: %s\n", decoded)
+
+    // Unmarshal the decoded byte slice into your struct
+    var decLSVID LSVID
+    err = json.Unmarshal(decoded, &decLSVID)
+    if err != nil {
+        return nil, fmt.Errorf("error unmarshalling LSVID: %v\n", err)
+    }
+
+    return &decLSVID, nil
+}
+
+func ExtendLSVID(lsvid *LSVID, newPayload *Payload, key crypto.Signer) (string, error) {
+
+	// Create the extended LSVID structure
+	extLSVID := &LSVID{
+		Previous:	lsvid,
+		Payload:	newPayload,
+	}
+
+	// Marshal to JSON
+	// TODO: Check if its necessary to marshal before signing. I mean, we need an byte array, 
+	// and using JSON marshaler we got it. But maybe there is a better way?
+	tmpToSign, err := json.Marshal(extLSVID)
+	if err != nil {
+		return "", fmt.Errorf("Error generating json: %v\n", err)
+	} 
+
+	// Sign extlSVID
+	hash 	:= hash256.Sum256(tmpToSign)
+	s, err := key.Sign(rand.Reader, hash[:], crypto.SHA256)
+	if err != nil {
+		return "", fmt.Errorf("Error generating signed assertion: %v\n", err)
+	} 
+
+	// Set extLSVID signature
+	extLSVID.Signature = s
+
+	// Encode signed LSVID
+	outLSVID, err := EncodeLSVID(extLSVID)
+	if err != nil {
+		return "", fmt.Errorf("Error encoding LSVID: %v\n", err)
+	} 
+
+	return outLSVID, nil
+
+}
+
+func ValidateLSVID(lsvid *LSVID) (bool, error) {
+
+	for (lsvid.Previous != nil) {
+
+		if lsvid.Payload.Iss.CN != lsvid.Previous.Payload.Aud.CN {
+			return false, fmt.Errorf("Aud -> Iss link validation failed\n")
+		}
+		fmt.Printf("Aud -> Iss link validation successful!\n")
+
+		// Marshal the LSVID struct into JSON
+		tmpLSVID := &LSVID{
+			Previous:	lsvid.Previous,
+			Payload:	lsvid.Payload,
+		}
+		lsvidJSON, err := json.Marshal(tmpLSVID)
+		if err != nil {
+		return false, fmt.Errorf("error marshaling LSVID to JSON: %v\n", err)
+		}
+		hash 	:= hash256.Sum256(lsvidJSON)
+
+		// Parse the public key
+		var issLSVID *LSVID
+		issLSVID = lsvid.Payload.Iss.LS
+		for (issLSVID.Previous != nil) {
+			// fmt.Printf("Issuer previous LSVID found! %v\n", issLSVID.Previous)
+			issLSVID = issLSVID.Previous
+		}
+		issLSSubPk, err := x509.ParsePKIXPublicKey(issLSVID.Payload.Sub.PK)
+		if err != nil {
+			return false, fmt.Errorf("Failed to parse public key: %v\n", err)
+		}
+
+		log.Printf("Verifying signature created by %s\n", lsvid.Payload.Iss.CN)
+		verify := ecdsa.VerifyASN1(issLSSubPk.(*ecdsa.PublicKey), hash[:], lsvid.Signature)
+		if verify == false {
+			fmt.Printf("\nSignature validation failed!\n\n")
+			return false, nil
+		}
+		log.Printf("Signature validation successful!\n")
+		lsvid = lsvid.Previous
+	}
+
+	// reached the inner most LSVID. 
+	// Marshal the LSVID struct into JSON
+	lsvidJSON, err := json.Marshal(lsvid.Payload)
+	if err != nil {
+	return false, fmt.Errorf("error marshaling LSVID to JSON: %v\n", err)
+	}
+	log.Printf("Payload to be hashed: %s", lsvidJSON)
+	hash 	:= hash256.Sum256(lsvidJSON)
+
+	// Parse the public key
+	issPk, err := x509.ParsePKIXPublicKey(lsvid.Payload.Iss.PK)
+	if err != nil {
+		return false, fmt.Errorf("Failed to parse public key: %v\n", err)
+	}
+	log.Printf("Public key to be used: %s", issPk)
+
+	log.Printf("Verifying signature created by %s", lsvid.Payload.Iss.CN)
+	verify := ecdsa.VerifyASN1(issPk.(*ecdsa.PublicKey), hash[:], lsvid.Signature)
+	if verify == false {
+		fmt.Printf("\nSignature validation failed!\n\n")
+		return false, nil
+	}
+
+	return true, nil
+
 }
