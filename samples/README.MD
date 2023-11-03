@@ -52,6 +52,7 @@ sudo chmod +x -R *.sh && sudo chmod +x lib/*.sh
    - Put your OKTA credentials (client ID, client secret) 
    - Change the IP address to the machine that will run the application. Change each line accordingly.
 
+
 # How to use
 
 To config the environemnt according to config file, initialize SPIRE (agent and server) and all docker containers (workloads):
@@ -71,10 +72,17 @@ To kill SPIRE and the containers
 _Disclaimer 1: init also runs kill, and both kill all the containers running in the machine!_
 
 _Disclaimer 2: you might need to allow the scripts to run, with `chmod +x init kill`._
-<br>
-<br>
 
+# Common Issues 
+
+### Running the project in a VM 
+
+To be able to correctly run the project in a VM, it must be configured to attach to a bridged adapter. This setting is usually found under the Network Settings.
+
+<br>
+<br>
 
 # References
 
 https://developer.okta.com/authentication-guide/implementing-authentication/auth-code#1-setting-up-your-application
+
