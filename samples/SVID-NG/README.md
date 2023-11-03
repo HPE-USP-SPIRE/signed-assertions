@@ -54,9 +54,9 @@ This endpoint return the DA-SVID original claims and a Zero Knowledge Proof (ZKP
 
 ## Setup your Environment
 
-If you haven't already, follow the Setup Guide, on [/samples/README](../README.MD) 
+If you haven't already, follow the Setup Guide, on [/samples/README](../README.MD)
 
-After doing that, manually alter the `.cfg` file inside each workload folder accordingly:
+After doing that, manually alter the `.cfg` in the root of the sample accordingly:
 
 - CLIENT_ID and CLIENT_SECRET: found in your okta application
 - OKTA_DEVELOPER_CODE: a 7 number ID found in the URL of you okta dashboard (between dev- and -admin)
@@ -81,6 +81,14 @@ TARGETWLIP=192.168.0.100:8444
 
 ## Run the Application
 
+<<<<<<< HEAD
+```
+./init
+```
+
+After prompted that the execution finished successfully, open your browser on localhost:8080.
+
+=======
 Before running the application, you must start SPIRE, with: 
 ```
 cd /opt/spire
@@ -91,11 +99,16 @@ To run the application, simply use the command `docker-compose up --build`
 
 After running it, open your browser on localhost:8080 and see if the application is working correctly
 
+>>>>>>> main
 </br>
 
 **Important**:
 
 - SPIRE will keep running in background. Use `./kill` to stop the application. Notice that it will kill all the docker conatiners running in your machine
 - Check the output for potential network errors during the download and preparation of the docker images
+<<<<<<< HEAD
+- Always check if your IP is correctly set in OKTA and in the root `.cfg`
+=======
 - Always check if your IP is correctly set in OKTA and in `.cfg`
 
+>>>>>>> main
