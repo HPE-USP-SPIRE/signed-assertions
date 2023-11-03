@@ -81,16 +81,34 @@ TARGETWLIP=192.168.0.100:8444
 
 ## Run the Application
 
+<<<<<<< HEAD
 ```
 ./init
 ```
 
 After prompted that the execution finished successfully, open your browser on localhost:8080.
 
+=======
+Before running the application, you must start SPIRE, with: 
+```
+cd /opt/spire
+sudo ./start_spire_env.sh
+```
+
+To run the application, simply use the command `docker-compose up --build`
+
+After running it, open your browser on localhost:8080 and see if the application is working correctly
+
+>>>>>>> main
 </br>
 
 **Important**:
 
 - SPIRE will keep running in background. Use `./kill` to stop the application. Notice that it will kill all the docker conatiners running in your machine
 - Check the output for potential network errors during the download and preparation of the docker images
+<<<<<<< HEAD
 - Always check if your IP is correctly set in OKTA and in the root `.cfg`
+=======
+- Always check if your IP is correctly set in OKTA and in `.cfg`
+
+>>>>>>> main
