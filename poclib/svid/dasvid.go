@@ -1615,14 +1615,6 @@ func PrintAssertion(assertion string) {
 		os.Exit(1)
 	}
 
-	// print single assertion
-	if len(parts) < 3 {
-		dectmp, _ := base64.RawURLEncoding.DecodeString(parts[0])
-		fmt.Printf("Claim     [%d]	: %s\n", 0, dectmp)
-		fmt.Printf("Signature [%d]	: %s\n", 1, parts[1])
-		os.Exit(1)
-	}
-
 	// print token claims
 	var i = 0
 	for i < len(parts)/2 {
