@@ -23,25 +23,30 @@ import (
 
 )
 
-type LSVID struct {	
-	Nested		*LSVID		`json:"nested,omitempty"`
+type LSVID struct {
+	Token		*Token		`json:"token"`		// The LSVID document
+	Bundle		*Token		`json:"bundle"`		// The Trust bundle document
+}
+
+type Token struct {	
+	Nested		*Token		`json:"nested,omitempty"`
 	Payload		*Payload	`json:"payload"`
 	Signature	[]byte		`json:"signature"`
 }
 
 type Payload struct {
-	Ver int8		`json:"ver,omitempty"`
-	Alg string		`json:"alg,omitempty"`
-	Iat	int64		`json:"iat,omitempty"`
-	Iss	*IDClaim	`json:"iss,omitempty"`
-	Sub	*IDClaim	`json:"sub,omitempty"`
-	Aud	*IDClaim	`json:"aud,omitempty"`
+	Ver 		int8		`json:"ver,omitempty"`
+	Alg 		string		`json:"alg,omitempty"`
+	Iat			int64		`json:"iat,omitempty"`
+	Iss			*IDClaim	`json:"iss,omitempty"`
+	Sub			*IDClaim	`json:"sub,omitempty"`
+	Aud			*IDClaim	`json:"aud,omitempty"`
 }
 
 type IDClaim struct {
-	CN	string		`json:"cn,omitempty"` // e.g.: spiffe://example.org/workload
-	PK	[]byte		`json:"pk,omitempty"` // e.g.: VGhpcyBpcyBteSBQdWJsaWMgS2V5
-	LS	*LSVID		`json:"ls,omitempty"` // e.g.: a complete LSVID
+	CN			string		`json:"cn,omitempty"` // e.g.: spiffe://example.org/workload
+	PK			[]byte		`json:"pk,omitempty"` // e.g.: VGhpcyBpcyBteSBQdWJsaWMgS2V5
+	ID			*Token		`json:"id,omitempty"` // e.g.: a complete LSVID
 }
 
 // lsvid -> string
@@ -67,7 +72,7 @@ func Decode(encLSVID string) (*LSVID, error) {
     if err != nil {
         return nil, fmt.Errorf("error decoding LSVID: %v\n", err)
     }
-	// fmt.Printf("Decoded LSVID to be unmarshaled: %s\n", decoded)
+	fmt.Printf("Decoded LSVID to be unmarshaled: %s\n", decoded)
 
     // Unmarshal the decoded byte slice into your struct
     var decLSVID LSVID
@@ -75,22 +80,23 @@ func Decode(encLSVID string) (*LSVID, error) {
     if err != nil {
         return nil, fmt.Errorf("error unmarshalling LSVID: %v\n", err)
     }
-
+	fmt.Printf("Return vallue: %v\n", decLSVID)
     return &decLSVID, nil
 }
 
-// Add the new payload to an existing LSVID and sign using provided key
+// Add the new Token to extend an existing one, and sign using provided key
 func Extend(lsvid *LSVID, newPayload *Payload, key crypto.Signer) (string, error) {
 	// TODO: Modify the payload struct to support custom claims (maybe using map[string]{interface})
 	// Create the extended LSVID structure
-	extLSVID := &LSVID{
-		Nested:	lsvid,
-		Payload:	newPayload,
+	extLSVID := &LSVID {
+		Token:	&Token{
+			Nested:		lsvid.Token,
+			Payload:	newPayload,
+		},
+		Bundle:			lsvid.Bundle,
 	}
 
 	// Marshal to JSON
-	// TODO: Check if its necessary to marshal before signing. I mean, we need an byte array, 
-	// and using JSON marshaler we got it. But maybe there is a better way?
 	tmpToSign, err := json.Marshal(extLSVID)
 	if err != nil {
 		return "", fmt.Errorf("Error generating json: %v\n", err)
@@ -104,7 +110,7 @@ func Extend(lsvid *LSVID, newPayload *Payload, key crypto.Signer) (string, error
 	} 
 
 	// Set extLSVID signature
-	extLSVID.Signature = s
+	extLSVID.Token.Signature = s
 
 	// Encode signed LSVID
 	outLSVID, err := Encode(extLSVID)
@@ -118,7 +124,7 @@ func Extend(lsvid *LSVID, newPayload *Payload, key crypto.Signer) (string, error
 
 // Validate the given LSVID. 
 // TODO: include the root (trust bundle) LSVID as parameter, to validate the inner signature
-func Validate(lsvid *LSVID) (bool, error) {
+func Validate(lsvid *Token) (bool, error) {
 
 	for (lsvid.Nested != nil) {
 
@@ -129,8 +135,8 @@ func Validate(lsvid *LSVID) (bool, error) {
 		fmt.Printf("Aud -> Iss link validation successful!\n")
 
 		// Marshal the LSVID struct into JSON
-		tmpLSVID := &LSVID{
-			Nested:	lsvid.Nested,
+		tmpLSVID := &Token{
+			Nested:		lsvid.Nested,
 			Payload:	lsvid.Payload,
 		}
 		lsvidJSON, err := json.Marshal(tmpLSVID)
@@ -142,8 +148,8 @@ func Validate(lsvid *LSVID) (bool, error) {
 		// Parse the public key
 		// TODO: Currently the pk is extracted from the iss lsvid that MUST be present
 		// and we are still not validating the trust bundle.
-		var issLSVID *LSVID
-		issLSVID = lsvid.Payload.Iss.LS
+		var issLSVID *Token
+		issLSVID = lsvid.Payload.Iss.ID
 		for (issLSVID.Nested != nil) {
 			// fmt.Printf("Issuer nested LSVID found! %v\n", issLSVID.Nested)
 			issLSVID = issLSVID.Nested
@@ -190,14 +196,12 @@ func Validate(lsvid *LSVID) (bool, error) {
 	}
 
 	return true, nil
-
 }
 
 // Fetch workload LSVID using modified FetchJWTSVID endpoint
 func FetchLSVID(ctx context.Context, socketPath string) (string, error) {
 	
 	// Fetch claims data
-	// clientSVID 		:= dasvid.FetchX509SVID()
 	clientSVID, err := fetchSVID(ctx, socketPath)
 	if err != nil {
 		return "", fmt.Errorf("Unable to fetch X509 SVID: %v\n", err)

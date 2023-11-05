@@ -977,7 +977,7 @@ Main functions:
 			Iat:	time.Now().Round(0).Unix(),
 			Iss:	&lsvid.IDClaim{
 				CN:	clientID,
-				LS:	decSignerLSVID,
+				ID:	decSignerLSVID.Token,
 			},
 			Aud:	&lsvid.IDClaim{
 				CN:	audience,
@@ -1002,7 +1002,7 @@ Main functions:
 
 		fmt.Printf("Decoded LSVID to be validated: %v\n", decLSVID)
 
-		validateLSVID, err := lsvid.Validate(decLSVID)
+		validateLSVID, err := lsvid.Validate(decLSVID.Token)
 		if err != nil {
 			fmt.Printf("Error validating LSVID: %v\n", err)
 			os.Exit(1)
