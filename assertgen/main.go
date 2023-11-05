@@ -946,7 +946,10 @@ Main functions:
 		// ./assertgen extendlsvid <prev-LSVID> <audience>
 
 		// Fetch client data
-		clientSVID 		:= dasvid.FetchX509SVID()
+		clientSVID, err 		:= lsvid.FetchSVID(ctx, socketPath)
+		if err != nil {
+			log.Fatalf("Error fetching client SVID: %v\n", err)
+		}
 		clientID 		:= clientSVID.ID.String()
 		clientkey 		:= clientSVID.PrivateKey
 
