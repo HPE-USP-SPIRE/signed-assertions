@@ -24,7 +24,7 @@ import (
 )
 
 type LSVID struct {
-	Token		*Token		`json:"token"`		// The LSVID document
+	Token		*Token		`json:"token"`		// The workload LSVID document
 	Bundle		*Token		`json:"bundle"`		// The Trust bundle document
 }
 
@@ -109,34 +109,11 @@ func Extend(lsvid *LSVID, newPayload *Payload, key crypto.Signer) (string, error
 	// Set extLSVID signature
 	token.Signature = s
 
+	// Create the extended LSVID
 	extLSVID := &LSVID {
 		Token:		token,
 		Bundle:		lsvid.Bundle,
 	}
-
-	// extLSVID := &LSVID {
-	// 	Token:	&Token{
-	// 		Nested:		lsvid.Token,
-	// 		Payload:	newPayload,
-	// 	},
-	// 	Bundle:			lsvid.Bundle,
-	// }
-
-	// // Marshal to JSON
-	// tmpToSign, err := json.Marshal(extLSVID)
-	// if err != nil {
-	// 	return "", fmt.Errorf("Error generating json: %v\n", err)
-	// } 
-
-	// // Sign extlSVID
-	// hash 	:= hash256.Sum256(tmpToSign)
-	// s, err := key.Sign(rand.Reader, hash[:], crypto.SHA256)
-	// if err != nil {
-	// 	return "", fmt.Errorf("Error generating signed assertion: %v\n", err)
-	// } 
-
-	// // Set extLSVID signature
-	// extLSVID.Token.Signature = s
 
 	// Encode signed LSVID
 	outLSVID, err := Encode(extLSVID)
@@ -250,6 +227,8 @@ func FetchLSVID(ctx context.Context, socketPath string) (string, error) {
 
 	return fmt.Sprintf("%s", fetchLSVID.LSVID.Svid), nil
 }
+
+// Helper funcs
 
 // Create an LSVID payload given a x509 certificate.
 // PS: Payload claims are based in LSVID spec doc
