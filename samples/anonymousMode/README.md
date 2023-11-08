@@ -1,14 +1,5 @@
 # Anonymous-mode
-
-In Anonymous-mode, the objective is not to identify each workload in the token flow, but only to grant that all signatures are valid and that those signatures was created using the correct private key. In this scenario,a customized concatenation signature scheme is applied, where the private key to be used is part of previous signature. This create a signature chain and allow to validade using a scheme based in [Galindo and Garcia](https://doi.org/10.1007/978-3-642-02384-2_9) model
-
-1. The user log in application using an OKTA OAuth token
-2. The front-end (subject-wl) send the OAuth token to asserting-wl /mintassertion endpoint, that should return a new Schnorr nested token identifying the user and the workload that is allowed to access in behalf of the user.
-3. The asserting-wl generate a new Schnorr key parir and mint the new nested token using the private key.
-4. Asserting-wl return the token to front-end.
-5. Front-end add the necessary claims, remove part of previous signature and use it as private key, to generate the new signature. Then, front-end send the token to middle-tier.
-6. Similarly, all next workloads perform the same routine, adding the necessary claims, removing and using part of previous signature as private key.
-7. In the end, the token will be composed of 'n' parts, where only the last is a complete signature, and all previous are partial signatures. Target-wl then use the concatenated signature validation scheme to validate the token.
+In this mode, either by application option or due to the unavailability of an IdP, workload Wn can not validate the identity of workload Wn+1. Hence, the solution is limited to “bearers” rather than univocally identifying workloads. The construction of this scheme can follow a Biscuits-like approach or use a concatenation scheme.
 
 As there are two different schemes to be applied, we had chosen for the anonymous mode PoC the concatenated scheme, due to having more challenges and benefits in terms of performance and token size. Although, assertgen CLI can be used to create a token using all the different schemes developed.
 
@@ -25,56 +16,3 @@ Alternatively, when appending a token, instead of generating a new key pair duri
 ![Concatenated scheme](https://github.com/HPE-USP-SPIRE/signed-assertions/blob/main/doc/conc_sig.jpg)
 
 It is important to note that in a concatenated scheme there is no need (and it is not possible) to add the public key in "audience" claim, as the correspondent private key depends on the signature generation. Although, it is not a problem: the cryptographic scheme grants that only the correct key, derived from previous signature, can result in a valid concatenated signature.
-
-
-# Using the POC
-
-</br>
-
-## Setup your Environment
-
-If you haven't already, follow the Setup Guide, on [/samples/README](../README.MD) 
-
-After doing that, manually alter the `.cfg` file inside each workload folder accordingly:
-
-- CLIENT_ID and CLIENT_SECRET: found in your okta application
-- OKTA_DEVELOPER_CODE: a 7 number ID found in the URL of you okta dashboard (between dev- and -admin)
-- HOST_IP: the IP set under "Sign-in redirect URIs" in your okta application
-- WORKLOADIP: for each one of the workloads, configure it's IP with your host IP followed by a port (IP:PORT)
-
-Here is a sample configuration:
-
-```
-CLIENT_ID=0oo643ull1KZl5yVe5d7
-CLIENT_SECRET=yl5_6mIaTu5e1p5E70NazdFKNZ6bOhhWAzerdCOVc
-OKTA_DEVELOPER_CODE=1234567
-HOSTIP=192.168.0.100
-ASSERTINGWLIP=192.168.0.100:8443
-MIDDLETIERIP=192.168.0.100:8445
-MIDDLE_TIER2_IP=192.168.0.100:8446
-MIDDLE_TIER3_IP=192.168.0.100:8447
-MIDDLE_TIER4_IP=192.168.0.100:8448
-MIDDLE_TIER5_IP=192.168.0.100:8449
-TARGETWLIP=192.168.0.100:8444
-```
-
-## Run the Application
-
-Before running the application, you must start SPIRE, with: 
-```
-cd /opt/spire
-sudo ./start_spire_env.sh
-```
-
-To run the application, simply use the command `docker-compose up --build`
-
-After running it, open your browser on localhost:8080 and see if the application is working correctly
-
-</br>
-
-**Important**:
-
-- SPIRE will keep running in background. Use `./kill` to stop the application. Notice that it will kill all the docker conatiners running in your machine
-- Check the output for potential network errors during the download and preparation of the docker images
-- Always check if your IP is correctly set in OKTA and in `.cfg`
-

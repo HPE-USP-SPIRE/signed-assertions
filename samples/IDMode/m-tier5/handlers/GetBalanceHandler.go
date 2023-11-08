@@ -23,6 +23,7 @@ import (
 	"github.com/spiffe/go-spiffe/v2/svid/x509svid"
 
 	"github.com/hpe-usp-spire/signed-assertions/IDMode/m-tier5/models"
+	"github.com/hpe-usp-spire/signed-assertions/IDMode/m-tier5/monitoring-prom"
 )
 
 func GetBalanceHandler(w http.ResponseWriter, r *http.Request) {
@@ -36,7 +37,7 @@ func GetBalanceHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewDecoder(r.Body).Decode(&rcvSVID)
 	log.Print("Received assertion: ", rcvSVID.DASVIDToken)
 	log.Print("Received SVID certs: ", rcvSVID.IDArtifacts)
-
+	monitor.SVIDCertSize.WithLabelValues().Set(float64(len(rcvSVID.IDArtifacts)))
 	svidcerts := strings.SplitAfter(fmt.Sprintf("%s", rcvSVID.IDArtifacts), "-----END CERTIFICATE-----")
 	log.Printf("%d certificates received!", len(svidcerts)-1)
 	
@@ -53,7 +54,7 @@ func GetBalanceHandler(w http.ResponseWriter, r *http.Request) {
 	
 	}
 
-	valid := dasvid.ValidateECDSAIDassertion(rcvSVID.DASVIDToken, ecdsakeys)
+	valid := validateECDSA(rcvSVID.DASVIDToken, ecdsakeys)
 	if valid == false {
 		log.Fatalf("Error validating ECDSA assertion using SVID!")
 		
@@ -120,10 +121,11 @@ func GetBalanceHandler(w http.ResponseWriter, r *http.Request) {
 		"aud"		:		audienceid,
 		"iat"		:	 	issue_time,
 	}
-	assertion, err := dasvid.NewECDSAencode(assertionclaims, rcvSVID.DASVIDToken, clientkey)
+	assertion, err := mintECDSA(assertionclaims, rcvSVID.DASVIDToken, clientkey)
 	if err != nil {
 		log.Fatal("Error generating signed ECDSA assertion!")
-	} 
+	}
+	monitor.AssertionSize.WithLabelValues().Set(float64(len(assertion)))
 	log.Printf("Generated ECDSA assertion	: %s", fmt.Sprintf("%s",assertion))
 	log.Printf("Generated ID artifact		: %s", fmt.Sprintf("%s",idartifact))
 	log.Printf("Updated SVID bundle			: %s", fmt.Sprintf("%s",updSVID))

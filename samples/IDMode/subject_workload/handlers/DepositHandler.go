@@ -18,6 +18,7 @@ import (
 	// "bufio"
 	"strings"
 	"crypto/x509"
+	"crypto"
 	"encoding/pem"
 	"crypto/ecdsa"
 	"crypto/tls"
@@ -31,9 +32,24 @@ import (
 
 	"github.com/hpe-usp-spire/signed-assertions/IDMode/subject_workload/local"
 	"github.com/hpe-usp-spire/signed-assertions/IDMode/subject_workload/models"
-	
-
+	"github.com/hpe-usp-spire/signed-assertions/IDMode/subject_workload/monitoring-prom"
 )
+
+func validateECDSA(token string, ecdsaKeys []*ecdsa.PublicKey) bool {
+    defer timeTrack(time.Now(), "ecdsa validation")
+	valid := dasvid.ValidateECDSAIDassertion(token, ecdsaKeys)
+    return valid
+}
+
+func mintECDSA(assertionclaims map[string]interface{}, oldmain string, key crypto.Signer) (string, error) {
+	defer timeTrack(time.Now(), "ECDSAmint")
+	var ecdsa_assertion string
+	ecdsa_assertion, err := dasvid.NewECDSAencode(assertionclaims, oldmain, key)
+	if err != nil {
+		log.Fatalf("Error generating signed ecdsa assertion!")
+	}
+	return ecdsa_assertion, nil
+}
 
 func DepositHandler(w http.ResponseWriter, r *http.Request) {
 
@@ -55,7 +71,7 @@ func DepositHandler(w http.ResponseWriter, r *http.Request) {
 
 	rcvSVID := temp.IDArtifacts
 	log.Print("Received SVID cert: ", rcvSVID)
-
+	monitor.SVIDCertSize.WithLabelValues().Set(float64(len(rcvSVID)))
 	svidcerts := strings.SplitAfter(fmt.Sprintf("%s", rcvSVID), "-----END CERTIFICATE-----")
 	log.Printf("%d certificates received!", len(svidcerts)-1)
 	
@@ -72,7 +88,7 @@ func DepositHandler(w http.ResponseWriter, r *http.Request) {
 	
 	}
 
-	valid := dasvid.ValidateECDSAIDassertion(temp.DASVIDToken, ecdsakeys)
+	valid := validateECDSA(temp.DASVIDToken, ecdsakeys)
 	if valid == false {
 		log.Fatalf("Error validating ECDSA assertion using SVID!")
 		
@@ -140,10 +156,11 @@ func DepositHandler(w http.ResponseWriter, r *http.Request) {
 		"aud"		:		audienceid,
 		"iat"		:	 	issue_time,
 	}
-	assertion, err := dasvid.NewECDSAencode(assertionclaims, temp.DASVIDToken, clientkey)
+	assertion, err := mintECDSA(assertionclaims, temp.DASVIDToken, clientkey)
 	if err != nil {
 		log.Fatal("Error generating signed ECDSA assertion!")
-	} 
+	}
+	monitor.AssertionSize.WithLabelValues().Set(float64(len(assertion)))
 	log.Printf("Generated ECDSA assertion	: ", fmt.Sprintf("%s",assertion))
 	log.Printf("Generated ID artifact		: ", fmt.Sprintf("%s",idartifact))
 

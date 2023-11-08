@@ -53,7 +53,7 @@ RUN chmod +x ./poclib/jwk2der.sh
 RUN apk add --no-cache bash
 
 # Export necessary port
-EXPOSE 8449
+EXPOSE 8449 2119
 
 # Command to run when starting the container
 CMD ["/build/main"]

@@ -14,7 +14,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hpe-usp-spire/signed-assertions/anonymousMode/api-libs/utils"
+	"github.com/hpe-usp-spire/signed-assertions/anonymousMode/target-wl/monitoring-prom"
 	"github.com/hpe-usp-spire/signed-assertions/anonymousMode/target-wl/models"
 
 	dasvid "github.com/hpe-usp-spire/signed-assertions/poclib/svid"
@@ -25,21 +25,29 @@ import (
 	
 )
 
+func timeTrack(start time.Time, name string) {
+	elapsed := time.Since(start)
+	log.Printf("%s execution time is %s", name, elapsed)
+	monitor.ExecutionTimeSummary.WithLabelValues(name).Observe(elapsed.Seconds())
+	// If the file doesn't exist, create it, or append to the file
+	file, err := os.OpenFile("./bench.data", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		log.Fatal(err)
+	}
+	log.Printf("Writing to file...")
+	json.NewEncoder(file).Encode(fmt.Sprintf("%s execution time is %s", name, elapsed))
+	if err := file.Close(); err != nil {
+		log.Fatal(err)
+	}
+}
 
-
-
-
-
-
-
-
-
-
-
-
+func ValidateGalindo(datoken string) bool {
+	defer timeTrack(time.Now(), "gg_validation")
+    return dasvid.Validategg(datoken)
+}
 
 func DepositHandler(w http.ResponseWriter, r *http.Request) {
-	defer utils.TimeTrack(time.Now(), "DepositHandler")
+	defer timeTrack(time.Now(), "DepositHandler")
 
 	var tempbalance models.Balancetemp
 	var dasvidclaims models.DAClaims
@@ -67,7 +75,8 @@ func DepositHandler(w http.ResponseWriter, r *http.Request) {
 	datoken := r.FormValue("DASVID")
 	log.Println("Received token: ", datoken)
 	// Use galindo-garcia to validate token
-	if (dasvid.Validategg(datoken) == false) {
+	validate_galindo := ValidateGalindo(datoken)
+	if (validate_galindo == false) {
 		returnmsg := "Galindo-Garcia validation failed!"
 		log.Printf(returnmsg)
 		tempbalance = models.Balancetemp{
@@ -101,14 +110,8 @@ func DepositHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create OpenSSL vkey using DASVID
-	tmpvkey := dasvid.Assertion2vkey(original, 1)
 
 	// Verify /introspect response correctness.
-	hexresult := dasvid.VerifyHexProof(introspectrsp.ZKP, introspectrsp.Msg, tmpvkey)
-	if hexresult == false {
-		log.Fatal("Error verifying hexproof!!")
-	}
-	log.Println("Success verifying hexproof!!")
 
 	// This PoC will consider that only DA-SVID with "subject_wl" in sub claim will be able request data
 	if dasvidclaims.Aud != "spiffe://example.org/subject_wl" {
@@ -198,7 +201,7 @@ func DepositHandler(w http.ResponseWriter, r *http.Request) {
 func introspect(datoken string, client http.Client) (introspectrsp models.FileContents) {
 
 	var rcvresp models.FileContents
-
+	defer timeTrack(time.Now(), "introspect")
 	endpoint := "https://" + os.Getenv("ASSERTINGWLIP") + "/introspect?DASVID=" + datoken
 
 	response, err := client.Get(endpoint)

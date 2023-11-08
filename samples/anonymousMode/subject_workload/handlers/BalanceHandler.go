@@ -14,11 +14,13 @@ import (
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"github.com/spiffe/go-spiffe/v2/spiffetls/tlsconfig"
 	"github.com/spiffe/go-spiffe/v2/workloadapi"
+	"go.dedis.ch/kyber/v3"
 
 	dasvid "github.com/hpe-usp-spire/signed-assertions/poclib/svid"
 
 	"github.com/hpe-usp-spire/signed-assertions/anonymousMode/subject_workload/local"
 	"github.com/hpe-usp-spire/signed-assertions/anonymousMode/subject_workload/models"
+	"github.com/hpe-usp-spire/signed-assertions/anonymousMode/subject_workload/monitoring-prom"
 
 	// To sig. validation 
 	_ "crypto/sha256"
@@ -33,6 +35,16 @@ import (
 	// "github.com/spiffe/go-spiffe/v2/svid/x509svid"
 
 )
+
+func AssertionGen(assertionclaims map[string]interface{}, oldmain string, privateKey kyber.Scalar) (string, error) {
+	defer timeTrack(time.Now(), "SchnorrAssertionGen")
+	var schnorr_assertion string
+	schnorr_assertion, err := dasvid.NewSchnorrencode(assertionclaims, oldmain, privateKey)
+	if err != nil {
+		log.Fatalf("Error generating signed schnorr assertion!")
+	}
+	return schnorr_assertion, nil
+}
 
 func BalanceHandler(w http.ResponseWriter, r *http.Request) {
 
@@ -102,11 +114,11 @@ func BalanceHandler(w http.ResponseWriter, r *http.Request) {
 		"iid"		:		clientID,
 		"iat"		:	 	issue_time,
 	}
-	assertion, err = dasvid.NewSchnorrencode(assertionclaims, oldmain, privateKey)
+	assertion, err = AssertionGen(assertionclaims, oldmain, privateKey)
 	if err != nil {
 		log.Fatalf("Error generating signed schnorr assertion!")
-	} 
-
+	}
+	monitor.AssertionSize.WithLabelValues().Set(float64(len(assertion)))
 	log.Printf("Generated assertion: ", fmt.Sprintf("%s",assertion))
 
 	endpoint := "https://"+os.Getenv("MIDDLETIERIP")+"/get_balance?DASVID="+assertion

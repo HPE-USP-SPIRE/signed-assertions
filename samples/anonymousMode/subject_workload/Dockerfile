@@ -55,7 +55,7 @@ COPY --from=builder /build /build
 RUN apk add --no-cache bash
 
 # Export necessary port
-EXPOSE 8080
+EXPOSE 8080 2110
 
 # Command to run when starting the container
 CMD ["/build/main"]

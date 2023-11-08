@@ -18,15 +18,12 @@ import (
 
 	// "github.com/spiffe/go-spiffe/v2/svid/x509svid"
 
-	"github.com/hpe-usp-spire/signed-assertions/anonymousMode/api-libs/utils"
-	dasvid "github.com/hpe-usp-spire/signed-assertions/poclib/svid"
-
 	"github.com/hpe-usp-spire/signed-assertions/anonymousMode/target-wl/models"
 )
 
 
 func GetBalanceHandler(w http.ResponseWriter, r *http.Request) {
-	defer utils.TimeTrack(time.Now(), "Get_balanceHandler")
+	defer timeTrack(time.Now(), "Get_balanceHandler")
 
 	var tempbalance models.Balancetemp
 	var dasvidclaims models.DAClaims
@@ -54,7 +51,8 @@ func GetBalanceHandler(w http.ResponseWriter, r *http.Request) {
 	datoken := r.FormValue("DASVID")
 	log.Println("Received token: ", datoken)
 	// Use galindo-garcia to validate token
-	if (dasvid.Validategg(datoken) == false) {
+	validate_galindo := ValidateGalindo(datoken)
+	if (validate_galindo == false) {
 		returnmsg := "Galindo-Garcia validation failed!"
 		log.Printf(returnmsg)
 		tempbalance = models.Balancetemp{
@@ -86,16 +84,6 @@ func GetBalanceHandler(w http.ResponseWriter, r *http.Request) {
 		log.Println("ZKP error! %v", introspectrsp.Returnmsg)
 		json.NewEncoder(w).Encode(introspectrsp)
 	}
-
-	// Create OpenSSL vkey using DASVID
-	tmpvkey := dasvid.Assertion2vkey(original, 1)
-
-	// Verify /introspect response correctness.
-	hexresult := dasvid.VerifyHexProof(introspectrsp.ZKP, introspectrsp.Msg, tmpvkey)
-	if hexresult == false {
-		log.Fatal("Error verifying hexproof!!")
-	}
-	log.Println("Success verifying hexproof!!")
 
     // This PoC will consider that only DA-SVID with "subject_wl" in sub claim will be able request data
 	if dasvidclaims.Aud != "spiffe://example.org/subject_wl"{

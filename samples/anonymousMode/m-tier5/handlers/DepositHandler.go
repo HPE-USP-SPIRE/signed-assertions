@@ -16,7 +16,8 @@ import (
 	"github.com/spiffe/go-spiffe/v2/spiffetls/tlsconfig"
 	"github.com/spiffe/go-spiffe/v2/workloadapi"
 	// "go.dedis.ch/kyber/v3/group/edwards25519"
-
+	"go.dedis.ch/kyber/v3"
+	"github.com/hpe-usp-spire/signed-assertions/anonymousMode/m-tier5/monitoring-prom"
 	"github.com/hpe-usp-spire/signed-assertions/anonymousMode/m-tier5/models"
 )
 
@@ -25,7 +26,7 @@ var temp models.Contents
 func timeTrack(start time.Time, name string) {
 	elapsed := time.Since(start)
 	log.Printf("%s execution time is %s", name, elapsed)
-
+	monitor.ExecutionTimeSummary.WithLabelValues(name).Observe(elapsed.Seconds())
 	// If the file doesn't exist, create it, or append to the file
 	file, err := os.OpenFile("./bench.data", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
@@ -36,6 +37,16 @@ func timeTrack(start time.Time, name string) {
 	if err := file.Close(); err != nil {
 		log.Fatal(err)
 	}
+}
+
+func AssertionGen(assertionclaims map[string]interface{}, oldmain string, privateKey kyber.Scalar) (string, error) {
+	defer timeTrack(time.Now(), "SchnorrAssertionGen")
+	var schnorr_assertion string
+	schnorr_assertion, err := dasvid.NewSchnorrencode(assertionclaims, oldmain, privateKey)
+	if err != nil {
+		log.Fatalf("Error generating signed schnorr assertion!")
+	}
+	return schnorr_assertion, nil
 }
 
 func DepositHandler(w http.ResponseWriter, r *http.Request) {
@@ -97,10 +108,11 @@ func DepositHandler(w http.ResponseWriter, r *http.Request) {
 		"iid"		:		clientID,
 		"iat"		:	 	issue_time,
 	}
-	assertion, err = dasvid.NewSchnorrencode(assertionclaims, oldmain, privateKey)
+	assertion, err = AssertionGen(assertionclaims, oldmain, privateKey)
 	if err != nil {
 		log.Fatalf("Error generating signed schnorr assertion!")
-	} 
+	}
+	monitor.AssertionSize.WithLabelValues().Set(float64(len(assertion)))
 
 	log.Printf("Generated assertion: ", fmt.Sprintf("%s",assertion))
 
@@ -133,7 +145,7 @@ func DepositHandler(w http.ResponseWriter, r *http.Request) {
 
 func introspect(datoken string, client http.Client) (introspectrsp models.FileContents) {
 	var rcvresp models.FileContents
-
+	defer timeTrack(time.Now(), "introspect")
 	endpoint := "https://" + os.Getenv("ASSERTINGWLIP") + "/introspect?DASVID=" + datoken
 
 	response, err := client.Get(endpoint)

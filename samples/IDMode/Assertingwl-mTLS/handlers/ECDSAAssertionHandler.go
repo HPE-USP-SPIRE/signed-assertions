@@ -9,12 +9,24 @@ import (
 	"os"
 	"strings"
 	"time"
+	"crypto"
 
 	"github.com/hpe-usp-spire/signed-assertions/IDMode/Assertingwl-mTLS/models"
+	"github.com/hpe-usp-spire/signed-assertions/IDMode/Assertingwl-mTLS/monitoring-prom"
 	// "github.com/hpe-usp-spire/signed-assertions/IDMode/api-libs/global"
 	dasvid "github.com/hpe-usp-spire/signed-assertions/poclib/svid"
 	"github.com/spiffe/go-spiffe/v2/svid/x509svid"
 )
+
+func mintECDSA(assertionclaims map[string]interface{}, oldmain string, key crypto.Signer) (string, error) {
+	defer timeTrack(time.Now(), "ECDSAmint")
+	var ecdsa_assertion string
+	ecdsa_assertion, err := dasvid.NewECDSAencode(assertionclaims, oldmain, key)
+	if err != nil {
+		log.Fatalf("Error generating signed schnorr assertion!")
+	}
+	return ecdsa_assertion, nil
+}
 
 func ECDSAAssertionHandler(w http.ResponseWriter, r *http.Request) {
 
@@ -126,14 +138,12 @@ func ECDSAAssertionHandler(w http.ResponseWriter, r *http.Request) {
 			"dpr"		:		fmt.Sprintf("%v", tokenclaims["sub"]),	
 		}
 
-		assertion, err := dasvid.NewECDSAencode(assertionclaims, "", clientkey)
+		assertion, err := mintECDSA(assertionclaims, "", clientkey)
 		if err != nil {
 			log.Fatal("Error generating signed ECDSA assertion!")
 		} 
-
+		monitor.AssertionSize.WithLabelValues().Set(float64(len(assertion)))
 		log.Printf("Generated ECDSA assertion: ", fmt.Sprintf("%s",assertion))
-
-
 
 		// Data to be writen in cache file
 		FileTemp = models.FileContents{

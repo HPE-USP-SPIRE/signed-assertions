@@ -5,13 +5,14 @@ import (
 
 	api "github.com/hpe-usp-spire/signed-assertions/anonymousMode/api-libs/global"
 	alOps "github.com/hpe-usp-spire/signed-assertions/anonymousMode/api-libs/options"
-
+	"github.com/hpe-usp-spire/signed-assertions/anonymousMode/m-tier5/monitoring-prom"
 	"github.com/hpe-usp-spire/signed-assertions/anonymousMode/m-tier5/options"
 )
 
 var Options *alOps.Options
 
 func init() {
+	monitor.RegisterMetrics()
 	log.Print("global init")
 
 	options, err := options.InitOptions()

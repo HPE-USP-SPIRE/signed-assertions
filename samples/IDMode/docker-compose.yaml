@@ -1,89 +1,138 @@
 version: "3"
 
 services:
+
   assertingwl:
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: '128M'
     build:
       context: ../..
       dockerfile: samples/IDMode/Assertingwl-mTLS/Dockerfile
     ports:
       - "8443:8443"
+      - "2113:2113"
     volumes:
       - /tmp/spire-agent/public/api.sock:/tmp/spire-agent/public/api.sock
     networks:
       - my-network
 
   subjectwl:
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: '128M'
     build:
       context: ../..
       dockerfile: samples/IDMode/subject_workload/Dockerfile
     ports:
       - "8080:8080"
+      - "2110:2110"
     volumes:
       - /tmp/spire-agent/public/api.sock:/tmp/spire-agent/public/api.sock
     networks:
       - my-network
 
   m-tier:
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: '128M'
     build:
-      context: ../../
+      context: ../..
       dockerfile: samples/IDMode/m-tier/Dockerfile
     ports:
       - "8445:8445"
+      - "2115:2115"
     volumes:
       - /tmp/spire-agent/public/api.sock:/tmp/spire-agent/public/api.sock
     networks:
       - my-network
   
   m-tier2:
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: '128M'
     build:
       context: ../..
       dockerfile: samples/IDMode/m-tier2/Dockerfile
     ports:
       - "8446:8446"
+      - "2116:2116"
     volumes:
       - /tmp/spire-agent/public/api.sock:/tmp/spire-agent/public/api.sock
     networks:
       - my-network
-  
+
   m-tier3:
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: '128M'
     build:
       context: ../..
       dockerfile: samples/IDMode/m-tier3/Dockerfile
     ports:
       - "8447:8447"
+      - "2117:2117"
     volumes:
       - /tmp/spire-agent/public/api.sock:/tmp/spire-agent/public/api.sock
     networks:
       - my-network
 
   m-tier4:
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: '128M'
     build:
       context: ../..
       dockerfile: samples/IDMode/m-tier4/Dockerfile
     ports:
       - "8448:8448"
+      - "2118:2118"
     volumes:
       - /tmp/spire-agent/public/api.sock:/tmp/spire-agent/public/api.sock
     networks:
       - my-network
-        
+      
   m-tier5:
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: '128M'
     build:
       context: ../..
       dockerfile: samples/IDMode/m-tier5/Dockerfile
     ports:
       - "8449:8449"
+      - "2119:2119"
     volumes:
       - /tmp/spire-agent/public/api.sock:/tmp/spire-agent/public/api.sock
     networks:
       - my-network
 
   target-wl:
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: '128M'
     build:
       context: ../..
       dockerfile: samples/IDMode/target-wl/Dockerfile
     ports:
       - "8444:8444"
+      - "2114:2114"
     volumes:
       - /tmp/spire-agent/public/api.sock:/tmp/spire-agent/public/api.sock
     networks:

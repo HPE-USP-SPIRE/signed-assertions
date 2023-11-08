@@ -27,15 +27,12 @@ import (
 	"github.com/spiffe/go-spiffe/v2/workloadapi"
 
 	// "github.com/spiffe/go-spiffe/v2/svid/x509svid"
-
-	"github.com/hpe-usp-spire/signed-assertions/IDMode/api-libs/utils"
-	dasvid "github.com/hpe-usp-spire/signed-assertions/poclib/svid"
-
+	"github.com/hpe-usp-spire/signed-assertions/IDMode/target-wl/monitoring-prom"
 	"github.com/hpe-usp-spire/signed-assertions/IDMode/target-wl/models"
 )
 
 func GetBalanceHandler(w http.ResponseWriter, r *http.Request) {
-	defer utils.TimeTrack(time.Now(), "Get_balanceHandler")
+	defer timeTrack(time.Now(), "Get_balanceHandler")
 
 	var tempbalance models.Balancetemp
 	// var temp models.Contents
@@ -50,7 +47,8 @@ func GetBalanceHandler(w http.ResponseWriter, r *http.Request) {
     json.NewDecoder(r.Body).Decode(&rcvSVID)
 	log.Print("Received  assertion: ", rcvSVID.DASVIDToken)
 	log.Print("Received SVID certs: ", rcvSVID.IDArtifacts)
-
+	monitor.AssertionSize.WithLabelValues().Set(float64(len(rcvSVID.DASVIDToken)))
+	monitor.SVIDCertSize.WithLabelValues().Set(float64(len(rcvSVID.IDArtifacts)))
 	svidcerts := strings.SplitAfter(fmt.Sprintf("%s", rcvSVID.IDArtifacts), "-----END CERTIFICATE-----")
 	log.Printf("%d certificates received!", len(svidcerts)-1)
 	
@@ -67,7 +65,7 @@ func GetBalanceHandler(w http.ResponseWriter, r *http.Request) {
 	
 	}
 
-	valid := dasvid.ValidateECDSAIDassertion(rcvSVID.DASVIDToken, ecdsakeys)
+	valid := validateECDSA(rcvSVID.DASVIDToken, ecdsakeys)
 	if valid == false {
 		returnmsg := "Error validating ECDSA assertion using received SVID!"
 		log.Printf(returnmsg)
@@ -124,15 +122,6 @@ func GetBalanceHandler(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(introspectrsp)
 	}
 
-	// Create OpenSSL vkey using DASVID
-	tmpvkey := dasvid.Assertion2vkey(original, 1)
-
-	// Verify /introspect response correctness.
-	hexresult := dasvid.VerifyHexProof(introspectrsp.ZKP, introspectrsp.Msg, tmpvkey)
-	if hexresult == false {
-		log.Fatal("Error verifying hexproof!!")
-	}
-	log.Println("Success verifying hexproof!!")
 
     // This PoC will consider that only DA-SVID with "subject_wl" in sub claim will be able request data
 	if dasvidclaims.Aud != "spiffe://example.org/subject_wl"{

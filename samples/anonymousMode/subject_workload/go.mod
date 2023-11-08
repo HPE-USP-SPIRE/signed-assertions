@@ -8,7 +8,10 @@ require (
 	github.com/hpe-usp-spire/signed-assertions/poclib v0.0.0-00010101000000-000000000000
 	github.com/okta/okta-jwt-verifier-golang v1.3.1
 	github.com/okta/samples-golang v0.0.0-20230321201010-908f8c144207
+	github.com/prometheus/client_golang v1.14.0
+	github.com/shirou/gopsutil v3.21.11+incompatible
 	github.com/spiffe/go-spiffe/v2 v2.1.4
+	go.dedis.ch/kyber/v3 v3.1.0
 )
 
 replace github.com/hpe-usp-spire/signed-assertions/anonymousMode/api-libs => ./api-libs
@@ -117,6 +120,7 @@ require (
 	github.com/go-playground/locales v0.14.0 // indirect
 	github.com/go-playground/universal-translator v0.18.0 // indirect
 	github.com/go-playground/validator/v10 v10.11.1 // indirect
+	github.com/goccy/go-json v0.9.4 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang-jwt/jwt v3.2.2+incompatible // indirect
 	github.com/golang-jwt/jwt/v4 v4.4.2 // indirect
@@ -203,7 +207,6 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/power-devops/perfstat v0.0.0-20210106213030-5aafc221ea8c // indirect
-	github.com/prometheus/client_golang v1.14.0 // indirect
 	github.com/prometheus/client_model v0.3.0 // indirect
 	github.com/prometheus/common v0.37.0 // indirect
 	github.com/prometheus/procfs v0.8.0 // indirect
@@ -253,7 +256,6 @@ require (
 	github.com/yusufpapurcu/wmi v1.2.2 // indirect
 	github.com/zeebo/errs v1.3.0 // indirect
 	go.dedis.ch/fixbuf v1.0.3 // indirect
-	go.dedis.ch/kyber/v3 v3.1.0 // indirect
 	go.etcd.io/bbolt v1.3.6 // indirect
 	go.etcd.io/etcd/api/v3 v3.6.0-alpha.0 // indirect
 	go.etcd.io/etcd/client/pkg/v3 v3.6.0-alpha.0 // indirect

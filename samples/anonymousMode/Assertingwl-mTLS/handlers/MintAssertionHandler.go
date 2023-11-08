@@ -14,12 +14,25 @@ import (
 	// "github.com/hpe-usp-spire/signed-assertions/anonymousMode/api-libs/global"
 	dasvid "github.com/hpe-usp-spire/signed-assertions/poclib/svid"
 	"github.com/spiffe/go-spiffe/v2/svid/x509svid"
+	"go.dedis.ch/kyber/v3"
+	"github.com/hpe-usp-spire/signed-assertions/anonymousMode/Assertingwl-mTLS/monitoring-prom"
 )
+
+func AssertionGen(assertionclaims map[string]interface{}, oldmain string, privateKey kyber.Scalar) (string, error) {
+	defer timeTrack(time.Now(), "FirstSchnorrAssertion")
+	var schnorr_assertion string
+	schnorr_assertion, err := dasvid.NewSchnorrencode(assertionclaims, "", privateKey)
+	if err != nil {
+		log.Fatalf("Error generating signed schnorr assertion!")
+	}
+	return schnorr_assertion, nil
+}
 
 func MintAssertionHandler(w http.ResponseWriter, r *http.Request) {
 
 	var fileTemp models.FileContents
 	var Data models.PocData
+	var assertion string	
 
 	log.Printf("MintAssertionHandler Execution")
 	defer timeTrack(time.Now(), fmt.Sprintf("MintAssertionHandler Execution"))
@@ -114,11 +127,11 @@ func MintAssertionHandler(w http.ResponseWriter, r *http.Request) {
 			"dpr"		:		fmt.Sprintf("%v", tokenclaims["sub"]),	
 		}
 
-		assertion, err := dasvid.NewSchnorrencode(assertionclaims, "", privateKey)
+		assertion, err = AssertionGen(assertionclaims, "", privateKey)
 		if err != nil {
-			log.Fatal("Error generating signed schnorr assertion!")
-		} 
-
+			log.Fatalf("Error generating signed schnorr assertion!")
+		}
+		monitor.AssertionSize.WithLabelValues().Set(float64(len(assertion)))
 		log.Printf("Generated assertion: ", fmt.Sprintf("%s",assertion))
 		
 		// save just signature.R due to concatenation process

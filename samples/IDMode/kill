@@ -1,9 +1,15 @@
 #!/bin/bash
 
-docker-compose down
-echo "Containers killed"
-
 #kill spire agent, spire server and containers
-cd /opt/spire
-sudo kill -9 $(ps -ef | grep "spire-agent" | grep -v grep | awk '{print $2}') ;  sudo kill -9 $(ps -ef | grep "spire-server" | grep -v grep | awk '{print $2}') ; sudo rm -rf .data
-echo "Spire Agent/Server killed"
+# sudo kill -9 $(ps -ef | grep "spire-agent" | grep -v grep | awk '{print $2}')
+# sudo kill -9 $(ps -ef | grep "spire-server" | grep -v grep | awk '{print $2}')
+# sudo rm -rf /opt/spire.data
+# echo "Spire Agent/Server killed"
+
+
+##  Kill ALL containers
+docker rm $(docker stop $(docker ps -a -q))
+##  Remove all <none> Docker Images
+docker rmi $(docker images -f "dangling=true" -q)
+##  Remove all Docker Images with idmode
+docker rmi $(docker images | grep idmode | cut -b 35-46)

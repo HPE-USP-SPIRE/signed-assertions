@@ -2,7 +2,15 @@ module github.com/hpe-usp-spire/signed-assertions/IDMode/target-wl
 
 go 1.20
 
-require github.com/hpe-usp-spire/signed-assertions/IDMode/api-libs v0.0.0-00010101000000-000000000000
+require (
+	github.com/gorilla/mux v1.8.0
+	github.com/hpe-usp-spire/signed-assertions/IDMode/api-libs v0.0.0-00010101000000-000000000000
+	github.com/hpe-usp-spire/signed-assertions/poclib v0.0.0-00010101000000-000000000000
+	github.com/prometheus/client_golang v1.14.0
+	github.com/shirou/gopsutil v3.21.11+incompatible
+	github.com/spiffe/go-spiffe/v2 v2.1.4
+	gitlab.com/msvechla/mux-prometheus v0.0.2
+)
 
 replace github.com/hpe-usp-spire/signed-assertions/IDMode/api-libs => ./api-libs
 
@@ -134,7 +142,6 @@ require (
 	github.com/googleapis/enterprise-certificate-proxy v0.2.3 // indirect
 	github.com/googleapis/gax-go/v2 v2.7.0 // indirect
 	github.com/gopherjs/gopherjs v1.17.2 // indirect
-	github.com/gorilla/mux v1.8.0 // indirect
 	github.com/gorilla/websocket v1.4.2 // indirect
 	github.com/grpc-ecosystem/go-grpc-middleware v1.3.0 // indirect
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0 // indirect
@@ -148,7 +155,6 @@ require (
 	github.com/hashicorp/golang-lru v0.5.4 // indirect
 	github.com/hashicorp/hcl v1.0.1-0.20190430135223-99e2f22d1c94 // indirect
 	github.com/hashicorp/yamux v0.1.1 // indirect
-	github.com/hpe-usp-spire/signed-assertions/poclib v0.0.0-00010101000000-000000000000 // indirect
 	github.com/imdario/mergo v0.3.13 // indirect
 	github.com/in-toto/in-toto-golang v0.3.4-0.20220709202702-fa494aaa0add // indirect
 	github.com/inconshreveable/mousetrap v1.0.1 // indirect
@@ -189,7 +195,6 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/power-devops/perfstat v0.0.0-20210106213030-5aafc221ea8c // indirect
-	github.com/prometheus/client_golang v1.14.0 // indirect
 	github.com/prometheus/client_model v0.3.0 // indirect
 	github.com/prometheus/common v0.37.0 // indirect
 	github.com/prometheus/procfs v0.8.0 // indirect
@@ -215,7 +220,6 @@ require (
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/spf13/viper v1.13.0 // indirect
-	github.com/spiffe/go-spiffe/v2 v2.1.4 // indirect
 	github.com/spiffe/spire v1.6.2 // indirect
 	github.com/spiffe/spire-api-sdk v1.2.5-0.20221020001527-5895a0279944 // indirect
 	github.com/spiffe/spire-plugin-sdk v1.4.4-0.20230203133000-75d7213a0ba0 // indirect
@@ -300,4 +304,3 @@ require (
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.3 // indirect
 	sigs.k8s.io/yaml v1.3.0 // indirect
 )
-

@@ -15,11 +15,12 @@ import (
 	"github.com/spiffe/go-spiffe/v2/spiffetls/tlsconfig"
 	"github.com/spiffe/go-spiffe/v2/workloadapi"
 	// "github.com/spiffe/go-spiffe/v2/svid/x509svid"
-
+	
 	dasvid "github.com/hpe-usp-spire/signed-assertions/poclib/svid"
 
 	"github.com/hpe-usp-spire/signed-assertions/anonymousMode/subject_workload/local"
 	"github.com/hpe-usp-spire/signed-assertions/anonymousMode/subject_workload/models"
+	"github.com/hpe-usp-spire/signed-assertions/anonymousMode/subject_workload/monitoring-prom"
 	"go.dedis.ch/kyber/v3/group/edwards25519"
 
 
@@ -91,10 +92,11 @@ func DepositHandler(w http.ResponseWriter, r *http.Request) {
 		"iid"		:		clientID,
 		"iat"		:	 	issue_time,
 	}
-	assertion, err = dasvid.NewSchnorrencode(assertionclaims, oldmain, privateKey)
+	assertion, err = AssertionGen(assertionclaims, oldmain, privateKey)
 	if err != nil {
-		log.Fatal("Error generating signed SCHNORR assertion!")
-	}
+		log.Fatalf("Error generating signed schnorr assertion!")
+	} 
+	monitor.AssertionSize.WithLabelValues().Set(float64(len(assertion)))
 	log.Printf("Generated assertion: ", fmt.Sprintf("%s",assertion))
 
 	endpoint := "https://"+os.Getenv("MIDDLETIERIP")+"/deposit?DASVID="+os.Getenv("DASVIDToken")+"&deposit="+r.FormValue("deposit")

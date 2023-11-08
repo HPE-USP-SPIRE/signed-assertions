@@ -6,11 +6,14 @@ import (
 	"github.com/hpe-usp-spire/signed-assertions/IDMode/Assertingwl-mTLS/options"
 	api "github.com/hpe-usp-spire/signed-assertions/IDMode/api-libs/global"
 	alOps "github.com/hpe-usp-spire/signed-assertions/IDMode/api-libs/options"
+	"github.com/hpe-usp-spire/signed-assertions/IDMode/Assertingwl-mTLS/monitoring-prom"
+
 )
 
 var Options *alOps.Options
 
 func init() {
+	monitor.RegisterMetrics()
 	log.Print("local init")
 	// api-libs/options/options.go
 	options, err := options.InitOptions()

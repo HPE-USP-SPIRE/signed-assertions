@@ -18,6 +18,7 @@ import (
 	"go.dedis.ch/kyber/v3/group/edwards25519"
 
 	"github.com/hpe-usp-spire/signed-assertions/anonymousMode/m-tier4/models"
+	"github.com/hpe-usp-spire/signed-assertions/anonymousMode/m-tier4/monitoring-prom"
 )
 
 var curve = edwards25519.NewBlakeSHA256Ed25519()
@@ -26,7 +27,7 @@ var g = curve.Point().Base()
 
 func GetBalanceHandler(w http.ResponseWriter, r *http.Request) {
 
-	defer timeTrack(time.Now(), "DepositHandler")
+	defer timeTrack(time.Now(), "BalanceHandler")
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -85,11 +86,11 @@ func GetBalanceHandler(w http.ResponseWriter, r *http.Request) {
 		"iid"		:		clientID,
 		"iat"		:	 	issue_time,
 	}
-	assertion, err = dasvid.NewSchnorrencode(assertionclaims, oldmain, privateKey)
+	assertion, err = AssertionGen(assertionclaims, oldmain, privateKey)
 	if err != nil {
 		log.Fatalf("Error generating signed schnorr assertion!")
 	} 
-
+	monitor.AssertionSize.WithLabelValues().Set(float64(len(assertion)))
 	log.Printf("Generated assertion: ", fmt.Sprintf("%s",assertion))
 
 	endpoint := "https://"+os.Getenv("MIDDLE_TIER5_IP")+"/get_balance?DASVID="+assertion

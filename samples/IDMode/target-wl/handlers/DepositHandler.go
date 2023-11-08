@@ -27,17 +27,39 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hpe-usp-spire/signed-assertions/IDMode/api-libs/utils"
 	dasvid "github.com/hpe-usp-spire/signed-assertions/poclib/svid"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"github.com/spiffe/go-spiffe/v2/spiffetls/tlsconfig"
 	"github.com/spiffe/go-spiffe/v2/workloadapi"
 
 	"github.com/hpe-usp-spire/signed-assertions/IDMode/target-wl/models"
+	"github.com/hpe-usp-spire/signed-assertions/IDMode/target-wl/monitoring-prom"
 )
 
+func timeTrack(start time.Time, name string) {
+	elapsed := time.Since(start)
+	log.Printf("%s execution time is %s", name, elapsed)
+	monitor.ExecutionTimeSummary.WithLabelValues(name).Observe(elapsed.Seconds())
+	// If the file doesn't exist, create it, or append to the file
+	file, err := os.OpenFile("./bench.data", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		log.Fatal(err)
+	}
+	log.Printf("Writing to file...")
+	json.NewEncoder(file).Encode(fmt.Sprintf("%s execution time is %s", name, elapsed))
+	if err := file.Close(); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func validateECDSA(token string, ecdsaKeys []*ecdsa.PublicKey) bool {
+    defer timeTrack(time.Now(), "ecdsa validation")
+	valid := dasvid.ValidateECDSAIDassertion(token, ecdsaKeys)
+    return valid
+}
+
 func DepositHandler(w http.ResponseWriter, r *http.Request) {
-	defer utils.TimeTrack(time.Now(), "DepositHandler")
+	defer timeTrack(time.Now(), "DepositHandler")
 
 	var tempbalance models.Balancetemp
 	// var temp models.Contents
@@ -50,7 +72,8 @@ func DepositHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewDecoder(r.Body).Decode(&rcvSVID)
 	log.Print("Received  assertion: ", rcvSVID.DASVIDToken)
 	log.Print("Received SVID certs: ", rcvSVID.IDArtifacts)
-
+	monitor.AssertionSize.WithLabelValues().Set(float64(len(rcvSVID.DASVIDToken)))
+	monitor.SVIDCertSize.WithLabelValues().Set(float64(len(rcvSVID.IDArtifacts)))
 	svidcerts := strings.SplitAfter(fmt.Sprintf("%s", rcvSVID.IDArtifacts), "-----END CERTIFICATE-----")
 	log.Printf("%d certificates received!", len(svidcerts)-1)
 
@@ -67,7 +90,7 @@ func DepositHandler(w http.ResponseWriter, r *http.Request) {
 
 	}
 
-	valid := dasvid.ValidateECDSAIDassertion(rcvSVID.DASVIDToken, ecdsakeys)
+	valid := validateECDSA(rcvSVID.DASVIDToken, ecdsakeys)
 	if valid == false {
 		returnmsg := "Error validating ECDSA assertion using received SVID!"
 		log.Printf(returnmsg)
@@ -127,15 +150,6 @@ func DepositHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create OpenSSL vkey using DASVID
-	tmpvkey := dasvid.Assertion2vkey(original, 1)
-
-	// Verify /introspect response correctness.
-	hexresult := dasvid.VerifyHexProof(introspectrsp.ZKP, introspectrsp.Msg, tmpvkey)
-	if hexresult == false {
-		log.Fatal("Error verifying hexproof!!")
-	}
-	log.Println("Success verifying hexproof!!")
-
 	// This PoC will consider that only DA-SVID with "subject_wl" in sub claim will be able request data
 	if dasvidclaims.Aud != "spiffe://example.org/subject_wl" {
 
@@ -222,7 +236,7 @@ func DepositHandler(w http.ResponseWriter, r *http.Request) {
 
 func introspect(datoken string, client http.Client) (introspectrsp models.FileContents) {
 	var rcvresp models.FileContents
-
+	defer timeTrack(time.Now(), "introspect")
 	endpoint := "https://" + os.Getenv("ASSERTINGWLIP") + "/introspect?DASVID=" + datoken
 
 	response, err := client.Get(endpoint)

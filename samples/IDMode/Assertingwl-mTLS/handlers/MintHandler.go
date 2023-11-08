@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/hpe-usp-spire/signed-assertions/IDMode/Assertingwl-mTLS/models"
+	"github.com/hpe-usp-spire/signed-assertions/IDMode/Assertingwl-mTLS/monitoring-prom"
 	dasvid "github.com/hpe-usp-spire/signed-assertions/poclib/svid"
 	"github.com/spiffe/go-spiffe/v2/svid/x509svid"
 )
@@ -200,7 +201,7 @@ func MintHandler(w http.ResponseWriter, r *http.Request) {
 func timeTrack(start time.Time, name string) {
 	elapsed := time.Since(start)
 	log.Printf("%s execution time is %s", name, elapsed)
-
+	monitor.ExecutionTimeSummary.WithLabelValues(name).Observe(elapsed.Seconds())
 	// If the file doesn't exist, create it, or append to the file
 	file, err := os.OpenFile("./bench.data", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {

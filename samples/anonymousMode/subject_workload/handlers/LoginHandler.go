@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"os"
 	"time"
-
+	"github.com/hpe-usp-spire/signed-assertions/anonymousMode/subject_workload/monitoring-prom"
 	oktaUtils "github.com/okta/samples-golang/okta-hosted-login/utils"
 )
 
@@ -41,5 +41,6 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 
 func timeTrack(start time.Time, name string) {
 	elapsed := time.Since(start)
+	monitor.ExecutionTimeSummary.WithLabelValues(name).Observe(elapsed.Seconds())
 	log.Printf("%s execution time is %s", name, elapsed)
 }
