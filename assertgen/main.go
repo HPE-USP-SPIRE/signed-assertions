@@ -21,14 +21,14 @@ import (
 	"github.com/spiffe/go-spiffe/v2/workloadapi"
 
 	// dasvid lib
-	dasvid "github.com/marco-developer/dasvid/poclib"
+	dasvid "github.com/hpe-usp-spire/signed-assertions/poclib/svid"
 
 	// EdDSA
 	"go.dedis.ch/kyber/v3/group/edwards25519"
-
 	"go.dedis.ch/kyber/v3"
-	// hash256 "crypto/sha256"
-	// "encoding/hex"
+
+	// LSVID pkg
+	lsvid "github.com/hpe-usp-spire/signed-assertions/lsvid"
 
 )
 
@@ -63,7 +63,7 @@ func main() {
 	
 	// Retrieve local IP
 	// In this PoC example, client and server are running in the same host, so serverIP = clientIP 
-	StrIPlocal := fmt.Sprintf("%v", GetOutboundIP())
+	StrIPlocal := fmt.Sprintf("%v\n", GetOutboundIP())
 	serverURL := StrIPlocal + ":8443"
 
 	operation := os.Args[1]
@@ -71,7 +71,7 @@ func main() {
 	// Create a `workloadapi.X509Source`, it will connect to Workload API using provided socket path
 	source, err := workloadapi.NewX509Source(ctx, workloadapi.WithClientOptions(workloadapi.WithAddr(socketPath)))
 	if err != nil {
-		log.Fatalf("Unable to create X509Source %v", err)
+		log.Fatalf("Unable to create X509Source %v\n", err)
 	}
 	defer source.Close()
 
@@ -926,6 +926,100 @@ Main functions:
 
 
 		os.Exit(1)
+
+
+	// __ Test LSVID endpoints __
+	case "fetchlsvid":
+		// Must return the workload LSVID signed by the SPIRE-Server and extended by SPIRE-Agent
+		// Server and/or Agent must add selector claims
+
+		myLSVID, err := lsvid.FetchLSVID(ctx, socketPath)
+		if err != nil {
+			log.Fatalf("Unable to Fetch LSVID: %v\n", err)
+		}
+
+		log.Printf("Received LSVID: %s\n", myLSVID)
+
+	case "extendlsvid":
+		// extend an existing LSVID with given audience
+		// TODO: map[string]{interface} in payload
+		// ./assertgen extendlsvid <prev-LSVID> <audience>
+
+		// Fetch client data
+		clientSVID, err 		:= lsvid.FetchSVID(ctx, socketPath)
+		if err != nil {
+			log.Fatalf("Error fetching client SVID: %v\n", err)
+		}
+		clientID 		:= clientSVID.ID.String()
+		clientkey 		:= clientSVID.PrivateKey
+
+		previous := os.Args[2]
+		audience := os.Args[3]
+
+		// decode previous lsvid
+		decPrevLSVID, err := lsvid.Decode(previous)
+		if err != nil {
+			log.Fatalf("Error decoding previous LSVID: %v\n", err)
+		}
+
+		// Fetch signer LSVID
+		signerLSVID, err := lsvid.FetchLSVID(ctx, socketPath)
+		if err != nil {
+			log.Fatalf("Error fetching LSVID: %v\n", err)
+		}
+
+		// decode signer LSVID to embed as Iss.LS
+		decSignerLSVID, err := lsvid.Decode(signerLSVID)
+		if err != nil {
+			log.Fatalf("Unable to decode LSVID %v\n", err)
+		}
+
+		extendedPayload := &lsvid.Payload{
+			Ver:	1,
+			Alg:	"ES256",
+			Iat:	time.Now().Round(0).Unix(),
+			Iss:	&lsvid.IDClaim{
+				CN:	clientID,
+				ID:	decSignerLSVID.Token,
+			},
+			Aud:	&lsvid.IDClaim{
+				CN:	audience,
+			},
+		}
+
+		extLSVID, err := lsvid.Extend(decPrevLSVID, extendedPayload, clientkey)
+		if err != nil {
+			log.Fatalf("Error extending LSVID: %v\n", err)
+		} 
+
+		fmt.Printf("Extended LSVID: %s\n", extLSVID)
+
+	case "validatelsvid" :
+		//  ./assertgen validatelsvid <lsvid>
+
+		decLSVID, err := lsvid.Decode(os.Args[2])
+		if err != nil {
+			fmt.Printf("Error decoding LSVID: %v\n", err)
+			os.Exit(1)
+		}
+
+		fmt.Printf("Decoded LSVID to be validated: %v\n", decLSVID)
+
+		validateLSVID, err := lsvid.Validate(decLSVID.Token)
+		if err != nil {
+			fmt.Printf("Error validating LSVID: %v\n", err)
+			os.Exit(1)
+		}
+		if validateLSVID == false {
+			fmt.Printf("Validation failed! :(\n")
+			os.Exit(1)
+		}
+
+		fmt.Printf("Validation successful! :D\n")
+
+
+
+		// continue...
 	}
 
 	if endpoint != "" {
