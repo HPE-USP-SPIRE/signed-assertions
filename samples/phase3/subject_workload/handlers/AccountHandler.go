@@ -17,6 +17,10 @@ import (
 	// dasvid lib
 	"github.com/hpe-usp-spire/signed-assertions/phase3/subject_workload/local"
 	"github.com/hpe-usp-spire/signed-assertions/phase3/subject_workload/models"
+
+		
+	// LSVID pkg
+	lsvid "github.com/hpe-usp-spire/signed-assertions/lsvid"
 )
 
 func AccountHandler(w http.ResponseWriter, r *http.Request) {
@@ -92,10 +96,16 @@ func getdasvid(oauthtoken string) string {
 		},
 	}
 
+	// Fetch subject workload LSVID
+	subjectLSVID, err := lsvid.FetchLSVID(ctx, os.Getenv("SOCKET_PATH"))
+	if err != nil {
+		log.Fatalf("Error fetching LSVID: %v\n", err)
+	}
+
 	var endpoint string
 	token := os.Getenv("oauthtoken")
 	log.Println("OAuth Token: ", token)
-	endpoint = "https://" + os.Getenv("ASSERTINGWLIP") + "/ecdsaassertion?AccessToken=" + token
+	endpoint = "https://" + os.Getenv("ASSERTINGWLIP") + "/extendlsvid?AccessToken=" + token + "&LSVID=" + subjectLSVID
 	log.Println(endpoint)
 
 	r, err := client.Get(endpoint)
