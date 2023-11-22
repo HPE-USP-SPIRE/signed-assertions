@@ -3,11 +3,7 @@ package handlers
 import (
 	"bufio"
 	"context"
-	"crypto/ecdsa"
-	"crypto/x509"
-	"encoding/base64"
 	"encoding/json"
-	"encoding/pem"
 	"fmt"
 
 	"io/ioutil"
@@ -16,14 +12,10 @@ import (
 	"net/http"
 	"os"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/hpe-usp-spire/signed-assertions/phase3/api-libs/utils"
-	dasvid "github.com/hpe-usp-spire/signed-assertions/poclib/svid"
-	"github.com/spiffe/go-spiffe/v2/spiffeid"
-	"github.com/spiffe/go-spiffe/v2/spiffetls/tlsconfig"
-	"github.com/spiffe/go-spiffe/v2/workloadapi"
+	"github.com/spiffe/go-spiffe/v2/svid/x509svid"
 
 	"github.com/hpe-usp-spire/signed-assertions/phase3/target-wl/models"
 
@@ -53,14 +45,7 @@ func DepositHandler(w http.ResponseWriter, r *http.Request) {
 		log.Fatalf("Error validating LSVID: %v\n", err)
 	}
 	if checkLSVID == false {
-		log.Printf("LSVID validation failed!")
-		tempbalance = models.Balancetemp{
-			User:      "",
-			Balance:   0,
-			Returnmsg: "LSVID validation failed!",
-		}
-	
-		return json.NewEncoder(w).Encode(tempbalance)
+		log.Fatalf("Error validating LSVID: %v\n", err)
 	}
 
 	// Now, verify if bearer == aud
@@ -69,16 +54,10 @@ func DepositHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Printf("Error retrieving client SPIFFE-ID from mTLS connection %v", err)
 	}
-	if (clientspiffeid != decLSVID.Token.Aud.CN) {
-		log.Printf("Bearer does not match audience value!")
-		tempbalance = models.Balancetemp{
-			User:      "",
-			Balance:   0,
-			Returnmsg: "Bearer does not match audience value!",
-		}
-	
-		return json.NewEncoder(w).Encode(tempbalance)
-	}
+	//TODO: corrigir e descomentar. Erro: cannot convert clientspiffeid (variable of type spiffeid.ID) to type string. se tentar sem o string(), da erro de comparação de tipos diferentes.
+	// if (string(clientspiffeid) != decCallerLSVID.Token.Payload.Aud.CN) {
+	//  log.Fatalf("Bearer does not match audience value: %v\n", err)
+	// }
 
 	// // PS: Skip ZKP validation in the first step of PHASE 3 development.
 	// // ZKP validation of original dasvid

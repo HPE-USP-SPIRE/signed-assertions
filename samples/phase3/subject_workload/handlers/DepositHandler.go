@@ -19,69 +19,107 @@ import (
 	"time"
 
 	// "bufio"
-	"crypto/ecdsa"
-	"crypto/tls"
-	"crypto/x509"
-	"encoding/pem"
-	"strings"
 
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"github.com/spiffe/go-spiffe/v2/spiffetls/tlsconfig"
 	"github.com/spiffe/go-spiffe/v2/svid/x509svid"
 	"github.com/spiffe/go-spiffe/v2/workloadapi"
 
-	dasvid "github.com/hpe-usp-spire/signed-assertions/poclib/svid"
-
+	"github.com/hpe-usp-spire/signed-assertions/phase3/api-libs/utils"
 	"github.com/hpe-usp-spire/signed-assertions/phase3/subject_workload/local"
 	"github.com/hpe-usp-spire/signed-assertions/phase3/subject_workload/models"
+	dasvid "github.com/hpe-usp-spire/signed-assertions/poclib/svid"
+
+	lsvid "github.com/hpe-usp-spire/signed-assertions/lsvid"
 )
 
 func DepositHandler(w http.ResponseWriter, r *http.Request) {
 
-	defer timeTrack(time.Now(), "Deposit Handler")
+	defer utils.TimeTrack(time.Now(), "Deposit Handler")
+
+	var tempbalance models.Balancetemp
+	var rcvSVID models.Contents
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	var funds models.Balancetemp
-	var temp models.Contents
+	////////// DECODE LSVID ////////////
+	json.NewDecoder(r.Body).Decode(&rcvSVID)
+	log.Print("Received LSVID: ", rcvSVID.DASVIDToken)
 
-	// validate received token and Certs
-	receivedAssertion := getdasvid(os.Getenv("oauthtoken"))
-	err := json.Unmarshal([]byte(receivedAssertion), &temp)
+	decCallerLSVID, err := lsvid.Decode(rcvSVID.DASVIDToken)
 	if err != nil {
-		log.Fatalf("error:", err)
+		log.Fatalf("Error decoding LSVID: %v\n", err)
 	}
-	log.Print("Received assertion: ", temp.DASVIDToken)
-
-	rcvSVID := temp.IDArtifacts
-	log.Print("Received SVID cert: ", rcvSVID)
-
-	svidcerts := strings.SplitAfter(fmt.Sprintf("%s", rcvSVID), "-----END CERTIFICATE-----")
-	log.Printf("%d certificates received!", len(svidcerts)-1)
 	
-	var i = 0
-	var ecdsakeys []*ecdsa.PublicKey
-	var cert *x509.Certificate
-	for (i < (len(svidcerts)-1)) {
-		log.Printf("Loading public key %d...", i)
-		block, _ := pem.Decode([]byte(svidcerts[i]))
-		cert, _ = x509.ParseCertificate(block.Bytes)
-
-		ecdsakeys = append(ecdsakeys, cert.PublicKey.(*ecdsa.PublicKey))
-		i++
-	
+	////////// VALIDATE LSVID ////////////
+	checkLSVID, err := lsvid.Validate(decCallerLSVID.Token)
+	if err != nil {
+		log.Fatalf("Error validating LSVID: %v\n", err)
+	}
+	if checkLSVID == false {
+		log.Fatalf("Error validating LSVID: %v\n", err)
 	}
 
-	valid := dasvid.ValidateECDSAIDassertion(temp.DASVIDToken, ecdsakeys)
-	if valid == false {
-		log.Fatalf("Error validating ECDSA assertion using SVID!")
-		
+	// Now, verify if bearer == aud
+	certs := r.TLS.PeerCertificates
+	clientspiffeid, err := x509svid.IDFromCert(certs[0])
+	if err != nil {
+		log.Printf("Error retrieving client SPIFFE-ID from mTLS connection %v", err)
 	}
 
-	// timestamp
-	issue_time 		:= time.Now().Round(0).Unix()
+	//TODO: corrigir e descomentar. Erro: cannot convert clientspiffeid (variable of type spiffeid.ID) to type string. se tentar sem o string(), da erro de comparação de tipos diferentes.
+	// if (string(clientspiffeid) != decCallerLSVID.Token.Payload.Aud.CN) {
+	//  log.Fatalf("Bearer does not match audience value: %v\n", err)
+	// }
 
+	////////// EXTEND LSVID ////////////
+	// Fetch subject workload data
+	subjectSVID	:= dasvid.FetchX509SVID()
+	subjectID := subjectSVID.ID.String()
+	subjectKey := subjectSVID.PrivateKey
+
+	// Fetch subject workload LSVID
+	subjectLSVID, err := lsvid.FetchLSVID(ctx, local.Options.SocketPath)
+	if err != nil {
+		log.Fatalf("Error fetching LSVID: %v\n", err)
+	}
+
+	// decode subject wl  LSVID
+	decSubject, err := lsvid.Decode(subjectLSVID)
+	if err != nil {
+		log.Fatalf("Unable to decode LSVID %v\n", err)
+	}
+
+	extendedPayload := &lsvid.Payload{
+		Ver:	1,
+		Alg:	"ES256",
+		Iat:	time.Now().Round(0).Unix(),
+		Iss:	&lsvid.IDClaim{
+			CN:	subjectID,
+			ID:	decSubject.Token,
+		},
+		Aud:	&lsvid.IDClaim{
+			CN:	clientspiffeid.String(),
+		},
+	}
+
+	extendedLSVID, err := lsvid.Extend(decCallerLSVID, extendedPayload, subjectKey)
+	if err != nil {
+		log.Fatal("Error extending LSVID: %v\n", err)
+	} 
+
+	log.Printf("Extended LSVID: ", fmt.Sprintf("%s",extendedLSVID))
+
+	//////////////////////
+	// Prepare to send extended lsvid
+	values := map[string]string{"DASVIDToken": extendedLSVID}
+	json_data, err := json.Marshal(values)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Connection setup
 	source, err := workloadapi.NewX509Source(ctx, workloadapi.WithClientOptions(workloadapi.WithAddr(os.Getenv("SOCKET_PATH"))))
 	if err != nil {
 		log.Fatalf("Unable to create X509Source %v", err)
@@ -99,62 +137,7 @@ func DepositHandler(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 
-	// Generate a new ecdsa signed assertion containing key:value with no specific audience
-	// Fetch claims data
-	clientSVID 		:= dasvid.FetchX509SVID()
-	clientID 		:= clientSVID.ID.String()
-	clientkey 		:= clientSVID.PrivateKey
-
-	// generate idartifact
-	// Uses SVID cert bundle as ISSUER
-	tmp, _, err := clientSVID.Marshal()
-	if err != nil {
-		log.Fatal("Error retrieving SVID: ", err)
-	}
-	svidcert := strings.SplitAfter(fmt.Sprintf("%s", tmp), "-----END CERTIFICATE-----")
-
-	idartifact := svidcert[0]
-
-	updSVID := strings.Trim(strings.Join([]string{rcvSVID, fmt.Sprintf("%s", idartifact)}, ""), "[]")
-	log.Println("Updated SVID bundle: %s", updSVID)
-	
-	// get audience 
-	conf := &tls.Config{
-		InsecureSkipVerify: true,
-	}
-	conn, err := tls.Dial("tcp", os.Getenv("MIDDLETIERIP"), conf)
-	if err != nil {
-		log.Println("Error in Dial", err)
-		return
-	}
-	defer conn.Close()
-	certs := conn.ConnectionState().PeerCertificates
-	audienceid, err := x509svid.IDFromCert(certs[0])
-	if err != nil {
-		log.Printf("Error retrieving client SPIFFE-ID from mTLS connection %v", err)
-	}
-	log.Printf("Audience SPIFFE-ID: %v", audienceid)
-
-	// Generate assertion claims
-	assertionclaims := map[string]interface{}{
-		"iss"		:		clientID,
-		"aud"		:		audienceid,
-		"iat"		:	 	issue_time,
-	}
-	assertion, err := dasvid.NewECDSAencode(assertionclaims, temp.DASVIDToken, clientkey)
-	if err != nil {
-		log.Fatal("Error generating signed ECDSA assertion!")
-	} 
-	log.Printf("Generated ECDSA assertion	: ", fmt.Sprintf("%s",assertion))
-	log.Printf("Generated ID artifact		: ", fmt.Sprintf("%s",idartifact))
-
-	values := map[string]string{"DASVIDToken": assertion, "IDArtifacts": updSVID}
-	json_data, err := json.Marshal(values)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	// With dasvid, app can make a call to middle tier, asking for user funds.
+	// Make call to middle tier, asking for user funds.
 	endpoint := "https://"+os.Getenv("MIDDLETIERIP")+"/deposit?DASVID="+os.Getenv("DASVIDToken")+"&deposit="+r.FormValue("deposit")
 	response, err := client.Post(endpoint, "application/json", bytes.NewBuffer(json_data))
 	if err != nil {
@@ -167,20 +150,20 @@ func DepositHandler(w http.ResponseWriter, r *http.Request) {
 		log.Fatalf("Unable to read body: %v", err)
 	}
 
-	err = json.Unmarshal([]byte(body), &funds)
+	err = json.Unmarshal([]byte(body), &tempbalance)
 	if err != nil {
 		fmt.Println("error:", err)
 	}
 
-	if funds.Returnmsg != "" {
+	if tempbalance.Returnmsg != "" {
 
-		fmt.Println("Return msg error:", funds.Returnmsg)
+		fmt.Println("Return msg error:", tempbalance.Returnmsg)
 		Data := models.PocData{
 			AppURI:          os.Getenv("HOSTIP"),
 			Profile:         getProfileData(r),
 			IsAuthenticated: isAuthenticated(r),
 			HaveDASVID:      haveDASVID(),
-			Returnmsg:       funds.Returnmsg,
+			Returnmsg:       tempbalance.Returnmsg,
 		}
 
 		local.Tpl.ExecuteTemplate(w, "home.gohtml", Data)
@@ -193,7 +176,7 @@ func DepositHandler(w http.ResponseWriter, r *http.Request) {
 			IsAuthenticated: isAuthenticated(r),
 			DASVIDClaims:    dasvidclaims,
 			HaveDASVID:      haveDASVID(),
-			Balance:         funds.Balance,
+			Balance:         tempbalance.Balance,
 		}
 
 		local.Tpl.ExecuteTemplate(w, "account.gohtml", Data)
