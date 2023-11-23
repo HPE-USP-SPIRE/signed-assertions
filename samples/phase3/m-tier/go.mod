@@ -10,13 +10,13 @@ require (
 	github.com/spiffe/go-spiffe/v2 v2.1.6
 )
 
-replace github.com/hpe-usp-spire/signed-assertions/phase3/api-libs => ../api-libs
+replace github.com/hpe-usp-spire/signed-assertions/phase3/api-libs => ./api-libs
 
-replace github.com/hpe-usp-spire/signed-assertions/poclib => ../../../poclib
+replace github.com/hpe-usp-spire/signed-assertions/poclib => ./poclib
 
-replace github.com/hpe-usp-spire/signed-assertions/lsvid => ../../../lsvid
+replace github.com/hpe-usp-spire/signed-assertions/lsvid => ./lsvid
 
-replace github.com/spiffe/go-spiffe/v2 => ../../../go-spiffe/v2
+replace github.com/spiffe/go-spiffe/v2 => ./go-spiffe/v2
 
 replace google.golang.org/grpc => google.golang.org/grpc v1.53.0
 
