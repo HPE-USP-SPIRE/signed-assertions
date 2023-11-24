@@ -1,75 +1,82 @@
 package handlers
 
 import (
-	"bytes"
+
 	// "crypto/rand"
 	// "encoding/base64"
 	// "encoding/hex"
+
+	"bytes"
+	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"os"
 
 	// "html/template"
 	"io/ioutil"
 	"log"
 	"net/http"
-	"os"
 
 	// "net"
-	"context"
+
 	"time"
 
 	// "bufio"
 
-	"github.com/spiffe/go-spiffe/v2/spiffeid"
-	"github.com/spiffe/go-spiffe/v2/spiffetls/tlsconfig"
-	"github.com/spiffe/go-spiffe/v2/svid/x509svid"
-	"github.com/spiffe/go-spiffe/v2/workloadapi"
-
+	lsvid "github.com/hpe-usp-spire/signed-assertions/lsvid"
 	"github.com/hpe-usp-spire/signed-assertions/phase3/api-libs/utils"
 	"github.com/hpe-usp-spire/signed-assertions/phase3/subject_workload/local"
 	"github.com/hpe-usp-spire/signed-assertions/phase3/subject_workload/models"
 	dasvid "github.com/hpe-usp-spire/signed-assertions/poclib/svid"
-
-	lsvid "github.com/hpe-usp-spire/signed-assertions/lsvid"
+	"github.com/spiffe/go-spiffe/v2/spiffeid"
+	"github.com/spiffe/go-spiffe/v2/spiffetls/tlsconfig"
+	"github.com/spiffe/go-spiffe/v2/svid/x509svid"
+	"github.com/spiffe/go-spiffe/v2/workloadapi"
 )
 
 func DepositHandler(w http.ResponseWriter, r *http.Request) {
 
 	defer utils.TimeTrack(time.Now(), "Deposit Handler")
-
+ 
 	var tempbalance models.Balancetemp
 	var rcvSVID models.Contents
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	////////// DECODE LSVID ////////////
-	json.NewDecoder(r.Body).Decode(&rcvSVID)
+	////////// DECODE LSVID /////////////
+	// Get LSVID from asserting
+	receivedLSVID := getdasvid(os.Getenv("oauthtoken"))
+	err := json.Unmarshal([]byte(receivedLSVID), &rcvSVID)
+	if err != nil {
+		log.Fatalf("error:", err)
+	}
 	log.Print("Received LSVID: ", rcvSVID.DASVIDToken)
 
-	decCallerLSVID, err := lsvid.Decode(rcvSVID.DASVIDToken)
+	// Decode LSVID from b64
+	decReceivedLSVID, err := lsvid.Decode(rcvSVID.DASVIDToken)
 	if err != nil {
 		log.Fatalf("Error decoding LSVID: %v\n", err)
 	}
+	log.Print("Decoded LSVID: ", decReceivedLSVID)
 	
 	////////// VALIDATE LSVID ////////////
-	checkLSVID, err := lsvid.Validate(decCallerLSVID.Token)
+	checkLSVID, err := lsvid.Validate(decReceivedLSVID.Token)
 	if err != nil {
-		log.Fatalf("Error validating LSVID: %v\n", err)
+		log.Fatalf("Error validating LSVID : %v\n", err)
 	}
 	if checkLSVID == false {
 		log.Fatalf("Error validating LSVID: %v\n", err)
 	}
 
-	// Now, verify if bearer == aud
-	certs := r.TLS.PeerCertificates
-	clientspiffeid, err := x509svid.IDFromCert(certs[0])
-	if err != nil {
-		log.Printf("Error retrieving client SPIFFE-ID from mTLS connection %v", err)
-	}
-
-	//TODO: corrigir e descomentar. Erro: cannot convert clientspiffeid (variable of type spiffeid.ID) to type string. se tentar sem o string(), da erro de comparação de tipos diferentes.
-	// if (string(clientspiffeid) != decCallerLSVID.Token.Payload.Aud.CN) {
+	// TODO Now, verify if bearer == aud
+	// certs := r.TLS.PeerCertificates
+	// clientspiffeid, err := x509svid.IDFromCert(certs[0])
+	// if err != nil {
+	// 	log.Printf("Error retrieving client SPIFFE-ID from mTLS connection %v", err)
+	// }
+	// if (clientspiffeid.String() != decReceivedLSVID.Token.Payload.Aud.CN) {
 	//  log.Fatalf("Bearer does not match audience value: %v\n", err)
 	// }
 
@@ -78,7 +85,7 @@ func DepositHandler(w http.ResponseWriter, r *http.Request) {
 	subjectSVID	:= dasvid.FetchX509SVID()
 	subjectID := subjectSVID.ID.String()
 	subjectKey := subjectSVID.PrivateKey
-
+	
 	// Fetch subject workload LSVID
 	subjectLSVID, err := lsvid.FetchLSVID(ctx, local.Options.SocketPath)
 	if err != nil {
@@ -91,6 +98,22 @@ func DepositHandler(w http.ResponseWriter, r *http.Request) {
 		log.Fatalf("Unable to decode LSVID %v\n", err)
 	}
 
+	// Get MT's SPIFFE ID
+	conf := &tls.Config{
+		InsecureSkipVerify: true,
+	}
+	conn, err := tls.Dial("tcp", os.Getenv("ASSERTINGWLIP"), conf)
+	if err != nil {
+		log.Println("Error in Dial", err)
+		return
+	}
+	defer conn.Close()
+	certs := conn.ConnectionState().PeerCertificates
+	mtClientId, err := x509svid.IDFromCert(certs[0])
+	if err != nil {
+		log.Printf("Error retrieving client SPIFFE-ID from mTLS connection %v", err)
+	}
+
 	extendedPayload := &lsvid.Payload{
 		Ver:	1,
 		Alg:	"ES256",
@@ -100,18 +123,18 @@ func DepositHandler(w http.ResponseWriter, r *http.Request) {
 			ID:	decSubject.Token,
 		},
 		Aud:	&lsvid.IDClaim{
-			CN:	clientspiffeid.String(),
+			CN:	mtClientId.String(),
 		},
 	}
 
-	extendedLSVID, err := lsvid.Extend(decCallerLSVID, extendedPayload, subjectKey)
+	extendedLSVID, err := lsvid.Extend(decReceivedLSVID, extendedPayload, subjectKey)
 	if err != nil {
 		log.Fatal("Error extending LSVID: %v\n", err)
 	} 
 
-	log.Printf("Extended LSVID: ", fmt.Sprintf("%s",extendedLSVID))
-
+	log.Printf("Final extended LSVID: ", fmt.Sprintf("%s",extendedLSVID))
 	//////////////////////
+
 	// Prepare to send extended lsvid
 	values := map[string]string{"DASVIDToken": extendedLSVID}
 	json_data, err := json.Marshal(values)

@@ -1,21 +1,21 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"os"
-	"context"
 	"time"
 
+	"github.com/hpe-usp-spire/signed-assertions/phase3/Assertingwl-mTLS/local"
 	"github.com/hpe-usp-spire/signed-assertions/phase3/Assertingwl-mTLS/models"
 	"github.com/hpe-usp-spire/signed-assertions/phase3/api-libs/utils"
-	"github.com/hpe-usp-spire/signed-assertions/phase3/Assertingwl-mTLS/local"
 	dasvid "github.com/hpe-usp-spire/signed-assertions/poclib/svid"
 	"github.com/spiffe/go-spiffe/v2/svid/x509svid"
-	
+
 	// LSVID pkg
 	lsvid "github.com/hpe-usp-spire/signed-assertions/lsvid"
 )
@@ -191,5 +191,6 @@ func ExtendLSVIDHandler(w http.ResponseWriter, r *http.Request) {
 			log.Fatal(err)
 		}
 	}
+		log.Printf("Data:%v",Data)
 		json.NewEncoder(w).Encode(Data)
 }

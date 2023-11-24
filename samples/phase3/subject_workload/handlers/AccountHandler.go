@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -12,13 +13,14 @@ import (
 
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"github.com/spiffe/go-spiffe/v2/spiffetls/tlsconfig"
+	"github.com/spiffe/go-spiffe/v2/svid/x509svid"
 	"github.com/spiffe/go-spiffe/v2/workloadapi"
 
 	// dasvid lib
 	"github.com/hpe-usp-spire/signed-assertions/phase3/subject_workload/local"
 	"github.com/hpe-usp-spire/signed-assertions/phase3/subject_workload/models"
+	dasvid "github.com/hpe-usp-spire/signed-assertions/poclib/svid"
 
-		
 	// LSVID pkg
 	lsvid "github.com/hpe-usp-spire/signed-assertions/lsvid"
 )
@@ -96,16 +98,64 @@ func getdasvid(oauthtoken string) string {
 		},
 	}
 
+	////////// EXTEND LSVID ////////////
+	// Fetch subject workload data
+	subjectSVID	:= dasvid.FetchX509SVID()
+	subjectID := subjectSVID.ID.String()
+	subjectKey := subjectSVID.PrivateKey
+
 	// Fetch subject workload LSVID
 	subjectLSVID, err := lsvid.FetchLSVID(ctx, os.Getenv("SOCKET_PATH"))
 	if err != nil {
 		log.Fatalf("Error fetching LSVID: %v\n", err)
 	}
 
+	// Decode subject wl LSVID
+	decSubjectLsvid, err := lsvid.Decode(subjectLSVID)
+	if err != nil {
+		log.Fatalf("Unable to decode LSVID %v\n", err)
+	}
+
+	// Get asserting WL's SPIFFE ID
+	conf := &tls.Config{
+		InsecureSkipVerify: true,
+	}
+	conn, err := tls.Dial("tcp", os.Getenv("ASSERTINGWLIP"), conf)
+	if err != nil {
+		log.Println("Error in Dial", err)
+		return ""
+	}
+	defer conn.Close()
+	certs := conn.ConnectionState().PeerCertificates
+	assertingId, err := x509svid.IDFromCert(certs[0])
+
+	// Create payload
+	extendedPayload := &lsvid.Payload{
+		Ver:	1,
+		Alg:	"ES256",
+		Iat:	time.Now().Round(0).Unix(),
+		Iss:	&lsvid.IDClaim{
+			CN:	subjectID,
+			ID:	decSubjectLsvid.Token,
+		},
+		Aud:	&lsvid.IDClaim{
+			CN:	assertingId.String(), //
+		},
+	}
+
+	// Extend using payload
+	extendedLSVID, err := lsvid.Extend(decSubjectLsvid, extendedPayload, subjectKey)
+	if err != nil {
+		log.Fatal("Error extending LSVID: %v\n", err)
+	} 
+
+	log.Printf("Extended LSVID: ", fmt.Sprintf("%s",extendedLSVID))
+	////////////////
+
 	var endpoint string
 	token := os.Getenv("oauthtoken")
 	log.Println("OAuth Token: ", token)
-	endpoint = "https://" + os.Getenv("ASSERTINGWLIP") + "/extendlsvid?AccessToken=" + token + "&LSVID=" + subjectLSVID
+	endpoint = "https://" + os.Getenv("ASSERTINGWLIP") + "/extendlsvid?AccessToken=" + token + "&LSVID=" + extendedLSVID
 	log.Println(endpoint)
 
 	r, err := client.Get(endpoint)

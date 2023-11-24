@@ -33,6 +33,7 @@ import (
 
 	// To sig. validation
 	_ "crypto/sha256"
+	"crypto/tls"
 	// "github.com/gorilla/sessions"
 	// Okta
 	// verifier "github.com/okta/okta-jwt-verifier-golang"
@@ -54,32 +55,37 @@ func BalanceHandler(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 
 	////////// DECODE LSVID ////////////
-	json.NewDecoder(r.Body).Decode(&rcvSVID)
+	// Get LSVID
+	receivedLSVID := getdasvid(os.Getenv("oauthtoken"))
+	err := json.Unmarshal([]byte(receivedLSVID), &rcvSVID)
+	if err != nil {
+		log.Fatalf("error:", err)
+	}
 	log.Print("Received LSVID: ", rcvSVID.DASVIDToken)
 
-	decCallerLSVID, err := lsvid.Decode(rcvSVID.DASVIDToken)
+	// Decode LSVID from b64
+	decReceivedLSVID, err := lsvid.Decode(rcvSVID.DASVIDToken)
 	if err != nil {
 		log.Fatalf("Error decoding LSVID: %v\n", err)
 	}
+	log.Print("Decoded LSVID: ", decReceivedLSVID)
 	
 	////////// VALIDATE LSVID ////////////
-	checkLSVID, err := lsvid.Validate(decCallerLSVID.Token)
+	checkLSVID, err := lsvid.Validate(decReceivedLSVID.Token)
 	if err != nil {
-		log.Fatalf("Error validating LSVID: %v\n", err)
+		log.Fatalf("Error validating LSVID : %v\n", err)
 	}
 	if checkLSVID == false {
 		log.Fatalf("Error validating LSVID: %v\n", err)
 	}
 
-	// Now, verify if bearer == aud
-	certs := r.TLS.PeerCertificates
-	clientspiffeid, err := x509svid.IDFromCert(certs[0])
-	if err != nil {
-		log.Printf("Error retrieving client SPIFFE-ID from mTLS connection %v", err)
-	}
-
-	//TODO: corrigir e descomentar. Erro: cannot convert clientspiffeid (variable of type spiffeid.ID) to type string. se tentar sem o string(), da erro de comparação de tipos diferentes.
-	// if (string(clientspiffeid) != decCallerLSVID.Token.Payload.Aud.CN) {
+	// TODO Now, verify if bearer == aud
+	// certs := r.TLS.PeerCertificates
+	// clientspiffeid, err := x509svid.IDFromCert(certs[0])
+	// if err != nil {
+	// 	log.Printf("Error retrieving client SPIFFE-ID from mTLS connection %v", err)
+	// }
+	// if (clientspiffeid.String() != decReceivedLSVID.Token.Payload.Aud.CN) {
 	//  log.Fatalf("Bearer does not match audience value: %v\n", err)
 	// }
 
@@ -101,6 +107,22 @@ func BalanceHandler(w http.ResponseWriter, r *http.Request) {
 		log.Fatalf("Unable to decode LSVID %v\n", err)
 	}
 
+	// Get MT's SPIFFE ID
+	conf := &tls.Config{
+		InsecureSkipVerify: true,
+	}
+	conn, err := tls.Dial("tcp", os.Getenv("ASSERTINGWLIP"), conf)
+	if err != nil {
+		log.Println("Error in Dial", err)
+		return
+	}
+	defer conn.Close()
+	certs := conn.ConnectionState().PeerCertificates
+	mtClientId, err := x509svid.IDFromCert(certs[0])
+	if err != nil {
+		log.Printf("Error retrieving client SPIFFE-ID from mTLS connection %v", err)
+	}
+
 	extendedPayload := &lsvid.Payload{
 		Ver:	1,
 		Alg:	"ES256",
@@ -110,11 +132,11 @@ func BalanceHandler(w http.ResponseWriter, r *http.Request) {
 			ID:	decSubject.Token,
 		},
 		Aud:	&lsvid.IDClaim{
-			CN:	clientspiffeid.String(),
+			CN:	mtClientId.String(),
 		},
 	}
 
-	extendedLSVID, err := lsvid.Extend(decCallerLSVID, extendedPayload, subjectKey)
+	extendedLSVID, err := lsvid.Extend(decReceivedLSVID, extendedPayload, subjectKey)
 	if err != nil {
 		log.Fatal("Error extending LSVID: %v\n", err)
 	} 
