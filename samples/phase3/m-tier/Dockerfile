@@ -9,6 +9,8 @@ WORKDIR /build
 COPY ./samples/phase3/m-tier .
 COPY ./samples/phase3/api-libs /aux/api-libs
 COPY ./poclib /aux/poclib
+COPY ./lsvid /aux/lsvid
+COPY ./go-spiffe /aux/go-spiffe
 
 # Check if something changed in the files that affect the compilation of the Go program. If so, build a new program, and use the hash of those files as its name. In any case, create a bash script to execute the binary (fix name for CMD in the end of the dockerfile).
 RUN files_hash=$(find "." -type f -exec sha256sum {} \; | sed '/Dockerfile/d' | sed '/bin/d' | sed '/README/d' | LC_ALL=C sort -d | sha256sum | head -c 64); \
@@ -16,6 +18,8 @@ if test ! -f bin/$files_hash; \
   then rm -f /build/bin/*; \ 
   mv /aux/api-libs .; \
   mv /aux/poclib .; \
+  mv /aux/lsvid .; \
+  mv /aux/go-spiffe .; \
   go mod download; \
   go build -o /build/bin/$files_hash main.go; \
 fi; \

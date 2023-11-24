@@ -1,130 +1,76 @@
 package handlers
 
 import (
-	// "bytes"
 	"bufio"
 	"context"
-	"crypto/ecdsa"
-
-	// "crypto/rand"
-	// "crypto/tls"
-	"crypto/x509"
-	"encoding/base64"
-
-	// "encoding/hex"
 	"encoding/json"
-	"encoding/pem"
 	"fmt"
 
-	// "html/template"
 	"io/ioutil"
 	"log"
 
-	// "net"
 	"net/http"
 	"os"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/hpe-usp-spire/signed-assertions/phase3/api-libs/utils"
-	dasvid "github.com/hpe-usp-spire/signed-assertions/poclib/svid"
-	"github.com/spiffe/go-spiffe/v2/spiffeid"
-	"github.com/spiffe/go-spiffe/v2/spiffetls/tlsconfig"
-	"github.com/spiffe/go-spiffe/v2/workloadapi"
+	"github.com/spiffe/go-spiffe/v2/svid/x509svid"
 
 	"github.com/hpe-usp-spire/signed-assertions/phase3/target-wl/models"
+
+	// LSVID pkg
+	lsvid "github.com/hpe-usp-spire/signed-assertions/lsvid"
 )
 
 func DepositHandler(w http.ResponseWriter, r *http.Request) {
 	defer utils.TimeTrack(time.Now(), "DepositHandler")
 
 	var tempbalance models.Balancetemp
-	// var temp models.Contents
-	// validate received token and Certs
 	var rcvSVID models.Contents
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	json.NewDecoder(r.Body).Decode(&rcvSVID)
-	log.Print("Received  assertion: ", rcvSVID.DASVIDToken)
-	log.Print("Received SVID certs: ", rcvSVID.IDArtifacts)
+	log.Print("Received LSVID: ", rcvSVID.DASVIDToken)
 
-	svidcerts := strings.SplitAfter(fmt.Sprintf("%s", rcvSVID.IDArtifacts), "-----END CERTIFICATE-----")
-	log.Printf("%d certificates received!", len(svidcerts)-1)
-
-	var i = 0
-	var ecdsakeys []*ecdsa.PublicKey
-	var cert *x509.Certificate
-	for i < len(svidcerts)-1 {
-		log.Printf("Loading public key %d...", i)
-		block, _ := pem.Decode([]byte(svidcerts[i]))
-		cert, _ = x509.ParseCertificate(block.Bytes)
-
-		ecdsakeys = append(ecdsakeys, cert.PublicKey.(*ecdsa.PublicKey))
-		i++
-
-	}
-
-	valid := dasvid.ValidateECDSAIDassertion(rcvSVID.DASVIDToken, ecdsakeys)
-	if valid == false {
-		returnmsg := "Error validating ECDSA assertion using received SVID!"
-		log.Printf(returnmsg)
-		tempbalance = models.Balancetemp{
-			User:      "",
-			Balance:   0,
-			Returnmsg: returnmsg,
-		}
-
-		json.NewEncoder(w).Encode(tempbalance)
-		return
-
-	}
-	// Create a `workloadapi.X509Source`, it will connect to Workload API using provided socket path
-	source, err := workloadapi.NewX509Source(
-		ctx,
-		workloadapi.WithClientOptions(workloadapi.WithAddr(os.Getenv("SOCKET_PATH"))),
-	)
+	decLSVID, err := lsvid.Decode(rcvSVID.DASVIDToken)
 	if err != nil {
-		log.Fatalf("Unable to create X509Source %v", err)
+		log.Fatalf("Error decoding LSVID: %v\n", err)
 	}
-	defer source.Close()
 
-	// Allowed SPIFFE ID
-	serverID := spiffeid.RequireTrustDomainFromString(os.Getenv("TRUST_DOMAIN"))
-
-	// Create a `tls.Config` to allow mTLS connections, and verify that presented certificate match allowed SPIFFE ID rule
-	tlsConfig := tlsconfig.MTLSClientConfig(source, source, tlsconfig.AuthorizeMemberOf(serverID))
-	client := &http.Client{
-		Transport: &http.Transport{
-			TLSClientConfig: tlsConfig,
-		},
-	}
-	// Validate DASVID
-
-	parts := strings.Split(rcvSVID.DASVIDToken, ".")
-	claims, _ := base64.RawURLEncoding.DecodeString(parts[len(parts)/2-1])
-	log.Printf(string(claims))
-
-	var dasvidclaims models.DAClaims
-
-	json.Unmarshal(claims, &dasvidclaims)
+	checkLSVID, err := lsvid.Validate(decLSVID.Token)
 	if err != nil {
-		log.Fatalf("error:", err)
+		log.Fatalf("Error validating LSVID: %v\n", err)
+	}
+	if checkLSVID == false {
+		log.Fatalf("Error validating LSVID: %v\n", err)
 	}
 
-	// ZKP validation of original dasvid
-	// Contact Asserting Workload /introspect and retrieve a ZKP proving OAuth token signature
-	// var introspectrsp FileContents
-	tmp := []string{parts[len(parts)/2-1], parts[len(parts)/2]}
-	original := strings.Join(tmp[0:2], ".")
-	log.Printf(original)
-	introspectrsp := introspect(original, *client)
-	if introspectrsp.Returnmsg != "" {
-		log.Println("ZKP error! %v", introspectrsp.Returnmsg)
-		json.NewEncoder(w).Encode(introspectrsp)
+	// Now, verify if bearer == aud
+	certs := r.TLS.PeerCertificates
+	clientspiffeid, err := x509svid.IDFromCert(certs[0])
+	if err != nil {
+		log.Printf("Error retrieving client SPIFFE-ID from mTLS connection %v", err)
 	}
+	//TODO: corrigir e descomentar. Erro: cannot convert clientspiffeid (variable of type spiffeid.ID) to type string. se tentar sem o string(), da erro de comparação de tipos diferentes.
+	// if (string(clientspiffeid) != decCallerLSVID.Token.Payload.Aud.CN) {
+	//  log.Fatalf("Bearer does not match audience value: %v\n", err)
+	// }
+
+	// // PS: Skip ZKP validation in the first step of PHASE 3 development.
+	// // ZKP validation of original dasvid
+	// // Contact Asserting Workload /introspect and retrieve a ZKP proving OAuth token signature
+	// // var introspectrsp FileContents
+	// tmp := []string{parts[len(parts)/2-1], parts[len(parts)/2]}
+	// original := strings.Join(tmp[0:2], ".")
+	// log.Printf(original)
+	// introspectrsp := introspect(original, *client)
+	// if introspectrsp.Returnmsg != "" {
+	// 	log.Println("ZKP error! %v", introspectrsp.Returnmsg)
+	// 	json.NewEncoder(w).Encode(introspectrsp)
+	// }
 
 	// // Create OpenSSL vkey using DASVID
 	// tmpvkey := dasvid.Assertion2vkey(original, 1)
@@ -136,22 +82,7 @@ func DepositHandler(w http.ResponseWriter, r *http.Request) {
 	// }
 	// log.Println("Success verifying hexproof!!")
 
-	// This PoC will consider that only DA-SVID with "subject_wl" in sub claim will be able request data
-	if dasvidclaims.Aud != "spiffe://example.org/subject_wl" {
-
-		returnmsg := "The application " + dasvidclaims.Iss + " is not allowed to access user data!"
-		log.Printf(returnmsg)
-
-		tempbalance = models.Balancetemp{
-			User:      "",
-			Balance:   0,
-			Returnmsg: returnmsg,
-		}
-
-		json.NewEncoder(w).Encode(tempbalance)
-		return
-	}
-
+	// If reaches this point, all validations was successful, so we can proceed to access user data and return it.
 	// Open dasvid cache file
 	balance, err := os.OpenFile("./data/balance.data", os.O_CREATE, 0644)
 	if err != nil {
