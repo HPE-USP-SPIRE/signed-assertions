@@ -32,16 +32,16 @@ services:
     networks:
       - my-network
 
-  # m-tier:
-  #   build:
-  #     context: ../../
-  #     dockerfile: samples/phase3/m-tier/Dockerfile
-  #   ports:
-  #     - "8445:8445"
-  #   volumes:
-  #     - /tmp/spire-agent/public/api.sock:/tmp/spire-agent/public/api.sock
-  #   networks:
-  #     - my-network
+  m-tier:
+    build:
+      context: ../../
+      dockerfile: samples/phase3/m-tier/Dockerfile
+    ports:
+      - "8445:8445"
+    volumes:
+      - /tmp/spire-agent/public/api.sock:/tmp/spire-agent/public/api.sock
+    networks:
+      - my-network
 
   # target-wl:
   #   build:
