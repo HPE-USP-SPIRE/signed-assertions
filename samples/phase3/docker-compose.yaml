@@ -43,16 +43,16 @@ services:
     networks:
       - my-network
 
-  # target-wl:
-  #   build:
-  #     context: ../..
-  #     dockerfile: samples/phase3/target-wl/Dockerfile
-  #   ports:
-  #     - "8444:8444"
-  #   volumes:
-  #     - /tmp/spire-agent/public/api.sock:/tmp/spire-agent/public/api.sock
-  #   networks:
-  #     - my-network
+  target-wl:
+    build:
+      context: ../..
+      dockerfile: samples/phase3/target-wl/Dockerfile
+    ports:
+      - "8444:8444"
+    volumes:
+      - /tmp/spire-agent/public/api.sock:/tmp/spire-agent/public/api.sock
+    networks:
+      - my-network
 
 networks:
   my-network:

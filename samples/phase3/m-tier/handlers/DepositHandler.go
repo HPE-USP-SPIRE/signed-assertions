@@ -14,6 +14,7 @@ import (
 
 	lsvid "github.com/hpe-usp-spire/signed-assertions/lsvid"
 	"github.com/hpe-usp-spire/signed-assertions/phase3/api-libs/utils"
+	"github.com/hpe-usp-spire/signed-assertions/phase3/m-tier/local"
 	dasvid "github.com/hpe-usp-spire/signed-assertions/poclib/svid"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"github.com/spiffe/go-spiffe/v2/spiffetls/tlsconfig"
@@ -24,6 +25,23 @@ import (
 )
 
 var temp models.Contents
+
+
+func timeTrack(start time.Time, name string) {
+	elapsed := time.Since(start)
+	log.Printf("%s execution time is %s", name, elapsed)
+
+	// If the file doesn't exist, create it, or append to the file
+	file, err := os.OpenFile("./bench.data", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		log.Fatal(err)
+	}
+	log.Printf("Writing to file...")
+	json.NewEncoder(file).Encode(fmt.Sprintf("%s execution time is %s", name, elapsed))
+	if err := file.Close(); err != nil {
+		log.Fatal(err)
+	}
+}
 
 func DepositHandler(w http.ResponseWriter, r *http.Request) {
 
@@ -56,15 +74,16 @@ func DepositHandler(w http.ResponseWriter, r *http.Request) {
 		log.Fatalf("Error validating LSVID: %v\n", err)
 	}
 
-	// TODO Now, verify if bearer == aud
-	// certs := r.TLS.PeerCertificates
-	// clientspiffeid, err := x509svid.IDFromCert(certs[0])
-	// if err != nil {
-	// 	log.Printf("Error retrieving client SPIFFE-ID from mTLS connection %v", err)
-	// }
-	// if (clientspiffeid.String() != decReceivedLSVID.Token.Payload.Aud.CN) {
-	//  log.Fatalf("Bearer does not match audience value: %v\n", err)
-	// }
+	// Now, verify if sender == issuer
+	certs := r.TLS.PeerCertificates
+	clientspiffeid, err := x509svid.IDFromCert(certs[0])
+	if err != nil {
+		log.Printf("Error retrieving client SPIFFE-ID from mTLS connection %v", err)
+	}
+
+	if (clientspiffeid.String() != decReceivedLSVID.Token.Payload.Iss.CN) {
+	 log.Fatalf("Bearer does not match audience value: %v\n", err)
+	}
 
 	////////// EXTEND LSVID ////////////
 	// Fetch subject workload data
@@ -93,9 +112,10 @@ func DepositHandler(w http.ResponseWriter, r *http.Request) {
 		log.Println("Error in Dial", err)
 		return
 	}
+
 	defer conn.Close()
-	certs := conn.ConnectionState().PeerCertificates
-	targetClientId, err := x509svid.IDFromCert(certs[0])
+	targetCerts := conn.ConnectionState().PeerCertificates
+	targetClientId, err := x509svid.IDFromCert(targetCerts[0])
 	if err != nil {
 		log.Printf("Error retrieving client SPIFFE-ID from mTLS connection %v", err)
 	}

@@ -70,13 +70,13 @@ func DepositHandler(w http.ResponseWriter, r *http.Request) {
 		log.Fatalf("Error validating LSVID: %v\n", err)
 	}
 
-	// TODO Now, verify if bearer == aud
+	// TODO Now, verify if sender == issuer
 	// certs := r.TLS.PeerCertificates
 	// clientspiffeid, err := x509svid.IDFromCert(certs[0])
 	// if err != nil {
 	// 	log.Printf("Error retrieving client SPIFFE-ID from mTLS connection %v", err)
 	// }
-	// if (clientspiffeid.String() != decReceivedLSVID.Token.Payload.Aud.CN) {
+	// if (clientspiffeid.String() != decReceivedLSVID.Token.Payload.Iss.CN) {
 	//  log.Fatalf("Bearer does not match audience value: %v\n", err)
 	// }
 
@@ -102,14 +102,14 @@ func DepositHandler(w http.ResponseWriter, r *http.Request) {
 	conf := &tls.Config{
 		InsecureSkipVerify: true,
 	}
-	conn, err := tls.Dial("tcp", os.Getenv("ASSERTINGWLIP"), conf)
+	conn, err := tls.Dial("tcp", os.Getenv("MIDDLETIERIP"), conf)
 	if err != nil {
 		log.Println("Error in Dial", err)
 		return
 	}
 	defer conn.Close()
-	certs := conn.ConnectionState().PeerCertificates
-	mtClientId, err := x509svid.IDFromCert(certs[0])
+	mtierCerts := conn.ConnectionState().PeerCertificates
+	mtClientId, err := x509svid.IDFromCert(mtierCerts[0])
 	if err != nil {
 		log.Printf("Error retrieving client SPIFFE-ID from mTLS connection %v", err)
 	}
