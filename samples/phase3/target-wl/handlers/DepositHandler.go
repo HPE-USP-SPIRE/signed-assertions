@@ -1,9 +1,9 @@
 package handlers
 
 import (
+	"bufio"
 	"encoding/json"
 
-	"io/ioutil"
 	"log"
 
 	"net/http"
@@ -20,19 +20,41 @@ import (
 func DepositHandler(w http.ResponseWriter, r *http.Request) {
 	defer utils.TimeTrack(time.Now(), "DepositHandler")
 
-	// var tempbalance models.Balancetemp
-	// var rcvSVID models.Contents
+	var tempbalance models.Balancetemp
+	var rcvSVID models.Contents
 
-	// ctx, cancel := context.WithCancel(context.Background())
-	// defer cancel()
+	json.NewDecoder(r.Body).Decode(&rcvSVID)
+	log.Print("Received LSVID: ", rcvSVID.DASVIDToken)
 
-	// json.NewDecoder(r.Body).Decode(&rcvSVID)
-	// log.Print("Received LSVID: ", rcvSVID.DASVIDToken)
+	decLSVID, err := lsvid.Decode(rcvSVID.DASVIDToken)
+	if err != nil {
+		log.Fatalf("Error decoding LSVID: %v\n", err)
+	}
+	log.Print("FORMATO DO DECLSVID:", decLSVID)
 
-	// decLSVID, err := lsvid.Decode(rcvSVID.DASVIDToken)
-	// if err != nil {
-	// 	log.Fatalf("Error decoding LSVID: %v\n", err)
-	// }
+	checkLSVID, err := lsvid.Validate(decLSVID.Token)
+	if err != nil {
+		log.Fatalf("Error validating LSVID: %v\n", err)
+	}
+	if checkLSVID == false {
+		log.Fatalf("Error validating LSVID: %v\n", err)
+	}
+
+	// Now, verify if bearer == aud
+	certs := r.TLS.PeerCertificates
+	clientspiffeid, err := x509svid.IDFromCert(certs[0])
+	if err != nil {
+		log.Printf("Error retrieving client SPIFFE-ID from mTLS connection %v", err)
+	}
+	//TODO: corrigir e descomentar. Erro: cannot convert clientspiffeid (variable of type spiffeid.ID) to type string. se tentar sem o string(), da erro de comparação de tipos diferentes.
+	if (clientspiffeid.String() != decLSVID.Token.Payload.Aud.CN) {
+	  log.Fatalf("Bearer does not match audience value: %v\n", err)
+	}
+	
+	//TODO - declaração de ctx?
+	//TODO - create X509 source blablabla
+	//TODO - TLS CONFIG? 
+	//TODO - serverID?
 
 	// checkLSVID, err := lsvid.Validate(decLSVID.Token)
 	// if err != nil {
@@ -42,91 +64,58 @@ func DepositHandler(w http.ResponseWriter, r *http.Request) {
 	// 	log.Fatalf("Error validating LSVID: %v\n", err)
 	// }
 
-	// // Now, verify if bearer == aud
-	// certs := r.TLS.PeerCertificates
-	// clientspiffeid, err := x509svid.IDFromCert(certs[0])
-	// if err != nil {
-	// 	log.Printf("Error retrieving client SPIFFE-ID from mTLS connection %v", err)
-	// }
-	// //TODO: corrigir e descomentar. Erro: cannot convert clientspiffeid (variable of type spiffeid.ID) to type string. se tentar sem o string(), da erro de comparação de tipos diferentes.
-	// // if (string(clientspiffeid) != decCallerLSVID.Token.Payload.Aud.CN) {
-	// //  log.Fatalf("Bearer does not match audience value: %v\n", err)
-	// // }
+	
+	// If reaches this point, all validations was successful, so we can proceed to access user data and return it.
+	// Open dasvid cache file
+	balance, err := os.OpenFile("./data/balance.data", os.O_CREATE, 0644)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer balance.Close()
 
-	// // // PS: Skip ZKP validation in the first step of PHASE 3 development.
-	// // // ZKP validation of original dasvid
-	// // // Contact Asserting Workload /introspect and retrieve a ZKP proving OAuth token signature
-	// // // var introspectrsp FileContents
-	// // tmp := []string{parts[len(parts)/2-1], parts[len(parts)/2]}
-	// // original := strings.Join(tmp[0:2], ".")
-	// // log.Printf(original)
-	// // introspectrsp := introspect(original, *client)
-	// // if introspectrsp.Returnmsg != "" {
-	// // 	log.Println("ZKP error! %v", introspectrsp.Returnmsg)
-	// // 	json.NewEncoder(w).Encode(introspectrsp)
-	// // }
+	// Iterate over lines looking for username
+	scanner := bufio.NewScanner(balance)
 
-	// // // Create OpenSSL vkey using DASVID
-	// // tmpvkey := dasvid.Assertion2vkey(original, 1)
+	for scanner.Scan() {
 
-	// // // Verify /introspect response correctness.
-	// // hexresult := dasvid.VerifyHexProof(introspectrsp.ZKP, introspectrsp.Msg, tmpvkey)
-	// // if hexresult == false {
-	// // 	log.Fatal("Error verifying hexproof!!")
-	// // }
-	// // log.Println("Success verifying hexproof!!")
+		json.Unmarshal([]byte(scanner.Text()), &tempbalance)
+		if err != nil {
+			log.Fatalf("error: %v", err)
+		}
 
-	// // If reaches this point, all validations was successful, so we can proceed to access user data and return it.
-	// // Open dasvid cache file
-	// balance, err := os.OpenFile("./data/balance.data", os.O_CREATE, 0644)
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
-	// defer balance.Close()
+		if tempbalance.User == clientspiffeid.String() { //TODO qual propriedade do LSVID deveria estar aqui? 
 
-	// // Iterate over lines looking for username
-	// scanner := bufio.NewScanner(balance)
+			log.Println("User " + tempbalance.User + " found! Updating balance...")
 
-	// for scanner.Scan() {
+			log.Println("Balance is ", tempbalance.Balance)
+			tmpdeposit, err := strconv.Atoi(r.FormValue("deposit"))
+			if err != nil {
+				log.Fatalf("error: %v", err)
+			}
+			tempbalance.Balance += tmpdeposit
+			log.Println("New Balance is ", tempbalance.Balance)
+			tmp, err := json.Marshal(tempbalance)
+			if err != nil {
+				fmt.Println("error:", err)
+			}
 
-	// 	json.Unmarshal([]byte(scanner.Text()), &tempbalance)
-	// 	if err != nil {
-	// 		log.Fatalf("error: %v", err)
-	// 	}
+			err = os.WriteFile("./data/balance.data", []byte(tmp), 0)
+			if err != nil {
+				panic(err)
+			}
 
-	// 	if tempbalance.User == dasvidclaims.Dpr {
+			tempbalance = models.Balancetemp{
+				User:    tempbalance.User,
+				Balance: tempbalance.Balance,
+			}
 
-	// 		log.Println("User " + tempbalance.User + " found! Updating balance...")
-
-	// 		log.Println("Balance is ", tempbalance.Balance)
-	// 		tmpdeposit, err := strconv.Atoi(r.FormValue("deposit"))
-	// 		if err != nil {
-	// 			log.Fatalf("error: %v", err)
-	// 		}
-	// 		tempbalance.Balance += tmpdeposit
-	// 		log.Println("New Balance is ", tempbalance.Balance)
-	// 		tmp, err := json.Marshal(tempbalance)
-	// 		if err != nil {
-	// 			fmt.Println("error:", err)
-	// 		}
-
-	// 		err = os.WriteFile("./data/balance.data", []byte(tmp), 0)
-	// 		if err != nil {
-	// 			panic(err)
-	// 		}
-
-	// 		tempbalance = models.Balancetemp{
-	// 			User:    tempbalance.User,
-	// 			Balance: tempbalance.Balance,
-	// 		}
-
-	// 		json.NewEncoder(w).Encode(tempbalance)
-	// 		return
-	// 	}
-	// }
-	// if scanner.Err() != nil {
-	// 	log.Printf("Error reading Balance data file: %v", scanner.Err())
-	// }
+			json.NewEncoder(w).Encode(tempbalance)
+			return
+		}
+	}
+	if scanner.Err() != nil {
+		log.Printf("Error reading Balance data file: %v", scanner.Err())
+	}
 
 	// f, err := os.OpenFile("./data/balance.data", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	// if err != nil {
@@ -134,43 +123,43 @@ func DepositHandler(w http.ResponseWriter, r *http.Request) {
 	// }
 	// log.Printf("Adding user to file...")
 
-	// tempbalance = models.Balancetemp{
-	// 	User:    fmt.Sprintf("%v", dasvidclaims.Dpr),
-	// 	Balance: 0,
-	// }
-	// json.NewEncoder(f).Encode(tempbalance)
-	// if err := f.Close(); err != nil {
-	// 	log.Fatal(err)
-	// }
-	// json.NewEncoder(w).Encode("User not found")
+	tempbalance = models.Balancetemp{
+		User:    fmt.Sprintf("%v", clientspiffeid.String()),
+		Balance: 0,
+	}
+	json.NewEncoder(f).Encode(tempbalance)
+	if err := f.Close(); err != nil {
+		log.Fatal(err)
+	}
+	json.NewEncoder(w).Encode("User not found")
 }
 
-func introspect(datoken string, client http.Client) (introspectrsp models.FileContents) {
-	var rcvresp models.FileContents
+// func introspect(datoken string, client http.Client) (introspectrsp models.FileContents) {
+// 	var rcvresp models.FileContents
 
-	endpoint := "https://" + os.Getenv("ASSERTINGWLIP") + "/introspect?DASVID=" + datoken
+// 	endpoint := "https://" + os.Getenv("ASSERTINGWLIP") + "/introspect?DASVID=" + datoken
 
-	response, err := client.Get(endpoint)
-	if err != nil {
-		log.Fatalf("Error connecting to %q: %v", os.Getenv("ASSERTINGWLIP"), err)
-	}
+// 	response, err := client.Get(endpoint)
+// 	if err != nil {
+// 		log.Fatalf("Error connecting to %q: %v", os.Getenv("ASSERTINGWLIP"), err)
+// 	}
 
-	defer response.Body.Close()
-	body, err := ioutil.ReadAll(response.Body)
-	if err != nil {
-		log.Fatalf("Unable to read body: %v", err)
-	}
+// 	defer response.Body.Close()
+// 	body, err := ioutil.ReadAll(response.Body)
+// 	if err != nil {
+// 		log.Fatalf("Unable to read body: %v", err)
+// 	}
 
-	err = json.Unmarshal([]byte(body), &rcvresp)
-	if err != nil {
-		log.Fatalf("Error: %v", err)
-	}
+// 	err = json.Unmarshal([]byte(body), &rcvresp)
+// 	if err != nil {
+// 		log.Fatalf("Error: %v", err)
+// 	}
 
-	introspectrsp = models.FileContents{
-		Msg:       rcvresp.Msg,
-		ZKP:       rcvresp.ZKP,
-		Returnmsg: "",
-	}
+// 	introspectrsp = models.FileContents{
+// 		Msg:       rcvresp.Msg,
+// 		ZKP:       rcvresp.ZKP,
+// 		Returnmsg: "",
+// 	}
 
-	return introspectrsp
-}
+// 	return introspectrsp
+// }
