@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/hpe-usp-spire/signed-assertions/phase3/api-libs/utils"
-	"github.com/spiffe/go-spiffe/v2/svid/x509svid"
+	// TODO voltar junto com aud=iss "github.com/spiffe/go-spiffe/v2/svid/x509svid"
 
 	"github.com/hpe-usp-spire/signed-assertions/phase3/target-wl/models"
 
@@ -42,53 +42,36 @@ func GetBalanceHandler(w http.ResponseWriter, r *http.Request) {
 		log.Fatalf("Error validating LSVID: %v\n", err)
 	}
 
+	//TODO: corrigir e descomentar.
+
 	// Now, verify if bearer == aud
-	certs := r.TLS.PeerCertificates
-	clientspiffeid, err := x509svid.IDFromCert(certs[0])
-	if err != nil {
-		log.Printf("Error retrieving client SPIFFE-ID from mTLS connection %v", err)
-	}
-	//TODO: corrigir e descomentar. Erro: cannot convert clientspiffeid (variable of type spiffeid.ID) to type string. se tentar sem o string(), da erro de comparação de tipos diferentes.
-	if (clientspiffeid.String() != decLSVID.Token.Payload.Aud.CN) {
-	  log.Fatalf("Bearer does not match audience value: %v\n", err)
-	}
+	// certs := r.TLS.PeerCertificates
+	// clientspiffeid, err := x509svid.IDFromCert(certs[0])
+	// if err != nil {
+	// 	log.Printf("Error retrieving client SPIFFE-ID from mTLS connection %v", err)
+	// }
+
+	// if (clientspiffeid.String() != decLSVID.Token.Payload.Aud.CN) {
+	//   log.Fatalf("Bearer does not match audience value: %v\n", err)
+	// }
 	
 	//TODO - declaração de ctx?
 	//TODO - create X509 source blablabla
 	//TODO - TLS CONFIG? 
 	//TODO - serverID?
-
-	// // PS: Skip ZKP validation in the first step of PHASE 3 development.
-	// // ZKP validation of original dasvid
-	// // Contact Asserting Workload /introspect and retrieve a ZKP proving OAuth token signature
-	// // var introspectrsp FileContents
-	// tmp := []string{parts[len(parts)/2-1], parts[len(parts)/2]}
-	// original := strings.Join(tmp[0:2], ".")
-	// log.Printf(original)
-	// introspectrsp := introspect(original, *client)
-	// if introspectrsp.Returnmsg != "" {
-	// 	log.Println("ZKP error! %v", introspectrsp.Returnmsg)
-	// 	json.NewEncoder(w).Encode(introspectrsp)
-	// }
-
-	// // Create OpenSSL vkey using DASVID
-	// tmpvkey := dasvid.Assertion2vkey(original, 1)
-
-	// // Verify /introspect response correctness.
-	// hexresult := dasvid.VerifyHexProof(introspectrsp.ZKP, introspectrsp.Msg, tmpvkey)
-	// if hexresult == false {
-	// 	log.Fatal("Error verifying hexproof!!")
-	// }
-	// log.Println("Success verifying hexproof!!")
-
 	
 	// If reaches this point, all validations was successful, so we can proceed to access user data and return it.
 	// Open dasvid cache file
-	balance, err := os.OpenFile("./data/balance.data", os.O_CREATE, 0644) 
+	balance, err := os.OpenFile("./data/balance.data", os.O_CREATE, 0644)
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer balance.Close()
+
+	// TODO: Iterate over nested lsvids looking for Dpr Claim. Right now, it is hardcoded for this scenario 
+
+	Dpr := decLSVID.Token.Nested.Nested.Payload.Dpr
+	log.Printf("Dpr Claim: %v", Dpr)
 
 	// Iterate over lines looking for DASVID token
 	scanner := bufio.NewScanner(balance)
@@ -100,7 +83,7 @@ func GetBalanceHandler(w http.ResponseWriter, r *http.Request) {
 			log.Fatalf("error:", err)
 		}
 		
-		if tempbalance.User == clientspiffeid.String() {
+		if tempbalance.User == Dpr {
 			log.Printf("User %s found!", tempbalance.User)
 			json.NewEncoder(w).Encode(tempbalance)
 			return
@@ -117,7 +100,7 @@ func GetBalanceHandler(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Adding user to file...\n")
 
 	tempbalance = models.Balancetemp{
-		User:		fmt.Sprintf("%v", clientspiffeid.String()),
+		User:		fmt.Sprintf("%v", Dpr),
 		Balance:	0,
 		Returnmsg:	"",
 	}

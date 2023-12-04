@@ -3,6 +3,8 @@ package handlers
 import (
 	"bufio"
 	"encoding/json"
+	"fmt"
+	"strconv"
 
 	"log"
 
@@ -11,11 +13,14 @@ import (
 	"time"
 
 	"github.com/hpe-usp-spire/signed-assertions/phase3/api-libs/utils"
+	// TODO voltar quando corrigir aud=iss "github.com/spiffe/go-spiffe/v2/svid/x509svid"
 
 	"github.com/hpe-usp-spire/signed-assertions/phase3/target-wl/models"
+
 	// LSVID pkg
-	// lsvid "github.com/hpe-usp-spire/signed-assertions/lsvid"
+	lsvid "github.com/hpe-usp-spire/signed-assertions/lsvid"
 )
+
 
 func DepositHandler(w http.ResponseWriter, r *http.Request) {
 	defer utils.TimeTrack(time.Now(), "DepositHandler")
@@ -30,7 +35,6 @@ func DepositHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Fatalf("Error decoding LSVID: %v\n", err)
 	}
-	log.Print("FORMATO DO DECLSVID:", decLSVID)
 
 	checkLSVID, err := lsvid.Validate(decLSVID.Token)
 	if err != nil {
@@ -40,30 +44,23 @@ func DepositHandler(w http.ResponseWriter, r *http.Request) {
 		log.Fatalf("Error validating LSVID: %v\n", err)
 	}
 
+	//TODO: corrigir e descomentar.
+
 	// Now, verify if bearer == aud
-	certs := r.TLS.PeerCertificates
-	clientspiffeid, err := x509svid.IDFromCert(certs[0])
-	if err != nil {
-		log.Printf("Error retrieving client SPIFFE-ID from mTLS connection %v", err)
-	}
-	//TODO: corrigir e descomentar. Erro: cannot convert clientspiffeid (variable of type spiffeid.ID) to type string. se tentar sem o string(), da erro de comparação de tipos diferentes.
-	if (clientspiffeid.String() != decLSVID.Token.Payload.Aud.CN) {
-	  log.Fatalf("Bearer does not match audience value: %v\n", err)
-	}
+	// certs := r.TLS.PeerCertificates
+	// clientspiffeid, err := x509svid.IDFromCert(certs[0])
+	// if err != nil {
+	// 	log.Printf("Error retrieving client SPIFFE-ID from mTLS connection %v", err)
+	// }
+
+	// if (clientspiffeid.String() != decLSVID.Token.Payload.Aud.CN) {
+	//   log.Fatalf("Bearer does not match audience value: %v\n", err)
+	// }
 	
 	//TODO - declaração de ctx?
 	//TODO - create X509 source blablabla
 	//TODO - TLS CONFIG? 
 	//TODO - serverID?
-
-	// checkLSVID, err := lsvid.Validate(decLSVID.Token)
-	// if err != nil {
-	// 	log.Fatalf("Error validating LSVID: %v\n", err)
-	// }
-	// if checkLSVID == false {
-	// 	log.Fatalf("Error validating LSVID: %v\n", err)
-	// }
-
 	
 	// If reaches this point, all validations was successful, so we can proceed to access user data and return it.
 	// Open dasvid cache file
@@ -72,6 +69,11 @@ func DepositHandler(w http.ResponseWriter, r *http.Request) {
 		log.Fatal(err)
 	}
 	defer balance.Close()
+
+	// TODO: Iterate over nested lsvids looking for Dpr Claim. Right now, it is hardcoded for this scenario 
+
+	Dpr := decLSVID.Token.Nested.Nested.Payload.Dpr
+	log.Printf("Dpr Claim: %v", Dpr)
 
 	// Iterate over lines looking for username
 	scanner := bufio.NewScanner(balance)
@@ -83,7 +85,9 @@ func DepositHandler(w http.ResponseWriter, r *http.Request) {
 			log.Fatalf("error: %v", err)
 		}
 
-		if tempbalance.User == clientspiffeid.String() { //TODO qual propriedade do LSVID deveria estar aqui? 
+		// TODO retirar print
+		log.Printf("tempbalance.User: ", tempbalance.User)
+		if tempbalance.User == Dpr {
 
 			log.Println("User " + tempbalance.User + " found! Updating balance...")
 
@@ -117,14 +121,14 @@ func DepositHandler(w http.ResponseWriter, r *http.Request) {
 		log.Printf("Error reading Balance data file: %v", scanner.Err())
 	}
 
-	// f, err := os.OpenFile("./data/balance.data", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
-	// log.Printf("Adding user to file...")
+	f, err := os.OpenFile("./data/balance.data", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		log.Fatal(err)
+	}
+	log.Printf("Adding user to file...")
 
 	tempbalance = models.Balancetemp{
-		User:    fmt.Sprintf("%v", clientspiffeid.String()),
+		User:    fmt.Sprintf("%v", Dpr),
 		Balance: 0,
 	}
 	json.NewEncoder(f).Encode(tempbalance)
