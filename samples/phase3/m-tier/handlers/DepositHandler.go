@@ -3,18 +3,13 @@ package handlers
 import (
 	"bytes"
 	"context"
-	"crypto"
-	"crypto/ecdsa"
 	"crypto/tls"
-	"crypto/x509"
 	"encoding/json"
-	"encoding/pem"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
-	"strings"
 	"time"
 
 	lsvid "github.com/hpe-usp-spire/signed-assertions/lsvid"

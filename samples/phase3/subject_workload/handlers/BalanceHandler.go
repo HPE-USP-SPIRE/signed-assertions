@@ -33,7 +33,6 @@ import (
 	"github.com/hpe-usp-spire/signed-assertions/phase3/subject_workload/monitoring-prom"
 
 	// To sig. validation
-	"crypto/sha256"
 	"crypto/tls"
 	// "github.com/gorilla/sessions"
 	// Okta

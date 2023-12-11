@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"os"
 	"time"
-
+	"github.com/hpe-usp-spire/signed-assertions/phase3/subject_workload/monitoring-prom"
 	oktaUtils "github.com/okta/samples-golang/okta-hosted-login/utils"
 )
 
