@@ -16,6 +16,7 @@ import (
 	// TODO voltar quando corrigir aud=iss "github.com/spiffe/go-spiffe/v2/svid/x509svid"
 
 	"github.com/hpe-usp-spire/signed-assertions/phase3/target-wl/models"
+	"github.com/hpe-usp-spire/signed-assertions/phase3/target-wl/monitoring-prom"
 
 	// LSVID pkg
 	lsvid "github.com/hpe-usp-spire/signed-assertions/lsvid"
@@ -35,7 +36,9 @@ func DepositHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Fatalf("Error decoding LSVID: %v\n", err)
 	}
-
+	monitor.AssertionSize.WithLabelValues().Set(float64(len(rcvSVID.DASVIDToken)))
+	monitor.SVIDCertSize.WithLabelValues().Set(float64(len(rcvSVID.IDArtifacts)))
+	
 	checkLSVID, err := lsvid.Validate(decLSVID.Token)
 	if err != nil {
 		log.Fatalf("Error validating LSVID: %v\n", err)

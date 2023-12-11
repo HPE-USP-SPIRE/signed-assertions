@@ -14,6 +14,7 @@ import (
 	"github.com/hpe-usp-spire/signed-assertions/phase3/api-libs/utils"
 	// TODO voltar junto com aud=iss "github.com/spiffe/go-spiffe/v2/svid/x509svid"
 
+	"github.com/hpe-usp-spire/signed-assertions/phase3/target-wl/monitoring-prom"
 	"github.com/hpe-usp-spire/signed-assertions/phase3/target-wl/models"
 
 	// LSVID pkg
@@ -28,7 +29,9 @@ func GetBalanceHandler(w http.ResponseWriter, r *http.Request) {
 
 	json.NewDecoder(r.Body).Decode(&rcvSVID)
 	log.Print("Received LSVID: ", rcvSVID.DASVIDToken)
-
+	monitor.AssertionSize.WithLabelValues().Set(float64(len(rcvSVID.DASVIDToken)))
+	monitor.SVIDCertSize.WithLabelValues().Set(float64(len(rcvSVID.IDArtifacts)))
+	
 	decLSVID, err := lsvid.Decode(rcvSVID.DASVIDToken)
 	if err != nil {
 		log.Fatalf("Error decoding LSVID: %v\n", err)
