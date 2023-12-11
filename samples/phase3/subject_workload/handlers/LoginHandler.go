@@ -41,5 +41,6 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 
 func timeTrack(start time.Time, name string) {
 	elapsed := time.Since(start)
+	monitor.ExecutionTimeSummary.WithLabelValues(name).Observe(elapsed.Seconds())
 	log.Printf("%s execution time is %s", name, elapsed)
 }

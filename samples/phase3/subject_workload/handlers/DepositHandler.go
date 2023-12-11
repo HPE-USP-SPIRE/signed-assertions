@@ -28,6 +28,7 @@ import (
 	"github.com/hpe-usp-spire/signed-assertions/phase3/api-libs/utils"
 	"github.com/hpe-usp-spire/signed-assertions/phase3/subject_workload/local"
 	"github.com/hpe-usp-spire/signed-assertions/phase3/subject_workload/models"
+	"github.com/hpe-usp-spire/signed-assertions/phase3/subject_workload/monitoring-prom"
 	dasvid "github.com/hpe-usp-spire/signed-assertions/poclib/svid"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"github.com/spiffe/go-spiffe/v2/spiffetls/tlsconfig"
@@ -53,6 +54,7 @@ func DepositHandler(w http.ResponseWriter, r *http.Request) {
 		log.Fatalf("error:", err)
 	}
 	log.Print("Received LSVID: ", rcvSVID.DASVIDToken)
+	monitor.SVIDCertSize.WithLabelValues().Set(float64(len(rcvSVID.DASVIDToken)))
 
 	// Decode LSVID from b64
 	decReceivedLSVID, err := lsvid.Decode(rcvSVID.DASVIDToken)
@@ -133,6 +135,7 @@ func DepositHandler(w http.ResponseWriter, r *http.Request) {
 	} 
 
 	log.Printf("Final extended LSVID: ", fmt.Sprintf("%s",extendedLSVID))
+	monitor.SVIDCertSize.WithLabelValues().Set(float64(len(extendedLSVID)))
 	//////////////////////
 
 	// Prepare to send extended lsvid

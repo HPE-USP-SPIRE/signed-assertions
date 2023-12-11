@@ -9,6 +9,8 @@ require (
 	github.com/hpe-usp-spire/signed-assertions/poclib v0.0.0-20231027162922-104e2990cc5c
 	github.com/okta/okta-jwt-verifier-golang v1.3.1
 	github.com/okta/samples-golang v0.0.0-20230321201010-908f8c144207
+	github.com/prometheus/client_golang v1.14.0
+	github.com/shirou/gopsutil v3.21.11+incompatible
 	github.com/spiffe/go-spiffe/v2 v2.1.6
 )
 

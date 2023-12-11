@@ -30,9 +30,10 @@ import (
 	lsvid "github.com/hpe-usp-spire/signed-assertions/lsvid"
 	"github.com/hpe-usp-spire/signed-assertions/phase3/subject_workload/local"
 	"github.com/hpe-usp-spire/signed-assertions/phase3/subject_workload/models"
+	"github.com/hpe-usp-spire/signed-assertions/phase3/subject_workload/monitoring-prom"
 
 	// To sig. validation
-	_ "crypto/sha256"
+	"crypto/sha256"
 	"crypto/tls"
 	// "github.com/gorilla/sessions"
 	// Okta
@@ -62,6 +63,7 @@ func BalanceHandler(w http.ResponseWriter, r *http.Request) {
 		log.Fatalf("error:", err)
 	}
 	log.Print("Received LSVID: ", rcvSVID.DASVIDToken)
+	monitor.SVIDCertSize.WithLabelValues().Set(float64(len(rcvSVID.DASVIDToken)))
 
 	// Decode LSVID from b64
 	decReceivedLSVID, err := lsvid.Decode(rcvSVID.DASVIDToken)
@@ -140,9 +142,9 @@ func BalanceHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Fatal("Error extending LSVID: %v\n", err)
 	} 
-
+	
 	log.Printf("Extended LSVID: ", fmt.Sprintf("%s",extendedLSVID))
-
+	monitor.AssertionSize.WithLabelValues().Set(float64(len(extendedLSVID)))
 	//////////////////////
 	// Prepare to send extended lsvid
 	values := map[string]string{"DASVIDToken": extendedLSVID}
