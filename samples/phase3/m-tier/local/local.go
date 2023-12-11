@@ -7,11 +7,13 @@ import (
 	alOps "github.com/hpe-usp-spire/signed-assertions/phase3/api-libs/options"
 
 	"github.com/hpe-usp-spire/signed-assertions/phase3/m-tier/options"
+	"github.com/hpe-usp-spire/signed-assertions/phase3/m-tier/monitoring-prom"
 )
 
 var Options *alOps.Options
 
 func init() {
+	monitor.RegisterMetrics()
 	log.Print("global init")
 
 	options, err := options.InitOptions()

@@ -6,7 +6,7 @@ import (
 	"github.com/hpe-usp-spire/signed-assertions/phase3/Assertingwl-mTLS/options"
 	api "github.com/hpe-usp-spire/signed-assertions/phase3/api-libs/global"
 	alOps "github.com/hpe-usp-spire/signed-assertions/phase3/api-libs/options"
-	"github.com/hpe-usp-spire/signed-assertions/IDMode/Assertingwl-mTLS/monitoring-prom"
+	"github.com/hpe-usp-spire/signed-assertions/phase3/Assertingwl-mTLS/monitoring-prom"
 )
 
 var Options *alOps.Options

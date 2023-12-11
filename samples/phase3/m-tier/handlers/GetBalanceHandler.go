@@ -24,6 +24,7 @@ import (
 	"github.com/spiffe/go-spiffe/v2/workloadapi"
 
 	"github.com/hpe-usp-spire/signed-assertions/phase3/m-tier/models"
+	"github.com/hpe-usp-spire/signed-assertions/phase3/m-tier/monitoring-prom"
 )
 
 func GetBalanceHandler(w http.ResponseWriter, r *http.Request) {
@@ -40,7 +41,7 @@ func GetBalanceHandler(w http.ResponseWriter, r *http.Request) {
 	// Get LSVID from subject
 	json.NewDecoder(r.Body).Decode(&rcvSVID)
 	log.Print("Received LSVID: ", rcvSVID.DASVIDToken)
-
+	monitor.SVIDCertSize.WithLabelValues().Set(float64(len(rcvSVID.IDArtifacts)))
 	// Decode LSVID from b64
 	decReceivedLSVID, err := lsvid.Decode(rcvSVID.DASVIDToken)
 	if err != nil {
@@ -79,7 +80,7 @@ func GetBalanceHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Fatalf("Error fetching LSVID: %v\n", err)
 	}
-
+	monitor.SVIDCertSize.WithLabelValues().Set(float64(len(subjectLSVID)))
 	// decode subject wl  LSVID
 	decSubject, err := lsvid.Decode(subjectLSVID)
 	if err != nil {
@@ -119,7 +120,8 @@ func GetBalanceHandler(w http.ResponseWriter, r *http.Request) {
 	extendedLSVID, err := lsvid.Extend(decReceivedLSVID, extendedPayload, subjectKey)
 	if err != nil {
 		log.Fatal("Error extending LSVID: %v\n", err)
-	} 
+	}
+	monitor.SVIDCertSize.WithLabelValues().Set(float64(len(extendedLSVID))) 
 
 	log.Printf("Final extended LSVID: ", fmt.Sprintf("%s",extendedLSVID))
 	//////////////////////

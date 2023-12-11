@@ -29,7 +29,7 @@ import (
 
 	"github.com/hpe-usp-spire/signed-assertions/phase3/Assertingwl-mTLS/controller"
 	"github.com/hpe-usp-spire/signed-assertions/phase3/Assertingwl-mTLS/local"
-	"github.com/hpe-usp-spire/signed-assertions/IDMode/Assertingwl-mTLS/monitoring-prom"
+	"github.com/hpe-usp-spire/signed-assertions/phase3/Assertingwl-mTLS/monitoring-prom"
 )
 
 func main() {

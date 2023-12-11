@@ -3,13 +3,18 @@ package handlers
 import (
 	"bytes"
 	"context"
+	"crypto"
+	"crypto/ecdsa"
 	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
+	"encoding/pem"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	lsvid "github.com/hpe-usp-spire/signed-assertions/lsvid"
@@ -22,6 +27,7 @@ import (
 	"github.com/spiffe/go-spiffe/v2/workloadapi"
 
 	"github.com/hpe-usp-spire/signed-assertions/phase3/m-tier/models"
+	"github.com/hpe-usp-spire/signed-assertions/phase3/m-tier/monitoring-prom"
 )
 
 var temp models.Contents
@@ -30,7 +36,7 @@ var temp models.Contents
 func timeTrack(start time.Time, name string) {
 	elapsed := time.Since(start)
 	log.Printf("%s execution time is %s", name, elapsed)
-
+	monitor.ExecutionTimeSummary.WithLabelValues(name).Observe(elapsed.Seconds())
 	// If the file doesn't exist, create it, or append to the file
 	file, err := os.OpenFile("./bench.data", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
@@ -57,7 +63,7 @@ func DepositHandler(w http.ResponseWriter, r *http.Request) {
 	// Get LSVID from subject
 	json.NewDecoder(r.Body).Decode(&rcvSVID)
 	log.Print("Received LSVID: ", rcvSVID.DASVIDToken)
-
+	monitor.SVIDCertSize.WithLabelValues().Set(float64(len(rcvSVID.IDArtifacts)))
 	// Decode LSVID from b64
 	decReceivedLSVID, err := lsvid.Decode(rcvSVID.DASVIDToken)
 	if err != nil {
@@ -137,7 +143,7 @@ func DepositHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Fatal("Error extending LSVID: %v\n", err)
 	} 
-
+	monitor.AssertionSize.WithLabelValues().Set(float64(len(extendedLSVID)))
 	log.Printf("Final extended LSVID: ", fmt.Sprintf("%s",extendedLSVID))
 	//////////////////////
 

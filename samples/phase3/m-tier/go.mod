@@ -8,6 +8,7 @@ require (
 	github.com/hpe-usp-spire/signed-assertions/phase3/api-libs v0.0.0-00010101000000-000000000000
 	github.com/hpe-usp-spire/signed-assertions/poclib v0.0.0-20231027162922-104e2990cc5c
 	github.com/spiffe/go-spiffe/v2 v2.1.6
+	gitlab.com/msvechla/mux-prometheus v0.0.2
 )
 
 replace github.com/hpe-usp-spire/signed-assertions/phase3/api-libs => ./api-libs

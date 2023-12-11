@@ -12,7 +12,7 @@ import (
 	"crypto"
 
 	"github.com/hpe-usp-spire/signed-assertions/phase3/Assertingwl-mTLS/models"
-	"github.com/hpe-usp-spire/signed-assertions/IDMode/Assertingwl-mTLS/monitoring-prom"
+	"github.com/hpe-usp-spire/signed-assertions/phase3/Assertingwl-mTLS/monitoring-prom"
 	// "github.com/hpe-usp-spire/signed-assertions/phase3/api-libs/global"
 	dasvid "github.com/hpe-usp-spire/signed-assertions/poclib/svid"
 	"github.com/spiffe/go-spiffe/v2/svid/x509svid"
