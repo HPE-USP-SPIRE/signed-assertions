@@ -14,6 +14,11 @@ replace github.com/hpe-usp-spire/signed-assertions/phase3/api-libs => ./api-libs
 
 replace github.com/hpe-usp-spire/signed-assertions/poclib => ./poclib
 
+require (
+	github.com/shirou/gopsutil v3.21.11+incompatible
+	gitlab.com/msvechla/mux-prometheus v0.0.2
+)
+
 replace github.com/hpe-usp-spire/signed-assertions/lsvid => ./lsvid
 
 replace github.com/spiffe/go-spiffe/v2 => ./go-spiffe/v2

@@ -42,7 +42,7 @@ COPY --from=builder /build /build
 RUN apk add --no-cache bash
 
 # Export necessary port
-EXPOSE 8443
+EXPOSE 8443 2113
 
 # Command to run when starting the container
 CMD ["bash","/build/main.sh"]
