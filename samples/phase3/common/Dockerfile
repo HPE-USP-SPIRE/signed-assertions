@@ -32,4 +32,4 @@ RUN apk add build-base
 RUN apk add pkgconfig
 
 COPY ./samples/phase3/common .
-RUN go mod download
+RUN go mod tidy
