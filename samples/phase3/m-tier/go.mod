@@ -7,6 +7,8 @@ require (
 	github.com/hpe-usp-spire/signed-assertions/lsvid v0.0.0-00010101000000-000000000000
 	github.com/hpe-usp-spire/signed-assertions/phase3/api-libs v0.0.0-00010101000000-000000000000
 	github.com/hpe-usp-spire/signed-assertions/poclib v0.0.0-20231027162922-104e2990cc5c
+	github.com/prometheus/client_golang v1.14.0
+	github.com/shirou/gopsutil v3.21.11+incompatible
 	github.com/spiffe/go-spiffe/v2 v2.1.6
 	gitlab.com/msvechla/mux-prometheus v0.0.2
 )
@@ -200,7 +202,6 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/power-devops/perfstat v0.0.0-20210106213030-5aafc221ea8c // indirect
-	github.com/prometheus/client_golang v1.14.0 // indirect
 	github.com/prometheus/client_model v0.3.0 // indirect
 	github.com/prometheus/common v0.37.0 // indirect
 	github.com/prometheus/procfs v0.8.0 // indirect
