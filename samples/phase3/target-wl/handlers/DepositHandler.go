@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/hpe-usp-spire/signed-assertions/phase3/api-libs/utils"
-	// TODO voltar quando corrigir aud=iss "github.com/spiffe/go-spiffe/v2/svid/x509svid"
+	"github.com/spiffe/go-spiffe/v2/svid/x509svid"
 
 	"github.com/hpe-usp-spire/signed-assertions/phase3/target-wl/models"
 
@@ -46,16 +46,17 @@ func DepositHandler(w http.ResponseWriter, r *http.Request) {
 
 	//TODO: corrigir e descomentar.
 
-	// Now, verify if bearer == aud
-	// certs := r.TLS.PeerCertificates
-	// clientspiffeid, err := x509svid.IDFromCert(certs[0])
-	// if err != nil {
-	// 	log.Printf("Error retrieving client SPIFFE-ID from mTLS connection %v", err)
-	// }
+	// Now, verify if bearer == issuer
 
-	// if (clientspiffeid.String() != decLSVID.Token.Payload.Aud.CN) {
-	//   log.Fatalf("Bearer does not match audience value: %v\n", err)
-	// }
+	certs := r.TLS.PeerCertificates
+	clientspiffeid, err := x509svid.IDFromCert(certs[0])
+	if err != nil {
+		log.Printf("Error retrieving client SPIFFE-ID from mTLS connection %v", err)
+	}
+
+	if (clientspiffeid.String() != decLSVID.Token.Payload.Iss.CN) {
+	 log.Fatalf("Bearer does not match issuer value: %v\n", err)
+	}
 	
 	//TODO - declaração de ctx?
 	//TODO - create X509 source blablabla

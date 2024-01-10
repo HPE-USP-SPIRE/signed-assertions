@@ -82,7 +82,7 @@ func DepositHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if (clientspiffeid.String() != decReceivedLSVID.Token.Payload.Iss.CN) {
-	 log.Fatalf("Bearer does not match audience value: %v\n", err)
+	 log.Fatalf("Bearer does not match issuer value: %v\n", err)
 	}
 
 	////////// EXTEND LSVID ////////////
