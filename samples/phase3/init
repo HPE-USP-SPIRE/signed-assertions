@@ -27,10 +27,10 @@ docker-compose up --build --detach
 echo -e "${GREEN}Copying WLs' binaries from containers to host..${CLEAR}\n"
 rm -f ./Assertingwl-mTLS/bin/*
 docker cp phase3_assertingwl_1:/build/bin/. ./Assertingwl-mTLS/bin/
-rm -f ./m-tier/bin/*
-docker cp phase3_m-tier_1:/build/bin/. ./m-tier/bin/
 rm -f ./subject_workload/bin/*
 docker cp phase3_subjectwl_1:/build/bin/. ./subject_workload/bin/
+rm -f ./m-tier/bin/*
+docker cp phase3_m-tier_1:/build/bin/. ./m-tier/bin/
 rm -f ./target-wl/bin/*
 docker cp phase3_target-wl_1:/build/bin/. ./target-wl/bin/
 

@@ -34,7 +34,7 @@ services:
 
   m-tier:
     build:
-      context: ../../
+      context: ../..
       dockerfile: samples/phase3/m-tier/Dockerfile
     ports:
       - "8445:8445"

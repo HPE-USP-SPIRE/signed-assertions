@@ -41,6 +41,8 @@ type Payload struct {
 	Iss			*IDClaim	`json:"iss,omitempty"`
 	Sub			*IDClaim	`json:"sub,omitempty"`
 	Aud			*IDClaim	`json:"aud,omitempty"`
+	Dpa			string		`json:"dpa,omitempty"`
+	Dpr			string		`json:"dpr,omitempty"`
 }
 
 type IDClaim struct {
