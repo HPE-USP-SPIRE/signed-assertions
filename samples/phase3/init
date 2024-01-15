@@ -11,7 +11,7 @@ echo -e "${GREEN}Killing spire agent, spire server and containers...${CLEAR}\n"
 ./kill
 
 echo -e "${GREEN}Starting SPIRE...${CLEAR}\n"
-cd /opt/spire
+cd /opt/spire-lsvid
 sudo bash start_spire_env.sh > /dev/null
 
 echo -e "${GREEN}Applying ./.cfg ...${CLEAR}\n"
