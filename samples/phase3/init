@@ -11,7 +11,7 @@ echo -e "${GREEN}Killing spire agent, spire server and containers...${CLEAR}\n"
 ./kill
 
 echo -e "${GREEN}Starting SPIRE...${CLEAR}\n"
-cd /opt/spire-lsvid
+cd /opt/spire-signed-assertions
 sudo bash start_spire_env.sh > /dev/null
 
 echo -e "${GREEN}Applying ./.cfg ...${CLEAR}\n"
@@ -34,4 +34,4 @@ docker cp phase3_m-tier_1:/build/bin/. ./m-tier/bin/
 rm -f ./target-wl/bin/*
 docker cp phase3_target-wl_1:/build/bin/. ./target-wl/bin/
 
-echo -e "${GREEN}Done! Containers up and running.${CLEAR}\n"
+echo -e "${GREEN}Done! Containers up and running.${CLEAR}"

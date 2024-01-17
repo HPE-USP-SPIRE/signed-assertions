@@ -4,7 +4,7 @@ docker-compose down
 echo "Containers killed"
 
 #kill spire agent, spire server and containers
-cd /opt/spire-lsvid
+cd /opt/spire-signed-assertions
 sudo kill -9 $(ps -ef | grep "spire-agent" | grep -v grep | awk '{print $2}') ;  sudo kill -9 $(ps -ef | grep "spire-server" | grep -v grep | awk '{print $2}') ; sudo rm -rf .data
 echo "Spire Agent/Server killed"
 
