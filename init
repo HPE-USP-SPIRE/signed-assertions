@@ -1,0 +1,72 @@
+#!/bin/bash
+# Initialize sample
+
+set -e
+
+SCRIPT_PATH=$(pwd)
+GREEN='\033[0;32m'
+CLEAR='\033[0m'
+
+echo -e "Which model would you like to use?\n[${GREEN}1${CLEAR}] ${GREEN}DA-SVID${CLEAR} (Delegated Assertions)\n[${GREEN}2${CLEAR}] ${GREEN}ID Mode${CLEAR} (Nested Tokens)\n[${GREEN}3${CLEAR}] ${GREEN}Anonymous Mode${CLEAR} (Nested Tokens)\n[${GREEN}4${CLEAR}] ${GREEN}LSVID${CLEAR} (Lightweight SVID)"
+read input
+if [ "$input" == "1" ]; then
+  MODEL_PATH=$SCRIPT_PATH/samples/SVID-NG
+elif [ "$input" == "2" ]; then
+  MODEL_PATH=$SCRIPT_PATH/samples/IDMode
+elif [ "$input" == "3" ]; then
+  MODEL_PATH=$SCRIPT_PATH/samples/anonymousMode
+elif [ "$input" == "4" ]; then
+  MODEL_PATH=$SCRIPT_PATH/samples/phase3
+else
+  echo 'Invalid input. Aborting...'
+  exit
+fi
+
+echo -e "${GREEN}Killing spire agent, spire server and containers...${CLEAR}\n"
+cd $MODEL_PATH
+$SCRIPT_PATH/kill
+
+echo -e "${GREEN}Starting SPIRE...${CLEAR}\n"
+cd /opt/spire-signed-assertions
+sudo bash start_spire_env.sh > /dev/null
+
+echo -e "${GREEN}Applying .cfg ...${CLEAR}\n"
+cd $MODEL_PATH
+cp $SCRIPT_PATH/.cfg Assertingwl-mTLS
+cp $SCRIPT_PATH/.cfg m-tier
+[ -d "m-tier2" ] && cp $SCRIPT_PATH/.cfg m-tier2 #not all models have this WL
+[ -d "m-tier3" ] && cp $SCRIPT_PATH/.cfg m-tier3
+[ -d "m-tier4" ] && cp $SCRIPT_PATH/.cfg m-tier4
+[ -d "m-tier5" ] && cp $SCRIPT_PATH/.cfg m-tier5
+cp $SCRIPT_PATH/.cfg subject_workload
+cp $SCRIPT_PATH/.cfg target-wl
+
+echo -e "${GREEN}Starting containers...${CLEAR}\n"
+docker-compose up --build --detach
+
+#TODO (optimization): Make Anon and ID modes accept binaries
+if [ "$input" == "1" ]; then
+  echo -e "${GREEN}Copying WLs' binaries from containers to host..${CLEAR}\n"
+
+  rm -f ./Assertingwl-mTLS/bin/*
+  docker cp svid-ng_assertingwl_1:/build/bin/. ./Assertingwl-mTLS/bin/
+  rm -f ./m-tier/bin/*
+  docker cp svid-ng_m-tier_1:/build/bin/. ./m-tier/bin/
+  rm -f ./subject_workload/bin/*
+  docker cp svid-ng_subjectwl_1:/build/bin/. ./subject_workload/bin/
+  rm -f ./target-wl/bin/*
+  docker cp svid-ng_target-wl_1:/build/bin/. ./target-wl/bin/
+elif [ "$input" == "4" ]; then
+  echo -e "${GREEN}Copying WLs' binaries from containers to host..${CLEAR}\n"
+
+  rm -f ./Assertingwl-mTLS/bin/*
+  docker cp phase3_assertingwl_1:/build/bin/. ./Assertingwl-mTLS/bin/
+  rm -f ./subject_workload/bin/*
+  docker cp phase3_subjectwl_1:/build/bin/. ./subject_workload/bin/
+  rm -f ./m-tier/bin/*
+  docker cp phase3_m-tier_1:/build/bin/. ./m-tier/bin/
+  rm -f ./target-wl/bin/*
+  docker cp phase3_target-wl_1:/build/bin/. ./target-wl/bin/
+fi 
+
+echo -e "${GREEN}Done! Containers up and running.${CLEAR}"

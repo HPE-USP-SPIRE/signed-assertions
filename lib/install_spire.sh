@@ -14,14 +14,4 @@ else
   echo -e "${GREEN}Installing modified SPIRE...${CLEAR}"
   cd /opt/spire-signed-assertions
   make build
-
-  #add to sudoer
-  # if grep -Fq "/opt/spire/bin:" /etc/sudoers
-  # then
-  #   echo -e "/opt/spire/bin already in sudoers file.\n"
-  # else
-  #   sed -i 's/secure_path=\"/secure_path=\"\/opt\/spire\/bin:/' /etc/sudoers
-  #   source ~/.bashrc
-  #   echo -e "## SPIRE installed ##\n"
-  # fi
 fi
