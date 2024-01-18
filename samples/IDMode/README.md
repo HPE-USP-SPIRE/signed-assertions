@@ -1,4 +1,6 @@
-# Nested scheme using ID-mode
+# Nested scheme using ID Mode
+
+## Overview
 
 In this signature mode, the assumption is that a TTP identity provider (IdP) is available, enabling workloads to retrieve their own key pair and an identity document (e.g., X509 certificate/SVID). Also, each workload Wn along the path knows the identity of the next workload Wn+1. In this case, they can use its private key to generate signatures, allowing the token creation and appending in a non-repudiable manner. The public key could be taken from any verifiable identity document, with the "signing" key usage field set to true. This is expected to be the case when workloads establish mTLS connections, since the protocol requires certificates to be exchanged. Some implementations may allow that certificate to be extracted from the mTLS layer, whereas others may require it to be fetched at the application layer, as part of the token processing.
 
@@ -25,49 +27,20 @@ The Figure ID-mode depicts the application of ID-mode in the PoC application:
 6.  Similarly, middle-tier add the issuer (middle-tier public key) and audience (Target-wl public key) claims. The resulting payload is signed by middle-tier using its SVID private key. The token and all certificates (asserting-wl, front-end, and middle-tier) are sent to Target-wl.
 7.  Finally, Target-wl uses all certificates in the receiving order to validate all sequential signatures, identifying the signers and verifying if the issuer/audience link hold for all hops. If all perform correctly, Target-wl return user data to front-end.
 
-# Using the POC
+## API
 
-</br>
+### `/ecdsaassertion <AccessToken>`
 
-## Setup your Environment
+| Parameter       | Type   | Required | Description                                                                                |
+| --------------- | ------ | -------- | ------------------------------------------------------------------------------------------ |
+| `<AccessToken>` | string | yes      | Mint a new ECDSA nested token based in OKTA OAuth token received as AccessToken parameter. |
 
-If you haven't already, follow the Setup Guide, on [/samples/README](../README.MD)
+This endpoint return a new ECDSA nested token. Basically it is the same DA-SVID, but in nested model format, insted JWT (2 part token vs 3 part token).
 
-After doing that, manually alter the `.cfg` in the root of the sample accordingly:
+### `/mintassertion <AccessToken>`
 
-- CLIENT_ID and CLIENT_SECRET: found in your okta application
-- OKTA_DEVELOPER_CODE: a 7 number ID found in the URL of you okta dashboard (between dev- and -admin)
-- HOST_IP: the IP set under "Sign-in redirect URIs" in your okta application
-- WORKLOADIP: for each one of the workloads, configure it's IP with your host IP followed by a port (IP:PORT)
+| Parameter       | Type   | Required | Description                                                                                  |
+| --------------- | ------ | -------- | -------------------------------------------------------------------------------------------- |
+| `<AccessToken>` | string | yes      | Mint a new Schnorr nested token based in OKTA OAuth token received as AccessToken parameter. |
 
-Here is a sample configuration:
-
-```
-CLIENT_ID=0oo643ull1KZl5yVe5d7
-CLIENT_SECRET=yl5_6mIaTu5e1p5E70NazdFKNZ6bOhhWAzerdCOVc
-OKTA_DEVELOPER_CODE=1234567
-HOSTIP=192.168.0.100
-ASSERTINGWLIP=192.168.0.100:8443
-MIDDLETIERIP=192.168.0.100:8445
-MIDDLE_TIER2_IP=192.168.0.100:8446
-MIDDLE_TIER3_IP=192.168.0.100:8447
-MIDDLE_TIER4_IP=192.168.0.100:8448
-MIDDLE_TIER5_IP=192.168.0.100:8449
-TARGETWLIP=192.168.0.100:8444
-```
-
-## Run the Application
-
-```
-./init
-```
-
-After prompted that the execution finished successfully, open your browser on localhost:8080.
-
-</br>
-
-**Important**:
-
-- SPIRE will keep running in background. Use `./kill` to stop the application. Notice that it will kill all the docker conatiners running in your machine
-- Check the output for potential network errors during the download and preparation of the docker images
-- Always check if your IP is correctly set in OKTA and in `.cfg`
+This endpoint returns a new Schnorr nested token. Basically it is the same DA-SVID, but in nested model format, insted JWT (2 part token vs 3 part token).

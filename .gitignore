@@ -1,4 +1,4 @@
-assertgen/assertgen
+.cfg
 *.swp
 samples/*/Assertingwl-mTLS/bin/*
 samples/*/Assertingwl-mTLS/.cfg
