@@ -15,7 +15,7 @@ sudo apt install build-essential curl git make -y
 echo -e "${GREEN}APT packages installed!${CLEAR}"
 fi
 
-echo "Would you like to install our modified version of SPIRE? The samples will not work if you choose not to instal it. This version is installed under /opt/spire-signed-assertions and does not override other versions of SPIRE that may be installed. You can learn more about it here: https://github.com/HPE-USP-SPIRE/spire-signed-assertions. (y/n)"
+echo -e "\nWould you like to install our modified version of SPIRE? The samples will not work if you choose not to instal it. This version is installed under /opt/spire-signed-assertions and does not override other versions of SPIRE that may be installed. You can learn more about it here: https://github.com/HPE-USP-SPIRE/spire-signed-assertions. (y/n)"
 read input
 if [ "$input" == "y" ]
 then
@@ -24,7 +24,7 @@ sudo bash $LIB_PATH/install_spire.sh
 echo -e "${GREEN}Modified SPIRE installed!${CLEAR}"
 fi
 
-echo "Would you like to install Docker? This script only supports the installation of Docker on Ubuntu and Debian, please download it manually if you are using another distro. You can skip this step if you already have Docker installed on your machine.(y/n)"
+echo -e "\nWould you like to install Docker? This script only supports the installation of Docker on Ubuntu and Debian, please download it manually if you are using another distro. You can skip this step if you already have Docker installed on your machine.(y/n)"
 read input
 if [ "$input" == "y" ]
 then
@@ -32,8 +32,10 @@ echo -e "${GREEN}Installing Docker...${CLEAR}"
 sudo bash $LIB_PATH/install_docker.sh
 
 echo -e "${GREEN}Adding user to docker group...${CLEAR}"
+sudo groupadd docker -f
 usr=$(whoami)
 sudo usermod -aG docker $usr
 fi
 
-echo "${GREEN}Done!${CLEAR}"
+echo -e "${GREEN}Done!${CLEAR}"
+newgrp docker

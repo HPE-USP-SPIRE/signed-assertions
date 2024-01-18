@@ -10,47 +10,6 @@ The most suitable choice depends, thus, on the requirements of the target enviro
 
 In the example, the process starts with an end user providing an OAuth token (1) to the front end that, by its side, sends it in a request to IdP for a new restricted token. The IdP mints the token tied with the received OAuth token (2), returning it to the front end, followed by its certificate. Then, every workload that needs to use the token in a request should append the mandatory claims and sign it, following the nested scheme, also appending the trusted bundle with its certificate. That is what the front-end (3) and middle-tier (4) do. Finally, the target workload receives the token and trust bundle using the certificates in sequential signature validation (5).
 
-# Using the POC
-
-</br>
-
-## Setup your Environment
-
-If you haven't already, follow the Setup Guide, on [/samples/README](../README.MD)
-
-After doing that, manually alter the `.cfg` in the root of the sample accordingly:
-
-- CLIENT_ID and CLIENT_SECRET: found in your okta application
-- OKTA_DEVELOPER_CODE: a 7 number ID found in the URL of you okta dashboard (between dev- and -admin)
-- HOST_IP: the IP set under "Sign-in redirect URIs" in your okta application
-- WORKLOADIP: for each one of the workloads, configure it's IP with your host IP followed by a port (IP:PORT)
-
-Here is a sample configuration:
-
-```
-CLIENT_ID=0oo643ull1KZl5yVe5d7
-CLIENT_SECRET=yl5_6mIaTu5e1p5E70NazdFKNZ6bOhhWAzerdCOVc
-OKTA_DEVELOPER_CODE=1234567
-HOSTIP=192.168.0.100
-ASSERTINGWLIP=192.168.0.100:8443
-MIDDLETIERIP=192.168.0.100:8445
-MIDDLE_TIER2_IP=192.168.0.100:8446
-MIDDLE_TIER3_IP=192.168.0.100:8447
-MIDDLE_TIER4_IP=192.168.0.100:8448
-MIDDLE_TIER5_IP=192.168.0.100:8449
-TARGETWLIP=192.168.0.100:8444
-```
-
-## Run the Application
-
-```
-./init
-```
-
-After prompted that the execution finished successfully, open your browser on localhost:8080.
-
-</br>
-
 **Important**:
 
 - SPIRE will keep running in background. Use `./kill` to stop the application. Notice that it will kill all the docker conatiners running in your machine
