@@ -1,0 +1,56 @@
+#!/bin/bash
+set -e
+
+LIB_PATH="./lib"
+GREEN='\033[0;32m'
+CLEAR='\033[0m'
+
+#check forflags
+while getopts "hu" flag; do
+ case $flag in
+   h) echo -e "no flag: install\nu: unninstal our modified version of SPIRE"
+   exit
+   ;;
+   u) sudo rm -rf /opt/spire-signed-assertions
+   exit
+   ;;
+   \?) echo -e "no flag: install\nu: unninstal our modified version of SPIRE"
+   exit
+   ;;
+ esac
+done
+
+echo "Would you like to install curl, git, make and build-essential? If you are not using a debian-based distro, you will need to install these packages by yourself before proceeding. (y/n)"
+read input
+if [ "$input" == "y" ]
+then
+echo -e "${GREEN}Installing APT packages...${CLEAR}"
+sudo apt update
+sudo apt install build-essential curl git make -y
+echo -e "${GREEN}APT packages installed!${CLEAR}"
+fi
+
+echo -e "\nWould you like to install our modified version of SPIRE? The samples will not work if you choose not to instal it. This version is installed under /opt/spire-signed-assertions and does not override other versions of SPIRE that may be installed. You can learn more about it here: https://github.com/HPE-USP-SPIRE/spire-signed-assertions. (y/n)"
+read input
+if [ "$input" == "y" ]
+then
+echo -e "${GREEN}Installing SPIRE...${CLEAR}"
+sudo bash $LIB_PATH/install_spire.sh
+echo -e "${GREEN}Modified SPIRE installed!${CLEAR}"
+fi
+
+echo -e "\nWould you like to install Docker? This script only supports the installation of Docker on Ubuntu and Debian, please download it manually if you are using another distro. You can skip this step if you already have Docker installed on your machine.(y/n)"
+read input
+if [ "$input" == "y" ]
+then
+echo -e "${GREEN}Installing Docker...${CLEAR}"
+sudo bash $LIB_PATH/install_docker.sh
+
+echo -e "${GREEN}Adding user to docker group...${CLEAR}"
+sudo groupadd docker -f
+usr=$(whoami)
+sudo usermod -aG docker $usr
+fi
+
+echo -e "${GREEN}Done!${CLEAR}"
+newgrp docker
