@@ -5,6 +5,21 @@ LIB_PATH="./lib"
 GREEN='\033[0;32m'
 CLEAR='\033[0m'
 
+#check forflags
+while getopts "hu" flag; do
+ case $flag in
+   h) echo -e "no flag: install\nu: unninstal our modified version of SPIRE"
+   exit
+   ;;
+   u) sudo rm -rf /opt/spire-signed-assertions
+   exit
+   ;;
+   \?) echo -e "no flag: install\nu: unninstal our modified version of SPIRE"
+   exit
+   ;;
+ esac
+done
+
 echo "Would you like to install curl, git, make and build-essential? If you are not using a debian-based distro, you will need to install these packages by yourself before proceeding. (y/n)"
 read input
 if [ "$input" == "y" ]

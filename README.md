@@ -31,6 +31,8 @@ For more information, check the [design document](https://docs.google.com/docume
 
 ### Dependencies
 
+#### Install
+
 First of all, install the dependencies (some linux packages, Docker, and a modified version of SPIRE):
 
 ```
@@ -38,6 +40,14 @@ First of all, install the dependencies (some linux packages, Docker, and a modif
 ```
 
 This project was developed on Debian 11, running Docker 20.10.11 and Go 1.16.9.
+
+#### Uninstall
+
+The `install_dependencies` script install a modified version of SPIRE. To uninstall it:
+
+```
+./install_dependencies -u
+```
 
 ### Configuration
 
