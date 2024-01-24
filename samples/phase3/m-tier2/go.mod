@@ -1,4 +1,4 @@
-module github.com/hpe-usp-spire/signed-assertions/phase3/m-tier
+module github.com/hpe-usp-spire/signed-assertions/phase3/m-tier2
 
 go 1.20
 
