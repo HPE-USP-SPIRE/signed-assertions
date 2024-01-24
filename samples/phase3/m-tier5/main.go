@@ -3,8 +3,8 @@ package main
 import (
 	"context"
 
-	"github.com/hpe-usp-spire/signed-assertions/phase3/m-tier/controller"
-	"github.com/hpe-usp-spire/signed-assertions/phase3/m-tier/monitoring-prom"
+	"github.com/hpe-usp-spire/signed-assertions/phase3/m-tier5/controller"
+	"github.com/hpe-usp-spire/signed-assertions/phase3/m-tier5/monitoring-prom"
 )
 
 func main() {
