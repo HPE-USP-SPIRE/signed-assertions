@@ -18,6 +18,10 @@ echo -e "${GREEN}Applying ./.cfg ...${CLEAR}\n"
 cd $SCRIPT_PATH
 cp .cfg Assertingwl-mTLS
 cp .cfg m-tier
+cp .cfg m-tier2
+cp .cfg m-tier3
+cp .cfg m-tier4
+cp .cfg m-tier5
 cp .cfg subject_workload
 cp .cfg target-wl
 
@@ -31,6 +35,14 @@ rm -f ./subject_workload/bin/*
 docker cp phase3_subjectwl_1:/build/bin/. ./subject_workload/bin/
 rm -f ./m-tier/bin/*
 docker cp phase3_m-tier_1:/build/bin/. ./m-tier/bin/
+rm -f ./m-tier/bin/*
+docker cp phase3_m-tier2_1:/build/bin/. ./m-tier2/bin/
+rm -f ./m-tier/bin/*
+docker cp phase3_m-tier3_1:/build/bin/. ./m-tier3/bin/
+rm -f ./m-tier/bin/*
+docker cp phase3_m-tier4_1:/build/bin/. ./m-tier4/bin/
+rm -f ./m-tier/bin/*
+docker cp phase3_m-tier5_1:/build/bin/. ./m-tier5/bin/
 rm -f ./target-wl/bin/*
 docker cp phase3_target-wl_1:/build/bin/. ./target-wl/bin/
 
