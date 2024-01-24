@@ -168,10 +168,10 @@ func DepositHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Make call to middle tier, asking for user funds.
-	endpoint := "https://"+os.Getenv("TARGETWLIP")+"/deposit?DASVID="+r.FormValue("DASVID")+"&deposit="+r.FormValue("deposit")
+	endpoint := "https://"+os.Getenv("MIDDLE_TIER2_IP")+"/deposit?DASVID="+r.FormValue("DASVID")+"&deposit="+r.FormValue("deposit")
 	response, err := client.Post(endpoint, "application/json", bytes.NewBuffer(json_data))
 	if err != nil {
-		log.Fatalf("Error connecting to %q: %v", os.Getenv("TARGETWLIP"), err)
+		log.Fatalf("Error connecting to %q: %v", os.Getenv("MIDDLE_TIER2_IP"), err)
 	}
 	defer response.Body.Close()
 

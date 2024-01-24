@@ -152,10 +152,10 @@ func GetBalanceHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Make call to middle tier, asking for user funds.
-	endpoint := "https://"+os.Getenv("TARGETWLIP")+"/get_balance?DASVID="+r.FormValue("DASVID")
+	endpoint := "https://"+os.Getenv("MIDDLE_TIER2_IP")+"/get_balance?DASVID="+r.FormValue("DASVID")
 	response, err := client.Post(endpoint, "application/json", bytes.NewBuffer(json_data))
 	if err != nil {
-		log.Fatalf("Error connecting to %q: %v", os.Getenv("TARGETWLIP"), err)
+		log.Fatalf("Error connecting to %q: %v", os.Getenv("MIDDLE_TIER2_IP"), err)
 	}
 	defer response.Body.Close()
 
