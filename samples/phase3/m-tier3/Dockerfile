@@ -6,7 +6,7 @@ FROM phase3_common AS builder
 WORKDIR /build
 
 # Copy files to Img
-COPY ./samples/phase3/m-tier .
+COPY ./samples/phase3/m-tier3 .
 COPY ./samples/phase3/api-libs /aux/api-libs
 COPY ./poclib /aux/poclib
 COPY ./lsvid /aux/lsvid
@@ -42,7 +42,7 @@ COPY --from=builder /build /build
 RUN apk add --no-cache bash
 
 # Export necessary port
-EXPOSE 8445 2115
+EXPOSE 8447 2117
 
 # Command to run when starting the container
 CMD ["bash","/build/main.sh"]

@@ -45,6 +45,54 @@ services:
       - /tmp/spire-agent/public/api.sock:/tmp/spire-agent/public/api.sock
     networks:
       - my-network
+  
+  m-tier2:
+    build:
+      context: ../..
+      dockerfile: samples/phase3/m-tier2/Dockerfile
+    ports:
+      - "8446:8446"
+      - "2116:2116"
+    volumes:
+      - /tmp/spire-agent/public/api.sock:/tmp/spire-agent/public/api.sock
+    networks:
+      - my-network
+
+  m-tier3:
+    build:
+      context: ../..
+      dockerfile: samples/phase3/m-tier3/Dockerfile
+    ports:
+      - "8447:8447"
+      - "2117:2117"
+    volumes:
+      - /tmp/spire-agent/public/api.sock:/tmp/spire-agent/public/api.sock
+    networks:
+      - my-network
+
+  m-tier4:
+    build:
+      context: ../..
+      dockerfile: samples/phase3/m-tier4/Dockerfile
+    ports:
+      - "8448:8448"
+      - "2118:2118"
+    volumes:
+      - /tmp/spire-agent/public/api.sock:/tmp/spire-agent/public/api.sock
+    networks:
+      - my-network
+  
+  m-tier5:
+    build:
+      context: ../..
+      dockerfile: samples/phase3/m-tier5/Dockerfile
+    ports:
+      - "8449:8449"
+      - "2119:2119"
+    volumes:
+      - /tmp/spire-agent/public/api.sock:/tmp/spire-agent/public/api.sock
+    networks:
+      - my-network
 
   target-wl:
     build:
