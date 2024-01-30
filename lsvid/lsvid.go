@@ -35,14 +35,16 @@ type Token struct {
 }
 
 type Payload struct {
-	Ver 		int8		`json:"ver,omitempty"`
-	Alg 		string		`json:"alg,omitempty"`
-	Iat			int64		`json:"iat,omitempty"`
-	Iss			*IDClaim	`json:"iss,omitempty"`
-	Sub			*IDClaim	`json:"sub,omitempty"`
-	Aud			*IDClaim	`json:"aud,omitempty"`
-	Dpa			string		`json:"dpa,omitempty"`
-	Dpr			string		`json:"dpr,omitempty"`
+	Ver 		int8					`json:"ver,omitempty"`
+	Alg 		string					`json:"alg,omitempty"`
+	Iat			int64					`json:"iat,omitempty"`
+	Iss			*IDClaim				`json:"iss,omitempty"`
+	Sub			*IDClaim				`json:"sub,omitempty"`
+	Aud			*IDClaim				`json:"aud,omitempty"`
+	Dpa			string					`json:"dpa,omitempty"`
+	Dpr			string					`json:"dpr,omitempty"`
+	Sel 		map[string]interface{}	`json:"sel,omitempty"`
+
 }
 
 type IDClaim struct {
