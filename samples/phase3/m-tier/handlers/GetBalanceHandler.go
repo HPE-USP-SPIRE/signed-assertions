@@ -91,7 +91,7 @@ func GetBalanceHandler(w http.ResponseWriter, r *http.Request) {
 	conf := &tls.Config{
 		InsecureSkipVerify: true,
 	}
-	conn, err := tls.Dial("tcp", os.Getenv("TARGETWLIP"), conf)
+	conn, err := tls.Dial("tcp", os.Getenv("MIDDLE_TIER2_IP"), conf)
 	if err != nil {
 		log.Println("Error in Dial", err)
 		return
