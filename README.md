@@ -90,6 +90,8 @@ To execute the application, run:
 ./init
 ```
 
+sudo may be necessary to run it. 
+
 You will be asked which model (phase) you want to use.
 
 After prompted that the execution finished successfully, open your browser on localhost:8080.

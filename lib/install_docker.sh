@@ -46,5 +46,14 @@ else
 
   echo -e "Docker installed! Please reboot you machine when the installation is done."
 fi
+
+if [ "$(command -v docker-compose)" ]; then
+  echo -e "docker-compose already installed."
+else
+  echo -e "Installing docker-compose"
+  curl -L https://github.com/docker/compose/releases/download/1.25.3/docker-compose-`uname -s`-`uname -m` -o /usr/local/bin/docker-compose
+  chmod +x /usr/local/bin/docker-compose
+  echo -e "docker-compose installed!"
+fi
 }
 install_docker

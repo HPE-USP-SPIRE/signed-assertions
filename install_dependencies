@@ -39,7 +39,7 @@ sudo bash $LIB_PATH/install_spire.sh
 echo -e "${GREEN}Modified SPIRE installed!${CLEAR}"
 fi
 
-echo -e "\nWould you like to install Docker? This script only supports the installation of Docker on Ubuntu and Debian, please download it manually if you are using another distro. You can skip this step if you already have Docker installed on your machine.(y/n)"
+echo -e "\nWould you like to install Docker and docker-compose? This script only supports the installation of Docker on Ubuntu and Debian, please download it manually if you are using another distro. You can skip this step if you already have Docker and docker-compose installed on your machine.(y/n)"
 read input
 if [ "$input" == "y" ]
 then
