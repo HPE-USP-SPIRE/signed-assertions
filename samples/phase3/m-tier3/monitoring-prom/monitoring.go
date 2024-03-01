@@ -99,6 +99,6 @@ func RegisterMetrics() { // Função para registro das metricas no TSDB do Prome
 
 func PrometheusAPI(){  
 	http.Handle("/metrics", promhttp.Handler())  // exposição da API do prometheus para mandar os dados coletados
-    http.ListenAndServe(":2115", nil)   // port diferente da utilizada para app
+    http.ListenAndServe(":2117", nil)   // port diferente da utilizada para app
 }
 
