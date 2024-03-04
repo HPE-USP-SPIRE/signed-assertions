@@ -21,7 +21,6 @@ import (
 	lsvid "github.com/hpe-usp-spire/signed-assertions/lsvid"
 )
 
-
 func DepositHandler(w http.ResponseWriter, r *http.Request) {
 	defer utils.TimeTrack(time.Now(), "DepositHandler")
 
@@ -54,15 +53,15 @@ func DepositHandler(w http.ResponseWriter, r *http.Request) {
 		log.Printf("Error retrieving client SPIFFE-ID from mTLS connection %v", err)
 	}
 
-	if (clientspiffeid.String() != decLSVID.Token.Payload.Iss.CN) {
-	 log.Fatalf("Bearer does not match issuer value: %v\n", err)
+	if clientspiffeid.String() != decLSVID.Token.Payload.Iss.CN {
+		log.Fatalf("Bearer does not match issuer value: %v\n", err)
 	}
-	
+
 	//TODO - declaração de ctx?
 	//TODO - create X509 source blablabla
-	//TODO - TLS CONFIG? 
+	//TODO - TLS CONFIG?
 	//TODO - serverID?
-	
+
 	// If reaches this point, all validations was successful, so we can proceed to access user data and return it.
 	// Open dasvid cache file
 	balance, err := os.OpenFile("./data/balance.data", os.O_CREATE, 0644)
@@ -71,7 +70,7 @@ func DepositHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	defer balance.Close()
 
-	// TODO: Iterate over nested lsvids looking for Dpr Claim. Right now, it is hardcoded for this scenario 
+	// TODO: Iterate over nested lsvids looking for Dpr Claim. Right now, it is hardcoded for this scenario
 
 	Dpr := decLSVID.Token.Nested.Nested.Payload.Dpr
 	log.Printf("Dpr Claim: %v", Dpr)
@@ -92,29 +91,7 @@ func DepositHandler(w http.ResponseWriter, r *http.Request) {
 
 			log.Println("User " + tempbalance.User + " found! Updating balance...")
 
-			log.Println("Balance is ", tempbalance.Balance)
-			tmpdeposit, err := strconv.Atoi(r.FormValue("deposit"))
-			if err != nil {
-				log.Fatalf("error: %v", err)
-			}
-			tempbalance.Balance += tmpdeposit
-			log.Println("New Balance is ", tempbalance.Balance)
-			tmp, err := json.Marshal(tempbalance)
-			if err != nil {
-				fmt.Println("error:", err)
-			}
-
-			err = os.WriteFile("./data/balance.data", []byte(tmp), 0)
-			if err != nil {
-				panic(err)
-			}
-
-			tempbalance = models.Balancetemp{
-				User:    tempbalance.User,
-				Balance: tempbalance.Balance,
-			}
-
-			json.NewEncoder(w).Encode(tempbalance)
+			updateBalance(&tempbalance, w, r)
 			return
 		}
 	}
@@ -136,7 +113,32 @@ func DepositHandler(w http.ResponseWriter, r *http.Request) {
 	if err := f.Close(); err != nil {
 		log.Fatal(err)
 	}
-	json.NewEncoder(w).Encode("User not found")
+
+	updateBalance(&tempbalance, w, r)
+	return
+}
+
+func updateBalance(tempbalance *models.Balancetemp, w http.ResponseWriter, r *http.Request) {
+	log.Println("Balance is ", tempbalance.Balance)
+
+	tmpdeposit, err := strconv.Atoi(r.FormValue("deposit"))
+	if err != nil {
+		log.Fatalf("error: %v", err)
+	}
+
+	tempbalance.Balance += tmpdeposit
+	log.Println("New Balance is ", tempbalance.Balance)
+	tmp, err := json.Marshal(tempbalance)
+	if err != nil {
+		fmt.Println("error:", err)
+	}
+
+	err = os.WriteFile("./data/balance.data", []byte(tmp), 0)
+	if err != nil {
+		panic(err)
+	}
+
+	json.NewEncoder(w).Encode(tempbalance)
 }
 
 // func introspect(datoken string, client http.Client) (introspectrsp models.FileContents) {
