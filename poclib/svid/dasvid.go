@@ -178,7 +178,6 @@ func VerifySignature(jwtToken string, key JWK) error {
 
 // Mint a new DASVID
 func Mintdasvid(kid string, iss string, sub string, dpa string, dpr string, oam []byte, zkp string, exp int64, key interface{}) string {
-	log.Printf("exp (entrada no dasvid.go): %v", exp)
 	defer timeTrack(time.Now(), "Mintdasvid")
 
 	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
