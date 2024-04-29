@@ -177,19 +177,19 @@ func VerifySignature(jwtToken string, key JWK) error {
 }
 
 // Mint a new DASVID
-func Mintdasvid(kid string, iss string, sub string, dpa string, dpr string, oam []byte, zkp string, key interface{}) string {
+func Mintdasvid(kid string, iss string, sub string, dpa string, dpr string, oam []byte, zkp string, exp int64, key interface{}) string {
 	defer timeTrack(time.Now(), "Mintdasvid")
 
 	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
 
 	// Set issue and exp time
 	issue_time := time.Now().Round(0).Unix()
-	exp_time := time.Now().Add(time.Minute * 2).Round(0).Unix()
+	exp_time := exp
 
 	// Declaring flags
 	issuer := flag.String("iss", iss, "issuer(iss) = SPIFFE ID of the workload that generated the DA-SVID (Asserting workload")
 	assert := flag.Int64("aat", issue_time, "asserted at(aat) = time at which the assertion made in the DA-SVID was verified by the asserting workload")
-	exp := flag.Int64("exp", exp_time, "expiration time(exp) = as small as reasonably possible, issue time + 1s by default.")
+	expiration := flag.Int64("exp", exp_time, "expiration time(exp) = as small as reasonably possible, issue time + 1s by default.")
 	subj := flag.String("sub", sub, "subject (sub) = the identity about which the assertion is being made. Subject workload's SPIFFE ID.")
 	dlpa := flag.String("dpa", dpa, "delegated authority (dpa) = ")
 	dlpr := flag.String("dpr", dpr, "delegated principal (dpr) = The Principal")
@@ -202,7 +202,7 @@ func Mintdasvid(kid string, iss string, sub string, dpa string, dpr string, oam 
 		proof := flag.String("zkp", zkp, "OAuth Zero-Knowledge-Proof")
 
 		token = mint.NewWithClaims(mint.SigningMethodRS256, mint.MapClaims{
-			"exp": *exp,
+			"exp": *expiration,
 			"iss": *issuer,
 			"aat": *assert,
 			"sub": *subj,
@@ -217,7 +217,7 @@ func Mintdasvid(kid string, iss string, sub string, dpa string, dpr string, oam 
 
 	} else {
 		token = mint.NewWithClaims(mint.SigningMethodRS256, mint.MapClaims{
-			"exp": *exp,
+			"exp": *expiration,
 			"iss": *issuer,
 			"aat": *assert,
 			"sub": *subj,

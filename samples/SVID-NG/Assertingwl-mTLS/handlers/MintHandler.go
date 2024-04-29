@@ -9,6 +9,7 @@ import (
 	"os"
 	"strings"
 	"time"
+	"strconv"
 
 	"github.com/hpe-usp-spire/signed-assertions/SVID-NG/Assertingwl-mTLS/models"
 	"github.com/hpe-usp-spire/signed-assertions/SVID-NG/api-libs/global"
@@ -128,6 +129,11 @@ func MintHandler(w http.ResponseWriter, r *http.Request) {
 				message := []byte(strings.Join(parts[0:2], "."))
 
 				// Generate DASVID claims
+				expFloat, err := strconv.ParseFloat(fmt.Sprintf("%v", tokenclaims["exp"]), 64)
+				if err != nil {
+					log.Printf("Error to convert expString to expFloat...")
+				}
+				exp := int64(expFloat)
 				iss := assertingwl.ID.String()
 				sub := clientspiffeid.String()
 				dpa := fmt.Sprintf("%v", issuer)
@@ -141,9 +147,9 @@ func MintHandler(w http.ResponseWriter, r *http.Request) {
 				if global.Options.AddZKP == "true" {
 					log.Printf("Adding ZKP into DASVID...")
 					// Generate DASVID
-					token = dasvid.Mintdasvid(kid, iss, sub, dpa, dpr, oam, zkp, awprivatekey)
+					token = dasvid.Mintdasvid(kid, iss, sub, dpa, dpr, oam, zkp, exp, awprivatekey)
 				} else {
-					token = dasvid.Mintdasvid(kid, iss, sub, dpa, dpr, nil, "", awprivatekey)
+					token = dasvid.Mintdasvid(kid, iss, sub, dpa, dpr, nil, "", exp, awprivatekey)
 				}
 
 				// Data to be write in cache file
@@ -155,13 +161,18 @@ func MintHandler(w http.ResponseWriter, r *http.Request) {
 
 			} else {
 				// Generate DASVID claims
+				expFloat, err := strconv.ParseFloat(fmt.Sprintf("%v", tokenclaims["exp"]), 64)
+				if err != nil {
+					log.Printf("Error to convert expString to expFloat...")
+				}
+				exp := int64(expFloat)
 				iss := assertingwl.ID.String()
 				sub := clientspiffeid.String()
 				dpa := fmt.Sprintf("%v", issuer)
 				dpr := fmt.Sprintf("%v", tokenclaims["sub"])
 
 				// Generate DASVID
-				token = dasvid.Mintdasvid(kid, iss, sub, dpa, dpr, nil, "", awprivatekey)
+				token = dasvid.Mintdasvid(kid, iss, sub, dpa, dpr, nil, "", exp, awprivatekey)
 
 				// Data to be write in cache file
 				fileTemp = models.FileContents{
