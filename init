@@ -24,10 +24,11 @@ fi
 
 echo -e "${GREEN}Killing spire agent, spire server and containers...${CLEAR}\n"
 cd $MODEL_PATH
-$SCRIPT_PATH/kill
+$SCRIPT_PATH/scripts/kill_lsvid_spire.sh
 
 echo -e "${GREEN}Starting SPIRE...${CLEAR}\n"
 cd /opt/spire-signed-assertions
+##  Start SPIRE Agent and Server
 sudo bash start_spire_env.sh > /dev/null
 
 echo -e "${GREEN}Applying .cfg ...${CLEAR}\n"

@@ -1,4 +1,9 @@
 #!/bin/bash
+#
+# This scripts downloads the LATEST version of Docker with Docker-Compose
+# on DEBIAN OR UBUNTU distros
+#
+
 set -e
 DISTRO=''
 

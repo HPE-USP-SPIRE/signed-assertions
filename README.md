@@ -1,31 +1,43 @@
 # HPE/USP Transitive Identity & Embedded Claims
 
-This repository is part of HPE/USP Transitive Identity & Embedded Claims project. Here, experimental components are proposed and assessed by means of a bank application, where the user can deposit "money" and check their balance. These requests are then passed along several workloads.
+This repository is part of **HPE/USP Transitive Identity & Embedded Claims** project. Experimental components are proposed and assessed by means of a bank application, where the user can deposit "money" and check their balance. These requests are then passed along several workloads. Each phase creates a new security token, providing new type of algorithms and functions.
 
-![Basic Scenario](https://github.com/HPE-USP-SPIRE/signed-assertions/blob/main/doc/basicscenario.jpg)
+> ## Basic Scenario
+> ![Basic Scenario](./doc/basicscenario.jpg)
+>
+> - Front-end or sometimes **Subject Workload** conveys an assertion made by a
+SPIFFE-identified workload.
+> - Local IdP or **Asserting Workload** is the core of the implementation. It transforms an Oauth Token (**Red Key**) into a new security token (**Yellow Key**), eventually navigating through multiple workloads.
+> - Middle-Tier represents any number of workloads that the security token will go through before reaching the Target Workload.
+> - Target workload represents the last jump of the security token before handling the data back through the Front-End.
 
-The project is divided into 3 phases:
+# Phase 1
+This stage involves in to specify and develop a new security document defined as **Delegated Assertion SVID** or **DVID**, as a JWT token derived from an OAuth token. This security document is sent to other workloads instead of the OAuth to avoid impersonation problems. The **main objective** is to grant and validate if the calling workload have the sufficient rights to access the desired resource.
 
-### Phase 1
+>For the complete **DVID** specification, check [**here**](https://docs.google.com/document/d/1fH8XkOKGXGrWy9uk-JXZbyksHejZ2CfB7h6YXetqG_w).
+>
+>Check [**here**](https://github.com/HPE-USP-SPIRE/signed-assertions/tree/main/samples/SVID-NG) for a code sample.
 
-The primary objective is to specify and develop a JWT-like token (named Delegated Assertions SVID or DA-SVID), which is derived from an OAuth token. In this manner, the DA-SVID can be sent to other workloads instead of the OAuth, which could lead to impersonation problems. The objective of DA-SVID is to grant that the calling workload have the sufficient rights to access the desired resource, by replacing the OAuth.
 
-For more information, check the [design document](https://docs.google.com/document/d/1fH8XkOKGXGrWy9uk-JXZbyksHejZ2CfB7h6YXetqG_w) and the [code specification](https://github.com/HPE-USP-SPIRE/signed-assertions/tree/main/samples/SVID-NG).
+## Phase 2
 
-### Phase 2
-
-In this phase, the objective is to develop a new token scheme allowing to easily append new claims to an existing token. Essentially, the goal of such a token format is to allow pieces of information (i.e., claims) to be appended to an existing token efficiently and securely, giving support to different use case scenarios (e.g., permission delegation, tracing the path taken by a request since its origin, among others). There are two versions of this nested token:
+In this phase, the objective is to develop a new token scheme named **Nested Token** allowing to easily append new claims to an existing token. Essentially, the goal of such a token format is to allow pieces of information (i.e., claims) to be appended to an existing token efficiently and securely, giving support to different use case scenarios (e.g., permission delegation, tracing the path taken by a request since its origin, among others). There are two versions of this nested token:
 
 - **ID Mode**: The workloads uses SPIRE SVID private keys to sign the tokens. The user OAuth token is exchanged for an ECDSA assertion, provided by the Identity Provider (IdP). Each workload in the application adds new issuer claim with its own public key and audience with the public key of the next hop, and its own signature. Alongside the token, the workload forward also its trust bundle, allowing for offline identification and validation.
 - **Anonymous Mode**: The workloads don't use any IdP. This model do not offer identification of the workloads, but takes advantage of this by using a signature concatenation model that allows for token size reduction and fast validation execution times. The resulting token is smaller than in ID-mode, as it removes part of the signatures to use as private key. Also, there is no need to send certificates along with the token.
 
-For more information, check the [design document](https://docs.google.com/document/d/1nQYV4wf8wiogpxboIVbwtFZyZjLNRejyguHoGZIZLQM) and the code specification for the [ID Mode](https://github.com/HPE-USP-SPIRE/signed-assertions/tree/main/samples/IDMode) and the [Anonymous Mode](https://github.com/HPE-USP-SPIRE/signed-assertions/tree/main/samples/anonymousMode).
 
-### Phase 3
+> For the complete **Nested Token** specification, check [**here**](https://docs.google.com/document/d/1nQYV4wf8wiogpxboIVbwtFZyZjLNRejyguHoGZIZLQM).
+>
+> Check [**here**](https://github.com/HPE-USP-SPIRE/signed-assertions/tree/main/samples/IDMode) for a code sample related to the **ID-Mode**.
+> Check [**here**](https://github.com/HPE-USP-SPIRE/signed-assertions/tree/main/samples/anonymousMode) for samples related to the **Anonymous Mode**.
 
-This phase proposes using the nested token model (phase 2) to develop a new identity document type called a Lightweight SVID (LSVID). When created, this document can be extended with additional relevant information (assertions) and used as a token in multiple distributed use case scenarios, including attestation, authorization delegation, and path tracing.
 
-For more information, check the [design document](https://docs.google.com/document/d/15rfAkzNTQa1ycs-fn9hyIYV5HbznPBsxB-f0vxhNJ24) and the [code specification](https://github.com/HPE-USP-SPIRE/signed-assertions/tree/main/samples/phase3).
+## Phase 3
+
+This phase proposes using the nested token model (phase 2) to develop a new identity document type called a **Lightweight SVID** (LSVID). When created, this document can be extended with additional relevant information (assertions) and used as a token in multiple distributed use case scenarios, including attestation, authorization delegation, and path tracing.
+
+> For more information, check the [design document](https://docs.google.com/document/d/15rfAkzNTQa1ycs-fn9hyIYV5HbznPBsxB-f0vxhNJ24) and the [code specification](https://github.com/HPE-USP-SPIRE/signed-assertions/tree/main/samples/phase3).
 
 ## Setting up the environment
 
@@ -105,7 +117,7 @@ The repository is organized as follows:
 - **samples**: contains the code for each phase the respective documentation.
 - **poclib**: prototype of a Go package, containing the nested tokens' functions.
 - **assertgen**: command-line interface (CLI) to perform different functions, like interacting with the Identity Provider and executing all poclib functions.
-- **lib** auxiliary bash scripts used by `install_dependencies`
+- **scripts** auxiliary bash scripts
 - **doc**: contains the images used in README files
 
 # License

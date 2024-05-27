@@ -1,6 +1,9 @@
 #!/bin/bash
-set -e
+#
+# This script downloads SPIRE with the LSVID implementation
+#
 
+set -e
 GREEN='\033[0;32m'
 CLEAR='\033[0m'
 
@@ -12,6 +15,6 @@ else
   git clone https://github.com/HPE-USP-SPIRE/spire-signed-assertions.git
 
   echo -e "${GREEN}Installing modified SPIRE...${CLEAR}"
-  cd /opt/spire-signed-assertions
+  cd /spire-signed-assertions
   make build
 fi

@@ -1,7 +1,5 @@
-# WL's common dependencies
-
-# Stage 1 - Builder Img
-# Define the building base image
+# Stage 1 - Builder Image
+# Defines the base image common on all other workloads
 FROM golang:alpine3.16
 LABEL "type"="common"
 
@@ -17,19 +15,8 @@ ENV GO111MODULE=on \
     CGO_LDFLAGS="-g -O2" \
     CC="gcc"
 
-# Create and move to working directory
-WORKDIR /common-build
-
 # Download dependencies
 RUN apk upgrade --update-cache --available && \
-    apk add openssl
-RUN apk add git zip curl wget ca-certificates
-RUN apk add xxd
-RUN apk add sed
-RUN apk add jq
-RUN apk add openssl-dev
-RUN apk add build-base
-RUN apk add pkgconfig
-
-COPY ./samples/phase3/common .
-RUN go mod tidy
+    apk add openssl git zip curl wget \ 
+    ca-certificates xxd sed jq \
+    openssl-dev build-base pkgconfig

@@ -1,10 +1,9 @@
+## Ignore ONLY bench.data files
+**/bench.data
 .cfg
-*.swp
+.swp
+.DS_Store
 samples/*/Assertingwl-mTLS/bin/*
-samples/*/Assertingwl-mTLS/.cfg
 samples/*/m-tier/bin/*
-samples/*/m-tier/.cfg
 samples/*/target-wl/bin/*
-samples/*/target-wl/.cfg
 samples/*/subject_workload/bin/*
-samples/*/subject_workload/.cfg

@@ -1,0 +1,94 @@
+#!/bin/bash
+#
+# This scripts update dependencies required to run the Proof of Concept
+#
+
+set -e
+GREEN='\033[0;32m'
+RED='\033[0;31m'
+CLEAR='\033[0m'
+
+#check forflags
+while getopts "hu" flag; do
+ case $flag in
+   h) echo -e "no flag: install\nu: uninstall our modified version of SPIRE"
+   exit
+   ;;
+   u) sudo rm -rf /opt/spire-signed-assertions
+   exit
+   ;;
+   \?) echo -e "no flag: install\nu: uninstall our modified version of SPIRE"
+   exit
+   ;;
+ esac
+done
+
+install_dependencies_apt(){
+echo -e "${GREEN}Install dependencies <curl, git, make, build-essential> (y/n)?${CLEAR}"
+read input
+case "$input" in
+  [yY])
+    sudo apt update
+    if sudo apt install build-essential curl git make -y; then
+      echo -e "${GREEN}APT packages installed successfully!${CLEAR}"
+    else
+      echo -e "${RED}Failed to install APT packages.${CLEAR}"
+    fi
+  ;;
+  [nN])
+    echo -e "NOT installing dependencies!"
+  ;;
+  *)
+    echo "Invalid input".
+    install_dependencies_apt
+  ;;
+esac
+}
+install_dependencies_apt
+
+
+
+install_modified_spire(){
+echo -e "${GREEN}Install modified version of SPIRE? (y/n)
+This is required to execute the LSVID (or Phase3) Proof of Concept.
+This altered version will be installed under /opt/spire-signed-assertions
+and ${RED}WILL NOT ${GREEN} override others version of SPIRE!${CLEAR}"
+read input
+case "$input" in
+  [yY])
+    sudo bash install_spire.sh
+    script_exit_status=$?
+    if [ $script_exit_status -eq 0 ]; then
+      echo -e "${GREEN}Modified SPIRE installed!${CLEAR}"
+    else
+      echo "Installation failed with status <$script_exit_status>"
+    fi
+  ;;
+  [nN])
+    echo -e "NOT installing modified SPIRE!"
+  ;;
+  *)
+    echo "Invalid input".
+    install_modified_spire
+  ;;
+esac
+}
+install_modified_spire
+
+
+
+# echo -e "\nWould you like to install Docker and docker-compose? This script only supports the installation of Docker on Ubuntu and Debian, please download it manually if you are using another distro. You can skip this step if you already have Docker and docker-compose installed on your machine.(y/n)"
+# read input
+# if [ "$input" == "y" ]
+# then
+# echo -e "${GREEN}Installing Docker...${CLEAR}"
+# sudo bash $LIB_PATH/install_docker.sh
+
+# echo -e "${GREEN}Adding user to docker group...${CLEAR}"
+# sudo groupadd docker -f
+# usr=$(whoami)
+# sudo usermod -aG docker $usr
+# fi
+
+# echo -e "${GREEN}Done!${CLEAR}"
+# newgrp docker

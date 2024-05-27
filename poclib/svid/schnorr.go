@@ -17,7 +17,16 @@ type Signature struct {
 	S kyber.Scalar
 }
 
-// Sign using Schnorr EdDSA
+// 	Sign signs a message using Schnorr EdDSA.
+//
+//	This function generates a signature for the provided message
+// using Schnorr EdDSA algorithm.
+//	It picks a random scalar 'k' from the allowed set,
+// calculates the public key 'r' as 'k * G',
+// where 'G' is the base point of the curve,
+// calculates the hash 'h' of '(r + message + publicKey)',
+// and finally calculates the scalar 's' as 'k - h * privateKey'.
+
 // m: Message
 // x: Private key
 func Sign(m string, z kyber.Scalar) Signature {
@@ -38,7 +47,18 @@ func Sign(m string, z kyber.Scalar) Signature {
 	return Signature{R: r, S: s}
 }
 
-// Verify Schnorr EdDSA signatures
+//	Verify verifies Schnorr EdDSA signatures.
+//	This function verifies a signature for a given message
+//
+// using Schnorr EdDSA algorithm.
+//
+//	It calculates the hash 'h' of '(R + message + publicKey)',
+//
+// attempts to reconstruct 's * G' using the provided
+// signature where 'G' is the base point of the curve,
+// and finally checks if the reconstructed point
+// equals the actual 's * G'.
+//
 // m: Message
 // s: Signature
 // y: Public key
@@ -56,7 +76,17 @@ func Verify(m string, S Signature, y kyber.Point) bool {
 	return sG.Equal(sGv)
 }
 
-// Verify concatenated EdDSA signatures using Galindo-Garcia
+//	Verifygg verifies concatenated EdDSA signatures using Galindo-Garcia algorithm.
+//
+//	It takes the original public key,
+// an array of signature points (Sig.R),
+// an array of hash scalars, and the last
+// signature scalar (Sig.S) as input parameters.
+//	The function calculates intermediate
+// points 'y' from the first to the last-1 parts,
+// and then calculates the last 'y'.
+//	Finally, it checks if 'g ^ lastsig.S' equals 'lastsig.R - y ^ lastHash'.
+
 // origpubkey: first public key
 // setSigR: array with all Sig.R
 // setH: array with all Hashes
@@ -93,7 +123,17 @@ func Verifygg(origpubkey kyber.Point, setSigR []kyber.Point, setH []kyber.Scalar
 	return leftside.Equal(rightside)
 }
 
-// Given ID, return a keypair
+// IDKeyPair generates a key pair based on the provided ID.
+//
+//	This function takes an ID string as input
+//
+// and generates a key pair using the Schnorr EdDSA algorithm.
+//
+//	It generates a private key by hashing
+//
+// the provided ID string and then calculates the
+// corresponding public key by multiplying the
+// private key with the base point of the curve.
 func IDKeyPair(id string) (kyber.Scalar, kyber.Point) {
 
 	privateKey := Hash(id)
@@ -102,7 +142,15 @@ func IDKeyPair(id string) (kyber.Scalar, kyber.Point) {
 	return privateKey, publicKey
 }
 
-// Return a new random key pair
+//	RandomKeyPair generates a new random key pair
+//
+// using the Schnorr EdDSA algorithm.
+//
+//	It generates a random private key and
+//
+// calculates the corresponding public key
+// by multiplying the private key with
+// the base point of the curve.
 func RandomKeyPair() (kyber.Scalar, kyber.Point) {
 
 	privateKey := curve.Scalar().Pick(curve.RandomStream())
