@@ -1,6 +1,6 @@
 ## Ignore ONLY bench.data files
 **/bench.data
-.cfg
+*.cfg
 .swp
 .DS_Store
 samples/*/Assertingwl-mTLS/bin/*
