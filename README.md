@@ -43,52 +43,43 @@ This phase proposes using the nested token model (phase 2) to develop a new iden
 
 ### Dependencies
 
-#### Install
-
-First of all, install the dependencies (some linux packages, Docker, and a modified version of SPIRE):
-
-```
-./install_dependencies
-```
-
-This project was developed on Debian 11, running Docker 20.10.11 and Go 1.16.9.
-
-#### Uninstall
-
-The `install_dependencies` script install a modified version of SPIRE. To uninstall it:
+#### Installation
+Some packages are required to run the proof of concept. Execute the script below to install them:
 
 ```
-./install_dependencies -u
+./scripts/install_dependencies
 ```
+To uninstall the modified SPIRE, run the command with the flag **-u**:
+
+```
+./scripts/install_dependencies -u
+```
+
+This project was developed on Debian 11 with Docker v20.10.11 and Go v1.16.9 or newer.
 
 ### Configuration
 
-This proof-of-concept uses OAuth tokens provided by OKTA (an identity provider). In this section we will describe how to use its services.
+This code uses OAuth tokens provided by OKTA (an identity provider). This section explores how to set up the OKTA application environment.
 
-First of all fetch yout private IP running:
-
-```
-ip a
-```
-
-Take note of the IP. You will use it to configure the application. Notice that it might change when you use another network or reboot your computer, so if you don't set it as static you might need to reconfigure the application in the future.
-
-After that, [register](https://developer.okta.com/signup/) to their platform, creating a **developer account**.
-
-When logged in:
-
-1. Go to Applications -> Application in the menu
-2. Click on "Create App Integration"
-3. Choose "OIDC" as the sign-in method and "Web Application" as the application type
-4. Under "Client acting on behalf of a user", check "Authorization Code" and "Implicit (hybrid)". Let the wildcards checkbox disabled.
-5. Under "Sign-in redirect URIs", remove whatever is in there and add: http://IP:8080/callback, where IP must be your private IP
-6. Under "Controlled Access", check "Allow everyone in your organization to access"
-
-After doing that, manually alter the `.cfg` file here in the root path:
-
-- CLIENT_ID and CLIENT_SECRET: found in your okta application
-- ISSUER: substitute the 7 number ID in the URL of the `.cfg` for the ID found in the URL of you okta dashboard (between dev- and -admin)
-- HOST_IP and WORKLOAD_IP: substitute the 8 IPs in the `.cfg` for you IP (which must also be set under "Sign-in redirect URIs" in your okta application)
+>Fetch your private private IP with ```ip a``` or similar. Take note of it because this will be used to configure the application.
+>
+>After that, [register](https://developer.okta.com/signup/) to their platform, creating a **developer account**.
+>
+>When logged in:
+>
+>1. Go to Applications -> Application in the menu
+>2. Click on "Create App Integration"
+>3. Choose "OIDC" as the sign-in method and "Web Application" as the application type
+>4. Under "Client acting on behalf of a user", check "Authorization Code" and "Implicit (hybrid)". Let the wildcards checkbox disabled.
+>5. Under "Sign-in redirect URIs", remove whatever is in there and add: http://IP:8080/callback, where IP must be your private IP
+>6. Under "Controlled Access", check "Allow everyone in your organization to access"
+>
+>After that, execute ```./scripts/generate_cfg_template.sh``` to generate a configuration file in the root path. Alter the variables to match your data:
+>
+>- CLIENT_ID and CLIENT_SECRET: credentials provided by OKTA
+>- ISSUER: developer number ID that can be found after login
+>![OKTA DEVELOPER ID](./doc/okta-example.png)
+>- HOST_IP and WORKLOAD_IP: substitute both variables in the `.cfg` for you IP (which must also be set under "Sign-in redirect URIs" in your OKTA application)
 
 ### Running the project in a VM
 
@@ -118,7 +109,7 @@ The repository is organized as follows:
 - **poclib**: prototype of a Go package, containing the nested tokens' functions.
 - **assertgen**: command-line interface (CLI) to perform different functions, like interacting with the Identity Provider and executing all poclib functions.
 - **scripts** auxiliary bash scripts
-- **doc**: contains the images used in README files
+- **doc**: contains images related to the README files for documentation
 
 # License
 
