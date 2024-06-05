@@ -4,7 +4,7 @@
 # CLIENT_ID, CLIENT_SECRET and ISSUER are values obtained from OKTA.
 #
 
-cat << EOF > ../.cfg
+cat << EOF > ../conf.cfg
 SOCKET_PATH=unix:///tmp/spire-agent/public/api.sock
 TRUST_DOMAIN=example.org
 PEM_PATH=./keys/oauth.pem
@@ -24,4 +24,4 @@ MIDDLE_TIER4_IP=<IP>:8448
 MIDDLE_TIER5_IP=<IP>:8449
 EOF
 
-echo "Base template generated: .cfg"
+echo "Base template generated on ../conf/.cfg"
