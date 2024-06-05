@@ -74,12 +74,12 @@ This code uses OAuth tokens provided by OKTA (an identity provider). This sectio
 >5. Under "Sign-in redirect URIs", remove whatever is in there and add: http://IP:8080/callback, where IP must be your private IP
 >6. Under "Controlled Access", check "Allow everyone in your organization to access"
 >
->After that, execute ```./scripts/generate_cfg_template.sh``` to generate a configuration file in the root path. Alter the variables to match your data:
+>After that, execute ```./scripts/generate_cfg_template.sh``` to generate a configuration file in **/conf** on *root*. Change the variables to match your credentials:
 >
->- CLIENT_ID and CLIENT_SECRET: credentials provided by OKTA
+>- CLIENT_ID and CLIENT_SECRET: provided by OKTA
 >- ISSUER: developer number ID that can be found after login
 >![OKTA DEVELOPER ID](./doc/okta-example.png)
->- HOST_IP and WORKLOAD_IP: substitute both variables in the `.cfg` for you IP (which must also be set under "Sign-in redirect URIs" in your OKTA application)
+> - HOST_IP and WORKLOAD_IP: substitute both variables in the `.cfg` for your IP (which must also be set under "Sign-in redirect URIs" in your OKTA application)
 
 ### Running the project in a VM
 

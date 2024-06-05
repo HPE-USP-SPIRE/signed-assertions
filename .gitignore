@@ -1,8 +1,10 @@
-## Ignore ONLY bench.data files
+#   Ignore files in any directory
 **/bench.data
-*.cfg
-.swp
-.DS_Store
+**/*.cfg
+**/*.swp
+**/.DS_Store
+
+#   Ignore resulting binaries inside samples
 samples/*/Assertingwl-mTLS/bin/*
 samples/*/m-tier/bin/*
 samples/*/target-wl/bin/*

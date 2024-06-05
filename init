@@ -3,29 +3,42 @@
 
 set -e
 
-SCRIPT_PATH=$(pwd)
+ROOT_FOLDER=$(pwd)
 GREEN='\033[0;32m'
 CLEAR='\033[0m'
 
-echo -e "Which model would you like to use?\n[${GREEN}1${CLEAR}] ${GREEN}DA-SVID${CLEAR} (Delegated Assertions)\n[${GREEN}2${CLEAR}] ${GREEN}ID Mode${CLEAR} (Nested Tokens)\n[${GREEN}3${CLEAR}] ${GREEN}Anonymous Mode${CLEAR} (Nested Tokens)\n[${GREEN}4${CLEAR}] ${GREEN}LSVID${CLEAR} (Lightweight SVID)"
+sample_model(){
+echo -e "Which model would you like to use?
+[${GREEN}1${CLEAR}] ${GREEN}DVID${CLEAR} (Delegated Assertions)
+[${GREEN}2${CLEAR}] ${GREEN}ID Mode${CLEAR} (Nested Tokens)
+[${GREEN}3${CLEAR}] ${GREEN}Anonymous Mode${CLEAR} (Nested Tokens)
+[${GREEN}4${CLEAR}] ${GREEN}LSVID${CLEAR} (Lightweight SVID)"
 read input
-if [ "$input" == "1" ]; then
-  MODEL_PATH=$SCRIPT_PATH/samples/SVID-NG
-elif [ "$input" == "2" ]; then
-  MODEL_PATH=$SCRIPT_PATH/samples/IDMode
-elif [ "$input" == "3" ]; then
-  MODEL_PATH=$SCRIPT_PATH/samples/anonymousMode
-elif [ "$input" == "4" ]; then
-  MODEL_PATH=$SCRIPT_PATH/samples/phase3
-else
-  echo 'Invalid input. Aborting...'
-  exit
-fi
+case "$input" in
+  [1])
+    MODEL_PATH=$ROOT_FOLDER/samples/SVID-NG
+  ;;
+  [2])
+    MODEL_PATH=$ROOT_FOLDER/samples/IDMode  
+  ;;
+  [3])
+    MODEL_PATH=$ROOT_FOLDER/samples/anonymousMode  
+  ;;
+  [4])
+    MODEL_PATH=$ROOT_FOLDER/samples/phase3  
+  ;;
+  *)
+    echo "Invalid input".
+    sample_model
+  ;;
+esac
+}
+sample_model
 
-echo -e "${GREEN}Killing spire agent, spire server and containers...${CLEAR}\n"
+
+echo -e "${GREEN}Killing spire agent/server${CLEAR}\n"
 cd $MODEL_PATH
-$SCRIPT_PATH/scripts/kill_lsvid_spire.sh
-
+$ROOT_FOLDER/scripts/kill_lsvid_spire.sh
 echo -e "${GREEN}Starting SPIRE...${CLEAR}\n"
 cd /opt/spire-signed-assertions
 ##  Start SPIRE Agent and Server
@@ -33,14 +46,14 @@ sudo bash start_spire_env.sh > /dev/null
 
 echo -e "${GREEN}Applying .cfg ...${CLEAR}\n"
 cd $MODEL_PATH
-cp $SCRIPT_PATH/.cfg Assertingwl-mTLS
-cp $SCRIPT_PATH/.cfg m-tier
-[ -d "m-tier2" ] && cp $SCRIPT_PATH/.cfg m-tier2 #not all models have this WL
-[ -d "m-tier3" ] && cp $SCRIPT_PATH/.cfg m-tier3
-[ -d "m-tier4" ] && cp $SCRIPT_PATH/.cfg m-tier4
-[ -d "m-tier5" ] && cp $SCRIPT_PATH/.cfg m-tier5
-cp $SCRIPT_PATH/.cfg subject_workload
-cp $SCRIPT_PATH/.cfg target-wl
+cp $ROOT_FOLDER/conf/.cfg Assertingwl-mTLS
+cp $ROOT_FOLDER/conf/.cfg m-tier
+[ -d "m-tier2" ] && cp $ROOT_FOLDER/conf/.cfg m-tier2 #not all models have this WL
+[ -d "m-tier3" ] && cp $ROOT_FOLDER/conf/.cfg m-tier3
+[ -d "m-tier4" ] && cp $ROOT_FOLDER/conf/.cfg m-tier4
+[ -d "m-tier5" ] && cp $ROOT_FOLDER/conf/.cfg m-tier5
+cp $ROOT_FOLDER/conf/.cfg subject_workload
+cp $ROOT_FOLDER/conf/.cfg target-wl
 
 echo -e "${GREEN}Starting containers...${CLEAR}\n"
 docker-compose up --build --detach
