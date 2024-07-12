@@ -1,20 +1,20 @@
-module github.com/hpe-usp-spire/signed-assertions/phase3/Assertingwl-mTLS
+module github.com/HPE-USP-SPIRE/signed-assertions/phase3/Assertingwl-mTLS
 
 go 1.19
 
 require (
-	github.com/gorilla/mux v1.8.0
-	github.com/hpe-usp-spire/signed-assertions/lsvid v0.0.0-00010101000000-000000000000
-	github.com/hpe-usp-spire/signed-assertions/phase3/api-libs v0.0.0-00010101000000-000000000000
-	github.com/hpe-usp-spire/signed-assertions/poclib v0.0.0-20231027162922-104e2990cc5c
-	github.com/spiffe/go-spiffe/v2 v2.1.6
+    github.com/gorilla/mux v1.8.0
+    github.com/HPE-USP-SPIRE/signed-assertions/lsvid
+    github.com/hpe-usp-spire/signed-assertions/phase3/api-libs v0.0.0-00010101000000-000000000000
+    github.com/hpe-usp-spire/signed-assertions/poclib v0.0.0-20231027162922-104e2990cc5c
+    github.com/spiffe/go-spiffe/v2 v2.1.6
 )
 
 replace github.com/hpe-usp-spire/signed-assertions/phase3/api-libs => ./api-libs
 
 replace github.com/hpe-usp-spire/signed-assertions/poclib => ./poclib
 
-replace github.com/hpe-usp-spire/signed-assertions/lsvid => ./lsvid
+// replace github.com/hpe-usp-spire/signed-assertions/lsvid => ./lsvid
 
 replace github.com/spiffe/go-spiffe/v2 => ./go-spiffe/v2
 
